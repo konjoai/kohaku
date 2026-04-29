@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.2.0
+## Current Version: v0.3.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -27,11 +27,13 @@
 - The pure-Python path is the default and complete — no Rust dependency at runtime.
 - When maturin is eventually available: `maturin develop --features python` inside the repo root will compile `_kohaku_rs.so`, and the auto-detect in `__init__.py` will transparently switch to the fast Rust path.
 
-## Phase 3: LLM Integration (v0.3.0)
-- [ ] Context window memory manager — sliding-window episodic store sized to LLM context limit
-- [ ] Attention-guided encoding — use attention weights to weight bundle contributions
-- [ ] HuggingFace Transformers hooks — `transformers.TrainerCallback` that stores activations as hypervectors
-- [ ] OpenAI API compatible memory layer — middleware that intercepts messages and injects retrieved context
+## Phase 3: LLM Integration (v0.3.0) ✅
+- [x] Context window memory manager (`python/kohaku/context.py`) — `ContextConfig` dataclass + `ContextMemoryManager`: sliding-window episodic store sized to `max_tokens // tokens_per_entry`, deterministic text→HyperVector encoding via LCG word hashing, `store`, `retrieve`, `build_context_block`, `capacity`, `utilization`
+- [x] Attention-guided encoding (`python/kohaku/attention.py`) — `attention_weighted_encode` (weighted sum of token HVs, binarized) and `encode_text` (uniform-weighted convenience wrapper); deterministic via same LCG path as core HDC engine
+- [x] HuggingFace Transformers hooks (`python/kohaku/hf_hooks.py`) — `KohakuMemoryCallback` (real `TrainerCallback` when transformers is installed) + `KohakuMemoryCallbackStub` (always importable, raises `ImportError` on instantiation when transformers absent); `on_step_end` and `on_log` handlers
+- [x] OpenAI API compatible memory layer (`python/kohaku/openai_compat.py`) — `MemoryMiddleware`: `augment()` injects retrieved memories as system message prefix; `learn_from_exchange()` stores assistant responses as memories
+- [x] 16 new tests: 8 `test_context.py` + 4 `test_attention.py` + 4 `test_hf_hooks.py` — 39/39 total passing
+- [x] `__init__.py` updated: exports `ContextConfig`, `ContextMemoryManager`, `attention_weighted_encode`, `encode_text`, `MemoryMiddleware`; version bumped to `0.3.0`
 
 ## Phase 4: Persistence (v0.4.0)
 - [ ] Serialize/deserialize memory to disk (JSON + binary `.hkb` format)
