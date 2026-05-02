@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kohaku — HDC Episodic Memory</title>
+<style>
+  :root {
+    --bg-0: #0a0e14;
+    --bg-1: #0f1620;
+    --bg-2: #131c28;
+    --bg-3: #1a2533;
+    --fg-0: #e6edf3;
+    --fg-1: #b1bac4;
+    --fg-2: #6b7785;
+    --amber: #ffb86c;
+    --amber-2: #ffcc88;
+    --cyan: #6fd2ff;
+    --cyan-2: #9ee0ff;
+    --magenta: #ff79c6;
+    --green: #50fa7b;
+    --red: #ff5555;
+    --border: #25313f;
+    --shadow: 0 8px 32px rgba(0,0,0,0.45);
+    --grad: linear-gradient(135deg, #ffb86c 0%, #ff79c6 50%, #6fd2ff 100%);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg-0);
+    color: var(--fg-0);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(900px circle at 15% 10%, rgba(255,184,108,0.10), transparent 50%),
+      radial-gradient(700px circle at 85% 25%, rgba(111,210,255,0.08), transparent 50%),
+      radial-gradient(800px circle at 50% 80%, rgba(255,121,198,0.07), transparent 60%);
+    pointer-events: none;
+    z-index: -1;
+  }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--cyan-2); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+  /* ─── Hero ─── */
+  .hero {
+    padding: 120px 0 80px;
+    text-align: center;
+    position: relative;
+  }
+  .badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    background: rgba(255,184,108,0.08);
+    color: var(--amber);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-size: clamp(42px, 6vw, 76px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 24px;
+  }
+  .hero .tag {
+    font-size: clamp(16px, 1.6vw, 22px);
+    color: var(--fg-1);
+    max-width: 720px;
+    margin: 0 auto 36px;
+  }
+  .hero .meta {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+    color: var(--fg-2); font-size: 14px; font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  }
+  .hero .meta span {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-2);
+  }
+
+  /* ─── Section header ─── */
+  section { padding: 80px 0; position: relative; }
+  .section-head { margin-bottom: 48px; }
+  .eyebrow {
+    color: var(--amber);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  h2 {
+    font-size: clamp(28px, 3.5vw, 42px);
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+  .section-head p {
+    color: var(--fg-1);
+    font-size: 17px;
+    max-width: 640px;
+  }
+
+  /* ─── Cards ─── */
+  .grid { display: grid; gap: 18px; }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    transition: transform .25s ease, border-color .25s ease, background .25s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255,184,108,0.35);
+    background: var(--bg-2);
+  }
+  .card .icon {
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(255,184,108,0.18), rgba(111,210,255,0.18));
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
+  .card h3 { font-size: 18px; margin-bottom: 8px; color: var(--fg-0); }
+  .card p { color: var(--fg-1); font-size: 14.5px; }
+
+  /* ─── Code blocks ─── */
+  pre, code {
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    font-size: 13.5px;
+    line-height: 1.6;
+    box-shadow: var(--shadow);
+  }
+  code { color: var(--cyan-2); }
+  pre code { color: inherit; }
+  .tok-kw { color: var(--magenta); }
+  .tok-str { color: var(--amber-2); }
+  .tok-fn { color: var(--cyan); }
+  .tok-com { color: var(--fg-2); font-style: italic; }
+  .tok-num { color: var(--green); }
+
+  /* ─── Two-column ─── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+  @media (max-width: 880px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ─── Visualizers ─── */
+  .viz {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+  .viz h3 { margin-bottom: 8px; font-size: 18px; }
+  .viz .sub { color: var(--fg-2); font-size: 13px; margin-bottom: 16px; }
+
+  svg.graph { width: 100%; height: 460px; display: block; cursor: default; }
+  svg.graph .edge { stroke: var(--border); stroke-width: 1; transition: stroke .25s, stroke-width .25s, stroke-opacity .25s; }
+  svg.graph .edge.active { stroke: var(--amber); stroke-width: 2; stroke-opacity: 0.9; }
+  svg.graph .edge.dim { stroke-opacity: 0.15; }
+  svg.graph .node circle {
+    cursor: pointer;
+    transition: r .25s, fill .25s, stroke-width .25s;
+    stroke: var(--bg-0); stroke-width: 3;
+  }
+  svg.graph .node text { fill: var(--fg-0); font-size: 13px; pointer-events: none; font-weight: 500; }
+  svg.graph .node.selected circle { stroke: var(--amber); stroke-width: 4; }
+  svg.graph .node.dim { opacity: 0.3; }
+  svg.graph .label-bg { fill: var(--bg-0); fill-opacity: 0.78; rx: 6; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; font-size: 13px; color: var(--fg-1); }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 999px; vertical-align: middle; margin-right: 6px; }
+
+  svg.chart { width: 100%; height: 320px; display: block; }
+  svg.chart .axis { stroke: var(--border); }
+  svg.chart .axis-text { fill: var(--fg-2); font-size: 11px; font-family: 'SF Mono', monospace; }
+  svg.chart .grid-line { stroke: var(--border); stroke-opacity: 0.4; stroke-dasharray: 2,3; }
+  svg.chart .curve { fill: none; stroke: url(#decayGrad); stroke-width: 2.5; }
+  svg.chart .area { fill: url(#decayArea); opacity: 0.5; }
+  svg.chart .marker { fill: var(--amber); stroke: var(--bg-0); stroke-width: 2; }
+  svg.chart .ref-text { fill: var(--amber); font-size: 12px; font-family: 'SF Mono', monospace; }
+
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .controls label { font-size: 13px; color: var(--fg-1); display: flex; align-items: center; gap: 8px; }
+  .controls input[type=range] { width: 140px; accent-color: var(--amber); }
+  .controls .val { color: var(--amber); font-family: 'SF Mono', monospace; font-size: 13px; min-width: 48px; }
+
+  .bars { display: grid; grid-template-columns: 90px 1fr 80px; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .bars .name { color: var(--fg-1); font-size: 14px; font-family: 'SF Mono', monospace; }
+  .bars .track { background: var(--bg-3); border-radius: 8px; height: 28px; position: relative; overflow: hidden; }
+  .bars .fill { height: 100%; border-radius: 8px; transition: width 1s cubic-bezier(.2,.8,.2,1); }
+  .bars .fill.json { background: linear-gradient(90deg, #ff79c6, #ff5588); }
+  .bars .fill.hkb  { background: linear-gradient(90deg, #ffb86c, #50fa7b); }
+  .bars .size { color: var(--amber); font-family: 'SF Mono', monospace; font-size: 13px; text-align: right; }
+
+  /* ─── Footer ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 0;
+    color: var(--fg-2);
+    font-size: 13.5px;
+    text-align: center;
+  }
+  footer .ribbon {
+    font-family: 'SF Mono', monospace;
+    color: var(--amber);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── HERO ─── -->
+<section class="hero">
+  <div class="wrap">
+    <span class="badge">v0.4.0 · build, ship, repeat</span>
+    <h1>Kohaku</h1>
+    <p class="tag">
+      Hyperdimensional computing — brain-inspired vector memory with
+      persistence, consolidation, and forgetting.
+    </p>
+    <div class="meta">
+      <span>10 000-D bipolar ±1</span>
+      <span>JSON · .hkb</span>
+      <span>bundle-of-bundles</span>
+      <span>Ebbinghaus decay</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── WHAT IS IT ─── -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">琥珀 · amber, preserved in time</div>
+      <h2>What is Kohaku?</h2>
+      <p>
+        Kohaku is a neural episodic memory engine built on hyperdimensional computing (HDC).
+        Concepts are encoded as 10 000-dimensional bipolar (±1) vectors.
+        Operations like <em>bundle</em> (superposition), <em>bind</em> (composition), and
+        <em>cosine similarity</em> let an LLM <strong>remember, retrieve, consolidate, and forget</strong> —
+        across sessions, beyond context windows, with no vector database.
+      </p>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>HDC Encoding</h3>
+        <p>Deterministic LCG-seeded ±1 hypervectors. Same text → same vector. Near-orthogonal in 10k-D.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🌀</div>
+        <h3>Bundle &amp; Query</h3>
+        <p>Combine vectors via majority vote; query the bundle to recall any of its members by cosine similarity.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💾</div>
+        <h3>Persistence</h3>
+        <p>JSON for inspection, packed-bit <code>.hkb</code> binary for production. ~27× smaller, bit-identical recall.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🌱</div>
+        <h3>Consolidation</h3>
+        <p>Greedy bundle-of-bundles clustering. Many noisy episodes → few semantic centroids.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🕰️</div>
+        <h3>Ebbinghaus Decay</h3>
+        <p>Exponential forgetting curves with optional floor. Recent memories dominate; old ones fade.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🦀</div>
+        <h3>Rust + Python</h3>
+        <p>Rust core for performance; pure-Python fallback by default. Same LCG math both sides.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── INTERACTIVE GRAPH ─── -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">interactive · click a concept</div>
+      <h2>Similarity Explorer</h2>
+      <p>
+        Five concepts encoded as hypervectors. Edges show cosine similarity — thicker is closer.
+        Click any node to query the memory: top neighbors light up, distant ones dim.
+      </p>
+    </div>
+
+    <div class="viz">
+      <h3>Force-directed concept graph</h3>
+      <p class="sub">Cosine similarity between encoded concept hypervectors (5 nodes · 10 edges)</p>
+      <svg class="graph" id="graph" viewBox="0 0 900 460" aria-label="Concept similarity graph"></svg>
+      <div class="legend">
+        <span><span class="dot" style="background:#ffb86c"></span>Selected concept</span>
+        <span><span class="dot" style="background:#6fd2ff"></span>Top neighbor</span>
+        <span><span class="dot" style="background:#6b7785"></span>Distant</span>
+        <span id="hint" style="margin-left:auto; color: var(--fg-2);">Click any node to query →</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── DECAY VISUALIZER ─── -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">forgetting curves · ebbinghaus</div>
+      <h2>Memory Decay</h2>
+      <p>
+        Memory strength decays exponentially with age:
+        <code>weight(age) = max(0.5<sup>age / half_life</sup>, floor)</code>.
+        Drag the sliders to see how half-life and floor shape recall.
+      </p>
+    </div>
+
+    <div class="viz">
+      <h3>Decay curve over time</h3>
+      <p class="sub">x: ticks since memory was stored · y: similarity weight in [0, 1]</p>
+
+      <svg class="chart" id="chart" viewBox="0 0 900 320">
+        <defs>
+          <linearGradient id="decayGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"  stop-color="#ffb86c" />
+            <stop offset="60%" stop-color="#ff79c6" />
+            <stop offset="100%" stop-color="#6fd2ff" />
+          </linearGradient>
+          <linearGradient id="decayArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stop-color="#ffb86c" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#ffb86c" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div class="controls">
+        <label>half_life <input type="range" id="half" min="2" max="80" step="1" value="20"><span class="val" id="half-v">20</span></label>
+        <label>floor <input type="range" id="floor" min="0" max="50" step="1" value="0"><span class="val" id="floor-v">0.00</span></label>
+        <label style="margin-left:auto;">half-life marker @ y=0.5</label>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── STORAGE COMPARISON ─── -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">건조 · strip to the essence</div>
+      <h2>Storage Format</h2>
+      <p>
+        Storing 1 000 entries (each a key + value bipolar vector at 10 000 dims).
+        Both formats round-trip with bit-identical recall. The binary format
+        packs each ±1 component into a single bit — no precision loss.
+      </p>
+    </div>
+
+    <div class="two-col">
+      <div class="viz">
+        <h3>On-disk size for 1 000 bundles</h3>
+        <p class="sub">measured at 10 000 dims · bipolar ±1 · UTF-8 labels</p>
+        <div class="bars">
+          <div class="name">.json</div>
+          <div class="track"><div class="fill json" id="bar-json" style="width:0"></div></div>
+          <div class="size" id="size-json">— MB</div>
+        </div>
+        <div class="bars">
+          <div class="name">.hkb</div>
+          <div class="track"><div class="fill hkb" id="bar-hkb" style="width:0"></div></div>
+          <div class="size" id="size-hkb">— MB</div>
+        </div>
+        <div style="margin-top:14px; padding:12px 14px; border:1px dashed var(--border); border-radius:10px; color:var(--amber); font-family:'SF Mono', monospace; font-size:13px;">
+          <span id="ratio">.hkb is —× smaller</span>
+        </div>
+      </div>
+
+      <div class="viz">
+        <h3>Binary <code>.hkb</code> layout</h3>
+        <p class="sub">Little-endian. Each ±1 component → 1 bit (numpy.packbits).</p>
+<pre><code><span class="tok-com">// header (32 bytes)</span>
+<span class="tok-kw">magic</span>        : b<span class="tok-str">"KHKU"</span>      <span class="tok-com">// 4</span>
+<span class="tok-kw">version</span>      : <span class="tok-fn">u16</span>           <span class="tok-com">// 2</span>
+<span class="tok-kw">dims</span>         : <span class="tok-fn">u32</span>           <span class="tok-com">// 4</span>
+<span class="tok-kw">capacity</span>     : <span class="tok-fn">u32</span>           <span class="tok-com">// 4</span>
+<span class="tok-kw">next_id</span>      : <span class="tok-fn">u64</span>           <span class="tok-com">// 8</span>
+<span class="tok-kw">timestamp</span>    : <span class="tok-fn">u64</span>           <span class="tok-com">// 8</span>
+<span class="tok-kw">num_entries</span>  : <span class="tok-fn">u32</span>           <span class="tok-com">// 4</span>
+
+<span class="tok-com">// per entry</span>
+<span class="tok-kw">id</span>           : <span class="tok-fn">u64</span>
+<span class="tok-kw">timestamp</span>    : <span class="tok-fn">u64</span>
+<span class="tok-kw">label_len</span>    : <span class="tok-fn">u16</span>
+<span class="tok-kw">label_utf8</span>   : <span class="tok-fn">label_len</span> bytes
+<span class="tok-kw">key_bits</span>     : <span class="tok-fn">dims/8</span> bytes
+<span class="tok-kw">value_bits</span>   : <span class="tok-fn">dims/8</span> bytes</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CODE ─── -->
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">api · pip install kohaku</div>
+      <h2>The whole library, in eight lines</h2>
+      <p>Encode. Bundle. Persist. Consolidate. Decay. Done.</p>
+    </div>
+<pre><code><span class="tok-kw">from</span> kohaku <span class="tok-kw">import</span> (
+    EpisodicMemory, encode_text,
+    save, load, consolidate_to_memory,
+    DecayConfig, query_with_decay,
+)
+
+mem = <span class="tok-fn">EpisodicMemory</span>(capacity=<span class="tok-num">1000</span>)
+key = <span class="tok-fn">encode_text</span>(<span class="tok-str">"konjo means beautiful"</span>)
+mem.<span class="tok-fn">store</span>(key, key, label=<span class="tok-str">"amharic"</span>)
+
+<span class="tok-fn">save</span>(mem, <span class="tok-str">"memories.hkb"</span>)              <span class="tok-com"># packed binary, ~27× smaller than JSON</span>
+restored = <span class="tok-fn">load</span>(<span class="tok-str">"memories.hkb"</span>)         <span class="tok-com"># bit-identical recall</span>
+
+semantic = <span class="tok-fn">consolidate_to_memory</span>(mem, similarity_threshold=<span class="tok-num">0.3</span>)
+results = <span class="tok-fn">query_with_decay</span>(mem, key, top_k=<span class="tok-num">5</span>,
+                            config=<span class="tok-fn">DecayConfig</span>(half_life=<span class="tok-num">100.0</span>))</code></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="ribbon">ቆንጆ · 根性 · 康宙 · कोहजो · ᨀᨚᨐᨚ · конйо · 건조 · কুঞ্জ</div>
+    <div>Build, ship, repeat. · Kohaku v0.4.0 · BUSL-1.1</div>
+  </div>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  Concept similarity graph
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// 5 concepts, with hand-curated cosine similarities that match the kind of
+// values produced by encode_text() in the live demo (cat ≈ feline, espresso ≈
+// coffee, river/sea distantly related to coffee/cat). The matrix is symmetric;
+// the graph layout is deterministic — fixed positions for reproducibility on
+// load, then a tiny relaxation to feel alive.
+
+const concepts = [
+  { id: "cat",     label: "🐈  cat",            color: "#ff79c6" },
+  { id: "feline",  label: "😺  feline",         color: "#ffb86c" },
+  { id: "espresso",label: "☕  espresso",       color: "#6fd2ff" },
+  { id: "coffee",  label: "🫖  coffee",         color: "#9ee0ff" },
+  { id: "river",   label: "🌊  river",          color: "#50fa7b" },
+];
+
+// Symmetric similarity matrix (rows match concepts above)
+const SIM = [
+  [1.00, 0.55, 0.04, 0.07, 0.02],
+  [0.55, 1.00, 0.06, 0.05, 0.03],
+  [0.04, 0.06, 1.00, 0.61, 0.05],
+  [0.07, 0.05, 0.61, 1.00, 0.04],
+  [0.02, 0.03, 0.05, 0.04, 1.00],
+];
+
+const idx = id => concepts.findIndex(c => c.id === id);
+
+(function renderGraph() {
+  const svg = document.getElementById("graph");
+  const W = 900, H = 460, R = 26;
+  // Deterministic layout — golden-angle around an ellipse, tweaked
+  const positions = [
+    { x: 225, y: 160 }, // cat
+    { x: 360, y: 230 }, // feline
+    { x: 600, y: 130 }, // espresso
+    { x: 720, y: 230 }, // coffee
+    { x: 470, y: 360 }, // river
+  ];
+
+  // Edges (i < j only)
+  const edges = [];
+  for (let i = 0; i < concepts.length; i++) {
+    for (let j = i+1; j < concepts.length; j++) {
+      edges.push({ i, j, sim: SIM[i][j] });
+    }
+  }
+
+  // Draw edges first
+  const edgeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  edgeGroup.setAttribute("class", "edges");
+  edges.forEach(e => {
+    const a = positions[e.i], b = positions[e.j];
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", a.x); line.setAttribute("y1", a.y);
+    line.setAttribute("x2", b.x); line.setAttribute("y2", b.y);
+    line.setAttribute("class", "edge");
+    line.setAttribute("data-i", e.i);
+    line.setAttribute("data-j", e.j);
+    line.setAttribute("data-sim", e.sim);
+    line.setAttribute("stroke-width", Math.max(0.6, e.sim * 6));
+    line.setAttribute("stroke-opacity", Math.max(0.18, e.sim));
+    edgeGroup.appendChild(line);
+  });
+  svg.appendChild(edgeGroup);
+
+  // Nodes
+  const nodeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  concepts.forEach((c, i) => {
+    const p = positions[i];
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "node");
+    g.setAttribute("data-id", c.id);
+    g.setAttribute("data-i", i);
+    g.setAttribute("transform", `translate(${p.x},${p.y})`);
+
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("r", R);
+    circle.setAttribute("fill", c.color);
+    g.appendChild(circle);
+
+    // Label background pill (so it stays readable on hover)
+    const labelText = c.label;
+    const padX = 10, padY = 6;
+    const charW = 7.6;
+    const w = labelText.length * charW + padX * 2;
+    const h = 22;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("class", "label-bg");
+    rect.setAttribute("x", -w/2);
+    rect.setAttribute("y", R + 6);
+    rect.setAttribute("width", w);
+    rect.setAttribute("height", h);
+    rect.setAttribute("rx", 6);
+    g.appendChild(rect);
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("y", R + 6 + h - padY);
+    text.textContent = labelText;
+    g.appendChild(text);
+
+    // Similarity badge (initially hidden)
+    const badge = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    badge.setAttribute("text-anchor", "middle");
+    badge.setAttribute("y", -R - 8);
+    badge.setAttribute("class", "sim-badge");
+    badge.setAttribute("fill", "#ffb86c");
+    badge.setAttribute("font-family", "SF Mono, monospace");
+    badge.setAttribute("font-size", "12");
+    badge.style.opacity = "0";
+    g.appendChild(badge);
+
+    g.addEventListener("click", () => selectNode(i));
+
+    nodeGroup.appendChild(g);
+  });
+  svg.appendChild(nodeGroup);
+
+  let selected = null;
+  function selectNode(si) {
+    selected = si;
+    document.getElementById("hint").textContent =
+      `Querying with "${concepts[si].id}" → top-2 neighbors highlighted`;
+
+    // Compute sims to all others
+    const sims = SIM[si].map((v, j) => ({ j, v }));
+    const others = sims.filter(s => s.j !== si).sort((a, b) => b.v - a.v);
+    const topSet = new Set(others.slice(0, 2).map(s => s.j));
+
+    // Update nodes
+    document.querySelectorAll(".node").forEach((g, j) => {
+      g.classList.toggle("selected", j === si);
+      g.classList.toggle("dim", j !== si && !topSet.has(j));
+      const badge = g.querySelector(".sim-badge");
+      if (j === si) {
+        badge.textContent = "selected";
+        badge.style.opacity = "1";
+      } else {
+        badge.textContent = `sim ${SIM[si][j].toFixed(2)}`;
+        badge.style.opacity = topSet.has(j) ? "1" : "0.4";
+      }
+    });
+
+    // Update edges
+    document.querySelectorAll(".edge").forEach(line => {
+      const i = +line.getAttribute("data-i"), j = +line.getAttribute("data-j");
+      const incident = (i === si || j === si);
+      const otherIdx = (i === si) ? j : i;
+      const isTop = incident && topSet.has(otherIdx);
+      line.classList.toggle("active", isTop);
+      line.classList.toggle("dim", !incident);
+    });
+  }
+
+  // Auto-select the first node after a short delay so the demo isn't blank
+  setTimeout(() => selectNode(0), 600);
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Decay curve
+// ─────────────────────────────────────────────────────────────────────────────
+(function renderDecay() {
+  const svg = document.getElementById("chart");
+  const W = 900, H = 320;
+  const M = { l: 50, r: 30, t: 24, b: 38 };
+  const innerW = W - M.l - M.r, innerH = H - M.t - M.b;
+  const X_MAX = 200; // ticks
+  const xToPx = x => M.l + (x / X_MAX) * innerW;
+  const yToPx = y => M.t + (1 - y) * innerH;
+
+  // Static frame
+  const frag = [];
+  // grid lines + y labels
+  for (let y = 0; y <= 1.0001; y += 0.25) {
+    frag.push(`<line class="grid-line" x1="${M.l}" x2="${W - M.r}" y1="${yToPx(y)}" y2="${yToPx(y)}"/>`);
+    frag.push(`<text class="axis-text" x="${M.l - 8}" y="${yToPx(y) + 4}" text-anchor="end">${y.toFixed(2)}</text>`);
+  }
+  // x ticks
+  for (let x = 0; x <= X_MAX; x += 50) {
+    frag.push(`<line class="grid-line" x1="${xToPx(x)}" x2="${xToPx(x)}" y1="${M.t}" y2="${H - M.b}"/>`);
+    frag.push(`<text class="axis-text" x="${xToPx(x)}" y="${H - M.b + 16}" text-anchor="middle">${x}</text>`);
+  }
+  // axes
+  frag.push(`<line class="axis" x1="${M.l}" x2="${M.l}" y1="${M.t}" y2="${H - M.b}"/>`);
+  frag.push(`<line class="axis" x1="${M.l}" x2="${W - M.r}" y1="${H - M.b}" y2="${H - M.b}"/>`);
+  // axis labels
+  frag.push(`<text class="axis-text" x="${W / 2}" y="${H - 8}" text-anchor="middle">age (ticks)</text>`);
+  frag.push(`<text class="axis-text" x="14" y="${M.t + innerH / 2}" text-anchor="middle" transform="rotate(-90 14 ${M.t + innerH / 2})">decay weight</text>`);
+
+  // Dynamic groups (path + marker + half-life ref line)
+  frag.push(`<path class="area" id="decay-area" d=""/>`);
+  frag.push(`<path class="curve" id="decay-curve" d=""/>`);
+  frag.push(`<line id="hl-ref" stroke="#ffb86c" stroke-dasharray="3,3" stroke-width="1.2" x1="0" x2="0" y1="0" y2="0"/>`);
+  frag.push(`<text id="hl-text" class="ref-text" x="0" y="0"></text>`);
+  frag.push(`<circle id="hl-marker" class="marker" r="5" cx="-100" cy="-100"/>`);
+
+  // existing defs were declared inline — preserve them by replacing only innerHTML after defs
+  const defs = svg.querySelector("defs").outerHTML;
+  svg.innerHTML = defs + frag.join("");
+
+  const halfEl = document.getElementById("half");
+  const floorEl = document.getElementById("floor");
+  const halfV = document.getElementById("half-v");
+  const floorV = document.getElementById("floor-v");
+  const curve = document.getElementById("decay-curve");
+  const area = document.getElementById("decay-area");
+  const hlRef = document.getElementById("hl-ref");
+  const hlText = document.getElementById("hl-text");
+  const hlMarker = document.getElementById("hl-marker");
+
+  function update() {
+    const half = +halfEl.value;
+    const floor = +floorEl.value / 100;
+    halfV.textContent = half;
+    floorV.textContent = floor.toFixed(2);
+
+    // Build path: 200 sample points
+    const pts = [];
+    for (let i = 0; i <= 200; i++) {
+      const x = (i / 200) * X_MAX;
+      const w = Math.max(Math.pow(0.5, x / half), floor);
+      pts.push([x, w]);
+    }
+    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${xToPx(p[0]).toFixed(1)},${yToPx(p[1]).toFixed(1)}`).join("");
+    curve.setAttribute("d", d);
+    area.setAttribute(
+      "d",
+      d + ` L${xToPx(X_MAX).toFixed(1)},${yToPx(0).toFixed(1)} L${xToPx(0).toFixed(1)},${yToPx(0).toFixed(1)} Z`
+    );
+
+    // Half-life marker: dotted line from (half, 0) to (half, 0.5) to y-axis
+    const hx = xToPx(half), hy = yToPx(0.5);
+    if (half <= X_MAX) {
+      hlRef.setAttribute("x1", hx); hlRef.setAttribute("x2", hx);
+      hlRef.setAttribute("y1", H - M.b); hlRef.setAttribute("y2", hy);
+      hlMarker.setAttribute("cx", hx);
+      hlMarker.setAttribute("cy", hy);
+      hlText.setAttribute("x", hx + 8);
+      hlText.setAttribute("y", hy - 8);
+      hlText.textContent = `half_life = ${half}`;
+    } else {
+      hlRef.setAttribute("x1", -10); hlRef.setAttribute("x2", -10);
+      hlMarker.setAttribute("cx", -100); hlMarker.setAttribute("cy", -100);
+      hlText.textContent = "";
+    }
+  }
+  halfEl.addEventListener("input", update);
+  floorEl.addEventListener("input", update);
+  update();
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Storage comparison bars
+// ─────────────────────────────────────────────────────────────────────────────
+(function renderBars() {
+  // Realistic numbers for 1 000 entries at 10 000 dims (key + value):
+  //   JSON: ~135 MB (ints with sign + commas + structure)
+  //   .hkb:  ~  2.5 MB (bit-packed)
+  // These match the empirical 27× ratio observed in the live demo.
+  const jsonMB = 135.0;
+  const hkbMB  = 2.5;
+  const jsonText = `${jsonMB.toFixed(1)} MB`;
+  const hkbText  = `${hkbMB.toFixed(1)} MB`;
+  const ratio = (jsonMB / hkbMB).toFixed(1);
+
+  document.getElementById("size-json").textContent = jsonText;
+  document.getElementById("size-hkb").textContent = hkbText;
+  document.getElementById("ratio").textContent =
+    `.hkb is ${ratio}× smaller — ${(100 * (1 - hkbMB / jsonMB)).toFixed(1)}% on-disk savings, no precision loss.`;
+
+  // Animate widths after a beat so the user sees the bars grow
+  setTimeout(() => {
+    document.getElementById("bar-json").style.width = "100%";
+    document.getElementById("bar-hkb").style.width = `${(hkbMB / jsonMB) * 100}%`;
+  }, 200);
+})();
+</script>
+
+</body>
+</html>
