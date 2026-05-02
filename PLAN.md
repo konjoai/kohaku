@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.3.0
+## Current Version: v0.4.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -35,10 +35,12 @@
 - [x] 16 new tests: 8 `test_context.py` + 4 `test_attention.py` + 4 `test_hf_hooks.py` — 39/39 total passing
 - [x] `__init__.py` updated: exports `ContextConfig`, `ContextMemoryManager`, `attention_weighted_encode`, `encode_text`, `MemoryMiddleware`; version bumped to `0.3.0`
 
-## Phase 4: Persistence (v0.4.0)
-- [ ] Serialize/deserialize memory to disk (JSON + binary `.hkb` format)
-- [ ] Memory consolidation (semantic clustering via bundle-of-bundles)
-- [ ] Forgetting curves / temporal decay (exponential weight decay on similarity scores)
+## Phase 4: Persistence (v0.4.0) ✅
+- [x] Serialize/deserialize memory to disk — JSON + binary `.hkb` (`python/kohaku/persistence.py`). `save_json` / `load_json` produce human-readable round-trips; `save_binary` / `load_binary` use a packed-bit format (magic `KHKU`, 1 bit per ±1 component, ~10x smaller than JSON). `save()` / `load()` dispatch by file extension. Round-trip preserves entry IDs, timestamps, labels (UTF-8), capacity, and `_next_id` / `_timestamp` counters.
+- [x] Memory consolidation (`python/kohaku/consolidation.py`) — semantic clustering via bundle-of-bundles. Greedy single-pass: each new entry joins the existing cluster with highest centroid similarity ≥ threshold (else seeds a new one); centroids are recomputed on every merge by `bundle_all` (majority vote) over all member keys/values. `consolidate()` returns `Cluster` records (centroid_key, centroid_value, member_ids, label, size); `consolidate_to_memory()` produces a fresh `EpisodicMemory` of centroids labeled `"<seed_label> (n=<size>)"`.
+- [x] Forgetting curves / temporal decay (`python/kohaku/decay.py`) — `DecayConfig(half_life, floor)` with exponential weight `0.5 ** (age / half_life)` clamped to `floor`. `query_with_decay()` is a drop-in alternative to `query()`: computes `decayed_sim = raw_sim * weight(age)` where `age = (memory._timestamp - 1) - entry.timestamp`. Validates `half_life > 0`, `floor ∈ [0, 1]`, `age ≥ 0`.
+- [x] 31 new tests (12 `test_persistence.py` + 7 `test_consolidation.py` + 12 `test_decay.py`); 69/69 total passing (1 pre-existing skip).
+- [x] `__init__.py` exports `save`, `load`, `save_json`, `load_json`, `save_binary`, `load_binary`, `Cluster`, `consolidate`, `consolidate_to_memory`, `DecayConfig`, `decay_weight`, `query_with_decay`. Version bumped to `0.4.0`.
 
 ## Phase 5: Learning (v0.5.0)
 - [ ] Online HDC learning: update item memory from feedback

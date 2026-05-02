@@ -77,6 +77,40 @@ mem.query("What does the user like?")
 
 ---
 
+## 💾 Persistence (v0.4.0)
+
+```python
+from kohaku import EpisodicMemory, save, load
+
+mem = EpisodicMemory(capacity=1000)
+# ... store entries ...
+save(mem, "memories.hkb")        # packed binary, ~10x smaller than JSON
+save(mem, "memories.json")       # human-readable
+
+mem2 = load("memories.hkb")      # round-trip preserves IDs, timestamps, recall
+```
+
+## 🌱 Consolidation
+
+```python
+from kohaku import consolidate_to_memory
+
+semantic = consolidate_to_memory(mem, similarity_threshold=0.3)
+# Greedy bundle-of-bundles clustering: N noisy episodic traces → K semantic centroids.
+```
+
+## 🕰️ Temporal decay
+
+```python
+from kohaku import DecayConfig, query_with_decay
+
+cfg = DecayConfig(half_life=100.0, floor=0.05)
+results = query_with_decay(mem, query_key, top_k=5, config=cfg)
+# Older memories decay exponentially: weight = max(0.5 ** (age / half_life), floor)
+```
+
+---
+
 ## 🎯 Vision
 
 > Give models memory — not just context.

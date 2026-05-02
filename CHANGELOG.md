@@ -2,6 +2,18 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.4.0] — 2026-05-02
+
+### Added
+- `python/kohaku/persistence.py` — disk persistence in two formats. **JSON** (`save_json` / `load_json`): human-readable round-trip, stores ±1 components as ints. **Binary `.hkb`** (`save_binary` / `load_binary`): packed-bit format with `KHKU` magic, little-endian header (version, dims, capacity, next_id, timestamp, num_entries) and per-entry (id, timestamp, label_len, UTF-8 label, packed key bits, packed value bits) using `numpy.packbits` (1 bit per ±1 component, big-endian within byte, padded to multiple of 8). ~10x smaller than JSON in practice. `save()` / `load()` dispatch by file extension. Round-trip preserves IDs, timestamps, labels, capacity, and the memory's internal `_next_id`/`_timestamp` counters; recall behavior is bit-identical post-roundtrip.
+- `python/kohaku/consolidation.py` — semantic clustering via bundle-of-bundles. Greedy single-pass `consolidate(memory, similarity_threshold=0.3)` returns `Cluster` records (`centroid_key`, `centroid_value`, `member_ids`, `label`, `size`); each entry joins the cluster with the highest centroid cosine similarity ≥ threshold (else seeds a new cluster). Centroids are recomputed by `bundle_all` (majority-vote) over all member keys/values on every merge — this is the maximum-likelihood prototype under independent symmetric bit-flip noise. `consolidate_to_memory()` returns a fresh `EpisodicMemory` of centroids labeled `"<seed_label> (n=<size>)"`.
+- `python/kohaku/decay.py` — Ebbinghaus-style forgetting curves. `DecayConfig(half_life, floor=0.0)` validated at construction; `decay_weight(age, config)` = `max(0.5 ** (age / half_life), floor)`. `query_with_decay(memory, query_key, top_k, config)` is a drop-in replacement for `query()`: computes `decayed_sim = raw_sim * weight(age)` where `age = (memory._timestamp - 1) - entry.timestamp`. Preserves sign of similarity; sort is by decayed value descending.
+- `python/kohaku/__init__.py` — exports `save`, `load`, `save_json`, `load_json`, `save_binary`, `load_binary`, `Cluster`, `consolidate`, `consolidate_to_memory`, `DecayConfig`, `decay_weight`, `query_with_decay`. Version bumped to `0.4.0`.
+- `python/tests/test_persistence.py` — 12 tests: JSON round-trip, JSON readability, binary round-trip, magic header, binary-smaller-than-JSON, bad magic rejected, truncated file rejected, extension-dispatch, unknown extension raises, empty memory round-trip, Unicode labels, query-result preservation post-roundtrip.
+- `python/tests/test_consolidation.py` — 7 tests: orthogonal entries stay separate, noisy variants merge, centroid concentration vs single members, capacity/labels of consolidated memory, empty memory, threshold validation, member ID tracking.
+- `python/tests/test_decay.py` — 12 tests: weight at age 0 / half-life / 2x half-life, floor clamping, half-life validation, floor validation, negative age rejection, recent-beats-old recall, no-decay limit, empty memory, top_k=0, default config.
+- Total test count: 69 passed, 1 skipped (pre-existing) — 38 prior + 31 new.
+
 ## [0.3.0] — 2026-04-28
 
 ### Added
