@@ -385,9 +385,91 @@
     50%      { transform: translateY(-6px); }
   }
   .floating { animation: float 5s ease-in-out infinite; }
+
+  /* ─── Live API status banner ─── */
+  .live-banner {
+    position: sticky; top: 0; z-index: 50;
+    background: linear-gradient(180deg, rgba(10,7,8,0.96), rgba(17,12,10,0.92));
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    padding: 10px 0;
+    font-size: 13.5px;
+    color: var(--fg-1);
+    font-family: 'SF Mono', monospace;
+  }
+  .live-banner .row { gap: 12px; align-items: center; }
+  .live-banner .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; border-radius: 999px; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .live-banner .pill.offline { color: var(--fg-2); background: rgba(0,0,0,0.3); }
+  .live-banner .pill.live    { color: #1a0e08; background: linear-gradient(135deg, #7dd87d, #50c850); border-color: transparent; }
+  .live-banner .pill.checking { color: var(--amber); background: rgba(255,184,108,0.10); }
+  .live-banner .dotled {
+    width: 8px; height: 8px; border-radius: 999px; display: inline-block;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+  }
+  .live-banner .pill.live .dotled { animation: livepulse 1.6s ease-in-out infinite; }
+  @keyframes livepulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(1.4); }
+  }
+  .live-banner code {
+    background: var(--bg-2); padding: 3px 8px; border-radius: 6px;
+    color: var(--amber); border: 1px solid var(--border);
+  }
+  .live-banner .hint { color: var(--fg-2); margin-left: auto; }
+
+  /* LIVE / SIM badges on real-data sections */
+  .badge-live {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    background: linear-gradient(135deg, #7dd87d, #50c850); color: #0a1a0a;
+    margin-left: 10px;
+  }
+  .badge-sim {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    background: var(--bg-3); color: var(--fg-2); margin-left: 10px;
+    border: 1px solid var(--border);
+  }
+  .save-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .save-row button {
+    background: var(--bg-3); color: var(--amber); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 18px; font-size: 13.5px; cursor: pointer;
+    font-family: 'SF Mono', monospace; font-weight: 600;
+    transition: border-color .2s, color .2s, background .2s;
+  }
+  .save-row button:hover { border-color: var(--amber); color: var(--amber-2); background: rgba(255,184,108,0.06); }
+  .save-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .save-row .out {
+    flex: 1; min-width: 200px;
+    color: var(--fg-2); font-family: 'SF Mono', monospace; font-size: 12.5px;
+    align-self: center; padding: 6px 10px;
+  }
+  .save-row .out .ok { color: var(--green); }
+  .save-row .out .ratio { color: var(--amber); font-weight: 700; }
 </style>
 </head>
 <body>
+
+<!-- ─── LIVE API STATUS BANNER ─── -->
+<div class="live-banner">
+  <div class="wrap row">
+    <span class="pill checking" id="liveStatus">
+      <span class="dotled"></span> Checking…
+    </span>
+    <span id="liveDetail">
+      Run <code>python demo/server.py</code> to see <strong>real</strong> kohaku
+      vectors instead of the offline simulation.
+    </span>
+    <span class="hint" id="liveHint"></span>
+  </div>
+</div>
 
 <!-- ─── HERO ─── -->
 <section class="hero">
@@ -551,13 +633,22 @@
       </div>
 
       <div class="add-row">
-        <input id="newConcept" type="text" placeholder="Type a new memory — e.g. 'tabby kitten' or 'iced latte'" maxlength="32" />
-        <button id="addBtn">+ Add memory</button>
+        <input id="newConcept" type="text" placeholder="Type a phrase — e.g. 'a tabby kitten napping' or 'iced latte in the afternoon'" maxlength="80" />
+        <button id="addBtn">+ Add memory <span id="addModeBadge" class="badge-sim">sim</span></button>
       </div>
       <div class="add-row" style="margin-top: 6px;">
-        <div class="helper">
+        <div class="helper" id="addHelper">
           The new memory finds its place automatically — similar concepts pull it close,
           unrelated ones push it away.
+        </div>
+      </div>
+
+      <div class="save-row">
+        <button id="saveBtn" disabled>💾 Save memory to .hkb</button>
+        <button id="loadBtn" disabled>📂 Reload from disk</button>
+        <button id="resetBtn" disabled>🔄 Reset to seed</button>
+        <div class="out" id="saveOut">
+          <span style="opacity:0.6;">save/load is disabled in offline mode — start the server to enable</span>
         </div>
       </div>
 
@@ -1340,6 +1431,135 @@ const Graph = (function () {
       return nodes[Math.floor(Math.random() * nodes.length)];
     },
     nodes,
+    edges,
+    // ── live-mode hooks ─────────────────────────────────────────────────
+    /** Replace whole graph from server response: {nodes:[{id,label,color,phrase}], edges:[{i,j,sim}], dims}.
+     *  Preserves x/y of nodes that match by id; new ones get a smart initial position. */
+    replaceFromServer(serverGraph) {
+      // build new node array, preserving positions where id matches
+      const oldByIdx = nodes.slice();
+      const oldById = {};
+      for (const n of oldByIdx) oldById[n.id] = n;
+      nodes.length = 0;
+      const sNodes = serverGraph.nodes || [];
+      const sEdges = serverGraph.edges || [];
+      // helper: lookup similarity between two indices in the new graph
+      const simAt = (i, j) => {
+        if (i === j) return 1.0;
+        for (const e of sEdges) {
+          if ((e.i === i && e.j === j) || (e.i === j && e.j === i)) return e.sim;
+        }
+        return 0.0;
+      };
+      sNodes.forEach((sn, idx) => {
+        const prev = oldById[sn.id];
+        // For new nodes, place near the centroid of similar already-placed nodes.
+        let x = W/2, y = H/2;
+        if (prev) {
+          x = prev.x; y = prev.y;
+        } else {
+          let cx = 0, cy = 0, w = 0;
+          for (let k = 0; k < idx; k++) {
+            const s = Math.max(0, simAt(idx, k) - 0.05);
+            cx += nodes[k].x * s;
+            cy += nodes[k].y * s;
+            w += s;
+          }
+          if (w > 0) { x = cx / w; y = cy / w; }
+          x += (Math.random() - 0.5) * 60;
+          y += (Math.random() - 0.5) * 60;
+        }
+        nodes.push({
+          id: sn.id,
+          label: sn.label || sn.id,
+          phrase: sn.phrase || sn.id,
+          color: sn.color || "#ffb86c",
+          vec: vecOf(sn.id),  // unused in live mode but kept for fallback
+          x, y,
+          vx: prev ? prev.vx : 0,
+          vy: prev ? prev.vy : 0,
+          bornDay: prev ? (prev.bornDay || 0) : daysSince,
+          serverIdx: idx,
+        });
+      });
+      // rebuild edges from server (replace local computed edges entirely)
+      edges.length = 0;
+      for (const e of sEdges) edges.push({ i: e.i, j: e.j, sim: e.sim });
+      renderEdges();
+      renderNodes();
+      renderPositions();
+    },
+    /** Highlight a node by its id, mark top-k id list as the "matches".
+     *  matches: array of {id, decayed_strength} from /api/query response. */
+    showServerMatches(queriedId, matches) {
+      // find queried node index by id (or -1)
+      const qIdx = nodes.findIndex(n => n.id === queriedId);
+      // Build set of top-2 match ids (excluding the query itself when it's in the graph)
+      const topIds = new Set(
+        matches
+          .filter(m => m.id !== queriedId)
+          .slice(0, 2)
+          .map(m => m.id)
+      );
+      const topIdx = new Set();
+      nodes.forEach((n, i) => { if (topIds.has(n.id)) topIdx.add(i); });
+
+      selectedIdx = qIdx;
+      topSet = topIdx;
+      // update DOM
+      Array.from(nodeLayer.children).forEach((g, i) => {
+        g.classList.toggle("selected", i === qIdx);
+        g.classList.toggle("dim", i !== qIdx && !topIdx.has(i));
+        const badge = g.querySelector(".sim-badge");
+        if (i === qIdx) {
+          badge.textContent = "you queried this";
+          badge.style.opacity = "1";
+        } else {
+          const m = matches.find(mm => mm.id === nodes[i].id);
+          if (m) {
+            badge.textContent = `match ${(m.decayed_strength * 100).toFixed(0)}%`;
+            badge.style.opacity = topIdx.has(i) ? "1" : "0.45";
+          } else {
+            badge.textContent = "";
+            badge.style.opacity = "0";
+          }
+        }
+      });
+      Array.from(edgeLayer.children).forEach((path) => {
+        const i = +path.getAttribute("data-i"), j = +path.getAttribute("data-j");
+        const incident = (i === qIdx || j === qIdx);
+        const otherIdx = (i === qIdx) ? j : i;
+        const isTop = incident && topIdx.has(otherIdx);
+        path.classList.toggle("active", isTop);
+        path.classList.toggle("dim", !incident);
+        if (isTop) animateEdgeDraw(path);
+      });
+    },
+    /** Apply per-node decayed strengths from the server (id → strength in [0,1]).
+     *  Drives node opacity + radius without touching local decay math. */
+    applyServerStrengths(strengthsById, queriedId) {
+      const ngs = nodeLayer.children;
+      for (let i = 0; i < nodes.length && i < ngs.length; i++) {
+        const id = nodes[i].id;
+        const s = (id === queriedId) ? 1.0 : (strengthsById[id] ?? 0);
+        const op = (i === selectedIdx ? 1.0 : 0.25 + 0.75 * Math.max(0, Math.min(1, s)));
+        ngs[i].style.opacity = op;
+        const core = ngs[i].querySelector(".core");
+        const halo = ngs[i].querySelector(".halo");
+        const r = NODE_R * (0.55 + 0.45 * Math.max(0, Math.min(1, s)));
+        core.setAttribute("r", r);
+        halo.setAttribute("r", r);
+      }
+    },
+    /** Click handler hook (server-mode): replace the per-node click. */
+    setClickHandler(fn) {
+      Array.from(nodeLayer.children).forEach((g, i) => {
+        const fresh = g.cloneNode(true);
+        g.parentNode.replaceChild(fresh, g);
+        fresh.addEventListener("click", () => fn(i, nodes[i]));
+      });
+    },
+    triggerFlashByIdx(idx) { triggerFlash(idx); },
   };
 })();
 
@@ -1545,6 +1765,223 @@ syncDays();
     document.getElementById("bar-json").style.width = "100%";
     document.getElementById("bar-hkb").style.width = `${(hkbMB / jsonMB) * 100}%`;
   }
+})();
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LIVE API INTEGRATION — probe /api/health and switch to real kohaku data
+// ════════════════════════════════════════════════════════════════════════════
+(function liveMode() {
+  const banner   = document.getElementById("liveStatus");
+  const detail   = document.getElementById("liveDetail");
+  const hint     = document.getElementById("liveHint");
+  const addBtn   = document.getElementById("addBtn");
+  const addModeBadge = document.getElementById("addModeBadge");
+  const addHelper = document.getElementById("addHelper");
+  const inputEl  = document.getElementById("newConcept");
+  const saveBtn  = document.getElementById("saveBtn");
+  const loadBtn  = document.getElementById("loadBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const saveOut  = document.getElementById("saveOut");
+  const daysSlider = document.getElementById("daysSlider");
+  const halfMain   = document.getElementById("halfMain");
+  const ratioBox   = document.getElementById("ratio");
+  const sizeJson   = document.getElementById("size-json");
+  const sizeHkb    = document.getElementById("size-hkb");
+  const barJson    = document.getElementById("bar-json");
+  const barHkb     = document.getElementById("bar-hkb");
+
+  const API = (path, body) => fetch(path, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  }).then(r => {
+    if (!r.ok) return r.json().then(j => Promise.reject(j.error || r.statusText));
+    return r.json();
+  });
+
+  let live = false;
+  let selectedId = null;
+  let pendingDecay = null;
+
+  function setOffline(reason) {
+    banner.className = "pill offline";
+    banner.innerHTML = `<span class="dotled"></span> Offline · simulation`;
+    detail.innerHTML = `Run <code>python demo/server.py</code> to switch to <strong>real</strong> kohaku data.`;
+    if (reason) hint.textContent = `(${reason})`;
+  }
+
+  function setLive(health) {
+    live = true;
+    banner.className = "pill live";
+    banner.innerHTML = `<span class="dotled"></span> Live · real kohaku v${health.version}`;
+    detail.innerHTML = `<code>backend=${health.backend}</code> · <code>dims=${health.dims.toLocaleString()}</code> · <code>${health.num_concepts} memories</code>`;
+    hint.textContent = `Every number on this page is computed by the live library →`;
+    addModeBadge.className = "badge-live";
+    addModeBadge.textContent = "live";
+    addHelper.innerHTML = `<strong style="color: var(--green);">LIVE:</strong> the new memory is encoded server-side as a real 10 000-D hypervector. Edge thicknesses below are <em>real cosine similarities</em>.`;
+    [saveBtn, loadBtn, resetBtn].forEach(b => b.disabled = false);
+    saveOut.innerHTML = `<span style="color: var(--fg-2);">Click 💾 Save to write a real <code>.hkb</code> file to disk.</span>`;
+    inputEl.placeholder = "Type a phrase — encoded as a real 10 000-D vector on the server";
+  }
+
+  // ── debounce helper ─────────────────────────────────────────────────────
+  function debounce(fn, ms) {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  // ── live-mode operations ────────────────────────────────────────────────
+  async function liveQuery(concept) {
+    if (!live) return;
+    const days = +daysSlider.value;
+    const half = +halfMain.value;
+    try {
+      const res = await API("/api/query", {
+        concept, days_since: days, half_life: half, top_k: 8,
+      });
+      // build {id → decayed_strength} for ALL nodes currently on the map
+      const strengthsById = {};
+      for (const m of res.matches) {
+        strengthsById[m.id] = Math.max(0, Math.min(1, m.decayed_strength));
+      }
+      Graph.showServerMatches(selectedId || concept, res.matches);
+      Graph.applyServerStrengths(strengthsById, selectedId || concept);
+      const hintEl = document.getElementById("hint");
+      const top = res.matches.slice(0, 3)
+        .map(m => `${m.id} (${(m.decayed_strength*100).toFixed(0)}%)`)
+        .join(", ");
+      hintEl.textContent = `LIVE · "${concept}" → ${top} · ${res.latency_ms}ms · weight=${res.decay_weight}`;
+    } catch (e) {
+      console.error("liveQuery failed:", e);
+    }
+  }
+
+  const debouncedRequery = debounce(() => {
+    if (selectedId) liveQuery(selectedId);
+  }, 180);
+
+  async function liveAdd(text) {
+    if (!live) return Graph.addByText(text);  // fall through to sim
+    try {
+      const res = await API("/api/add-concept", { concept: text });
+      Graph.replaceFromServer(res.graph);
+      // re-attach click handlers in live mode
+      Graph.setClickHandler(async (idx, node) => {
+        selectedId = node.id;
+        await liveQuery(node.phrase || node.id);
+      });
+      // flash the new node and select it
+      const idx = res.graph.nodes.findIndex(n => n.id === text.trim().toLowerCase());
+      if (idx >= 0) {
+        Graph.triggerFlashByIdx(idx);
+        selectedId = res.graph.nodes[idx].id;
+        await liveQuery(res.graph.nodes[idx].phrase);
+      }
+    } catch (e) {
+      console.error("liveAdd failed:", e);
+    }
+  }
+
+  async function liveSave() {
+    try {
+      const r = await API("/api/save", {});
+      const kb = (n) => (n / 1024).toFixed(1) + " KB";
+      saveOut.innerHTML = `<span class="ok">✓ saved</span> · <code>${r.hkb_path}</code> · ` +
+        `<code>${kb(r.size_bytes_hkb)}</code> · ` +
+        `<span class="ratio">${r.ratio}× smaller than .json (${kb(r.size_bytes_json)})</span>`;
+      // Update the storage bars to reflect REAL sizes
+      sizeJson.innerHTML = kb(r.size_bytes_json) + ` <span class="badge-live" style="margin-left:6px;">live</span>`;
+      sizeHkb.innerHTML  = kb(r.size_bytes_hkb)  + ` <span class="badge-live" style="margin-left:6px;">live</span>`;
+      barJson.style.width = "100%";
+      barHkb.style.width  = `${100 * r.size_bytes_hkb / r.size_bytes_json}%`;
+      ratioBox.innerHTML = `LIVE · <code>${r.num_entries}</code> memories · .hkb is <strong>${r.ratio}× smaller</strong> than .json — same exact recall after reload.`;
+    } catch (e) {
+      saveOut.innerHTML = `<span style="color: var(--red);">✗ ${e}</span>`;
+    }
+  }
+
+  async function liveLoad() {
+    try {
+      const r = await API("/api/load", {});
+      Graph.replaceFromServer(r.graph);
+      Graph.setClickHandler(async (idx, node) => {
+        selectedId = node.id;
+        await liveQuery(node.phrase || node.id);
+      });
+      saveOut.innerHTML = `<span class="ok">✓ reloaded</span> · ${r.num_entries} memories from <code>${r.loaded_from}</code> (${(r.size_bytes_hkb/1024).toFixed(1)} KB)`;
+    } catch (e) {
+      saveOut.innerHTML = `<span style="color: var(--red);">✗ ${e}</span>`;
+    }
+  }
+
+  async function liveReset() {
+    try {
+      const r = await API("/api/reset", {});
+      Graph.replaceFromServer(r.graph);
+      Graph.setClickHandler(async (idx, node) => {
+        selectedId = node.id;
+        await liveQuery(node.phrase || node.id);
+      });
+      saveOut.innerHTML = `<span class="ok">✓ reset</span> · seeded ${r.graph.nodes.length} memories`;
+      selectedId = r.graph.nodes[0]?.id || null;
+      if (selectedId) await liveQuery(r.graph.nodes[0].phrase);
+    } catch (e) {
+      saveOut.innerHTML = `<span style="color: var(--red);">✗ ${e}</span>`;
+    }
+  }
+
+  // ── boot ─────────────────────────────────────────────────────────────────
+  fetch("/api/health", { cache: "no-store" })
+    .then(r => r.ok ? r.json() : Promise.reject("health endpoint returned " + r.status))
+    .then(async (health) => {
+      if (!health.real_kohaku) throw new Error("not a kohaku server");
+      setLive(health);
+
+      // 1. Replace the offline graph with the server graph
+      const g = await API("/api/graph");
+      Graph.replaceFromServer(g);
+
+      // 2. Hook click → real query
+      Graph.setClickHandler(async (idx, node) => {
+        selectedId = node.id;
+        await liveQuery(node.phrase || node.id);
+      });
+
+      // 3. Hook add button → real add
+      addBtn.replaceWith(addBtn.cloneNode(true));
+      const addBtn2 = document.getElementById("addBtn");
+      addBtn2.addEventListener("click", async () => {
+        const v = inputEl.value.trim();
+        if (!v) return;
+        await liveAdd(v);
+        inputEl.value = "";
+      });
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addBtn2.click();
+      });
+
+      // 4. Hook days/half_life sliders → re-query selected concept (debounced)
+      daysSlider.addEventListener("input", debouncedRequery);
+      halfMain.addEventListener("input", debouncedRequery);
+
+      // 5. Hook save/load/reset
+      saveBtn.addEventListener("click", liveSave);
+      loadBtn.addEventListener("click", liveLoad);
+      resetBtn.addEventListener("click", liveReset);
+
+      // 6. Auto-select first concept so the user sees something immediately
+      const first = g.nodes[0];
+      if (first) {
+        selectedId = first.id;
+        setTimeout(() => liveQuery(first.phrase), 400);
+      }
+    })
+    .catch((err) => {
+      setOffline(typeof err === "string" ? err : "no server detected");
+    });
 })();
 </script>
 

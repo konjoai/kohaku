@@ -111,6 +111,23 @@ results = query_with_decay(mem, query_key, top_k=5, config=cfg)
 
 ---
 
+## 🎬 Live demo
+
+```bash
+python demo/server.py        # starts a localhost server with REAL kohaku
+open http://127.0.0.1:8000
+```
+
+The page detects the API and switches from offline simulation to **live mode** — every
+similarity number, decay weight, and `.hkb` file size you see is computed by the live
+library. Add a phrase, click any node, drag the days slider, hit save — it's all real.
+
+```bash
+PYTHONPATH=python python3 demo/demo.py    # rich-terminal walkthrough
+```
+
+---
+
 ## 🎯 Vision
 
 > Give models memory — not just context.
