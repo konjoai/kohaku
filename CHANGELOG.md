@@ -2,6 +2,21 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.5.0] — 2026-05-03
+
+### Added
+- `python/kohaku/learning.py` — online HDC item memory. `ItemMemory(dims)` maps `label → Prototype` with float32 accumulator + binarized `vector` on demand (`sign(accumulator)`, ties → +1). API: `add(label, vector, weight=1.0)`, `update(label, vector, sign=±1, weight=1.0)`, `train_from_feedback(label, vector, correct, weight=1.0)`, `predict(vector, top_k)`, `get(label)`, `labels()`, `clear()`, `__contains__`, `__len__`. Empirical: 12 noisy examples at 20% bit-flips recover the latent prototype with cosine > 0.95.
+- `python/kohaku/hopfield.py` — modern continuous Hopfield retrieval (Ramsauer et al. 2020, *"Hopfield Networks is All You Need"*). `HopfieldAssociator(beta=0.05, binarize_each_step=True, dims=DIMS)`. Storage is `O(N·D)` matrix of stored patterns — at D=10 000 that's 40 KB per pattern instead of the 400 MB weight matrix the classical formulation requires. `recall(query, max_iters, eps)` runs `p* = softmax(β·X·q)·X` iteratively until normalized-state change ≤ eps; returns `HopfieldRecall(pattern, iterations, converged, weights, best_index, best_similarity)`. `complete()` for one-shot pattern completion. Empirical: 30%-flipped queries against 5 stored patterns recover the correct pattern with softmax weight > 0.9 in ≤ 3 iterations.
+- `python/kohaku/memory_system.py` — combined episodic + semantic store, modeled on Tulving (1972). `MemorySystem(episodic_capacity, dims, decay_config)` holds an `EpisodicMemory` (decay-eligible) and an `ItemMemory` (semantic prototypes, no decay). `store_episode()` adds raw experiences; `reinforce_concept()` / `teach()` write directly to semantic memory. `consolidate_to_semantic(similarity_threshold)` runs cluster promotion: each episodic cluster's centroid is pushed to semantic memory weighted by cluster size — the "sleep consolidation" operation. `recall(query, top_k, use_decay, decay_config)` queries both stores, returning a merged ranked list of `CombinedRecall(source, label, similarity, entry_id, value)` with `source ∈ {"episodic", "semantic"}`.
+- `python/kohaku/__init__.py` — exports `ItemMemory`, `Prototype`, `HopfieldAssociator`, `HopfieldRecall`, `MemorySystem`, `CombinedRecall`. Version bumped to `0.5.0`.
+- `python/pyproject.toml` — version bumped to `0.5.0`.
+- `python/tests/test_learning.py` (11 tests), `python/tests/test_hopfield.py` (13 tests), `python/tests/test_memory_system.py` (11 tests). Coverage: empty / boundary / dims-validation / sign / weight / convergence / cleanup / consolidation / decay-merge / sources.
+- Total test count: **107 passed, 1 skipped** (38 new + 69 prior).
+
+### Notes
+- The Hopfield β default of 0.05 is calibrated for D=10 000 bipolar vectors so a single positive cosine of 0.5 dominates the softmax (β·D·cos = 250 → effectively a hard winner). Override `beta` for smaller dims.
+- Online learning prototypes are exact bipolar after binarization — no precision drift after `update()`. Float32 accumulators support up to ~2²⁴ examples per label without overflow concerns.
+
 ## [0.4.0] — 2026-05-02
 
 ### Added

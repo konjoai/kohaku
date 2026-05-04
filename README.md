@@ -99,6 +99,31 @@ semantic = consolidate_to_memory(mem, similarity_threshold=0.3)
 # Greedy bundle-of-bundles clustering: N noisy episodic traces → K semantic centroids.
 ```
 
+## 🧠 Online learning + Hopfield + episodic↔semantic (v0.5.0)
+
+```python
+from kohaku import ItemMemory, HopfieldAssociator, MemorySystem, encode_text
+
+# Online HDC learning — prototypes update with every example
+im = ItemMemory()
+for example in cat_examples:
+    im.add("cat", encode_text(example))
+im.train_from_feedback("cat", encode_text("a dog barked"), correct=False)
+top = im.predict(encode_text("a kitten napping"), top_k=3)
+
+# Modern Hopfield — clean noisy queries by softmax-weighted retrieval
+hop = HopfieldAssociator(beta=0.05)
+for proto in canonical_prototypes:
+    hop.store(proto)
+cleaned = hop.complete(noisy_query)
+
+# Combined episodic + semantic store with sleep-style consolidation
+ms = MemorySystem(episodic_capacity=1000)
+ms.store_episode(key, value, label="meeting on monday")
+ms.consolidate_to_semantic(similarity_threshold=0.3)  # promote clusters → prototypes
+results = ms.recall(query, top_k=3, use_decay=True)   # tagged by source
+```
+
 ## 🕰️ Temporal decay
 
 ```python

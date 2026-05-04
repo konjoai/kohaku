@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.4.0
+## Current Version: v0.5.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -42,7 +42,14 @@
 - [x] 31 new tests (12 `test_persistence.py` + 7 `test_consolidation.py` + 12 `test_decay.py`); 69/69 total passing (1 pre-existing skip).
 - [x] `__init__.py` exports `save`, `load`, `save_json`, `load_json`, `save_binary`, `load_binary`, `Cluster`, `consolidate`, `consolidate_to_memory`, `DecayConfig`, `decay_weight`, `query_with_decay`. Version bumped to `0.4.0`.
 
-## Phase 5: Learning (v0.5.0)
-- [ ] Online HDC learning: update item memory from feedback
-- [ ] Hopfield network associator layer
-- [ ] Episodic vs semantic memory distinction
+## Phase 5: Learning (v0.5.0) ✅
+- [x] Online HDC learning (`python/kohaku/learning.py`) — `ItemMemory` maps `label → Prototype`. Float32 accumulator per label; binarized prototype on demand via `sign(accumulator)`. `add()` / `update(sign=±1, weight=…)` / `train_from_feedback(correct=…)` keep the prototype always in {+1, −1}^D. `predict(top_k)` returns ranked `RetrievalResult`. Verified: 12 noisy examples (20% bit-flips) → recovered prototype > 0.95 cosine to the latent.
+- [x] Hopfield network associator (`python/kohaku/hopfield.py`) — modern continuous Hopfield (Ramsauer et al. 2020). Storage `O(N·D)` (not `O(D²)`). Recall: `p* = softmax(β·X·q) · X`, iterated until L2-normalized state changes by ≤ `eps`. `binarize_each_step` keeps dynamics inside the hypercube. `recall()` returns `HopfieldRecall(pattern, iterations, converged, weights, best_index, best_similarity)`. Verified: 30%-flipped queries recover correct stored pattern with softmax weight > 0.9 in ≤ 3 iterations.
+- [x] Episodic vs semantic distinction (`python/kohaku/memory_system.py`) — `MemorySystem` wraps an `EpisodicMemory` (raw, decay-eligible, capacity-limited) and an `ItemMemory` (semantic prototypes, no decay). `consolidate_to_semantic()` runs cluster-promotion: each episodic cluster's centroid is pushed to semantic memory weighted by cluster size — modeling sleep consolidation. `recall()` queries both stores, merges by similarity, tags each result with `source="episodic" | "semantic"`. Optional `use_decay=True` applies `query_with_decay` to the episodic side.
+- [x] 38 new tests (11 `test_learning.py` + 13 `test_hopfield.py` + 11 `test_memory_system.py`); 107/107 total passing (1 pre-existing skip).
+- [x] `__init__.py` exports `ItemMemory`, `Prototype`, `HopfieldAssociator`, `HopfieldRecall`, `MemorySystem`, `CombinedRecall`. Version bumped to `0.5.0`.
+
+## Phase 6: Production hardening (next)
+- [ ] Real-time streaming consolidation (background thread/asyncio)
+- [ ] Memory compaction & deduplication
+- [ ] Multi-tenant isolation for serving multiple users from one engine
