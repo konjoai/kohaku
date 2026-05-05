@@ -11,7 +11,7 @@ All notable changes to Kohaku are documented here.
 - `python/kohaku/__init__.py` — exports `ItemMemory`, `Prototype`, `HopfieldAssociator`, `HopfieldRecall`, `MemorySystem`, `CombinedRecall`. Version bumped to `0.5.0`.
 - `python/pyproject.toml` — version bumped to `0.5.0`.
 - `python/tests/test_learning.py` (11 tests), `python/tests/test_hopfield.py` (13 tests), `python/tests/test_memory_system.py` (11 tests). Coverage: empty / boundary / dims-validation / sign / weight / convergence / cleanup / consolidation / decay-merge / sources.
-- Total test count: **107 passed, 1 skipped** (38 new + 69 prior).
+- Total test count: **108 passed** (38 new + 70 prior; pre-existing skip resolved).
 
 ### Notes
 - The Hopfield β default of 0.05 is calibrated for D=10 000 bipolar vectors so a single positive cosine of 0.5 dominates the softmax (β·D·cos = 250 → effectively a hard winner). Override `beta` for smaller dims.
