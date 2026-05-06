@@ -1,7 +1,7 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 try:
     from kohaku._kohaku_rs import HyperVector, EpisodicMemory  # compiled Rust ext
@@ -28,6 +28,9 @@ from kohaku.decay import DecayConfig, decay_weight, query_with_decay
 from kohaku.learning import ItemMemory, Prototype
 from kohaku.hopfield import HopfieldAssociator, HopfieldRecall
 from kohaku.memory_system import CombinedRecall, MemorySystem
+from kohaku.streaming import StreamingConsolidator
+from kohaku.compaction import find_duplicates, deduplicate, compact
+from kohaku.tenant import TenantMemoryStore
 
 __all__ = [
     "HyperVector",
@@ -60,4 +63,9 @@ __all__ = [
     "HopfieldRecall",
     "MemorySystem",
     "CombinedRecall",
+    "StreamingConsolidator",
+    "find_duplicates",
+    "deduplicate",
+    "compact",
+    "TenantMemoryStore",
 ]
