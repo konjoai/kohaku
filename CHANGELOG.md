@@ -2,6 +2,20 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.6.0] — 2026-05-07
+
+### Added
+- `python/kohaku/streaming.py` — `StreamingConsolidator`: background daemon thread that polls memory utilization every `poll_interval_s` seconds and auto-runs semantic consolidation when `len(memory) / capacity >= trigger_ratio`. Thread-safe via `threading.Lock`. API: `store(key, value, label)`, `retrieve(query_key, top_k)`, `start()`, `stop(timeout)`, `is_running`, `consolidation_count`. Context-manager protocol (`__enter__` / `__exit__`) for clean lifecycle management. Consolidated memory is rebuilt from cluster centroids in-place; each run increments `consolidation_count`.
+- `python/kohaku/compaction.py` — `find_duplicates(memory, similarity_threshold)`: O(n²) cosine scan over `MemoryEntry.key` to identify near-duplicate groups (returns `List[Set[int]]` of entry IDs). `deduplicate(memory, similarity_threshold)`: removes all but the oldest (lowest-ID) entry in each group in-place; returns count removed. `compact(memory, target_utilization)`: deduplicates first, then FIFO-evicts entries until `len(memory) <= capacity * target_utilization`; returns total entries removed. Raises `ValueError` for `target_utilization` outside `(0, 1]`.
+- `python/kohaku/tenant.py` — `TenantMemoryStore(dimension, capacity)`: registry of per-tenant `EpisodicMemory` instances. Unknown tenants auto-provisioned on first `store()` or `retrieve()` call. Empty tenant IDs raise `ValueError`. API: `store(tenant_id, key, value, label)`, `retrieve(tenant_id, query_key, top_k)`, `size(tenant_id)`, `drop_tenant(tenant_id)`, `tenant_ids`, `tenants_count()`. Tenants are fully isolated — cross-tenant retrieval is impossible by construction.
+- `python/kohaku/__init__.py` — exports `StreamingConsolidator`, `find_duplicates`, `deduplicate`, `compact`, `TenantMemoryStore`. Version bumped to `0.6.0`.
+- `python/pyproject.toml` — version bumped to `0.6.0`.
+- `PLAN.md` — Phase 6 checkboxes ticked, current version updated to `v0.6.0`.
+- `python/tests/test_streaming_consolidation.py` — 10 tests: init defaults, bad trigger ratio, bad poll interval, start/stop lifecycle, double-start no-op, context manager, thread-safe concurrent stores, consolidation fires above trigger, consolidation count increments, no consolidation below trigger.
+- `python/tests/test_compaction.py` — 10 tests: identical keys have similarity 1.0, orthogonal keys not duplicates, find_duplicates returns correct ID groups, find_duplicates empty memory, deduplicate removes near-duplicates, deduplicate keeps oldest entry, deduplicate no-op when clean, compact bad utilization raises, compact reduces to target, compact deduplicates before eviction.
+- `python/tests/test_tenant.py` — 11 tests: init defaults, bad dimension raises, bad capacity raises, empty tenant ID raises on store/retrieve, unknown tenant auto-provisioned, unknown tenant size returns zero without provisioning, isolation between tenants, size per tenant, drop removes all data, drop nonexistent returns false, ten independent tenants.
+- Total test count: **139 passed** (31 new + 108 prior).
+
 ## [0.5.0] — 2026-05-03
 
 ### Added

@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.5.0
+## Current Version: v0.6.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -49,7 +49,7 @@
 - [x] 38 new tests (11 `test_learning.py` + 13 `test_hopfield.py` + 11 `test_memory_system.py` + 3 hopfield extras); 108/108 total passing.
 - [x] `__init__.py` exports `ItemMemory`, `Prototype`, `HopfieldAssociator`, `HopfieldRecall`, `MemorySystem`, `CombinedRecall`. Version bumped to `0.5.0`.
 
-## Phase 6: Production hardening (next)
-- [ ] Real-time streaming consolidation (background thread/asyncio)
-- [ ] Memory compaction & deduplication
-- [ ] Multi-tenant isolation for serving multiple users from one engine
+## Phase 6: Production Hardening (v0.6.0) ✅
+- [x] Real-time streaming consolidation (background thread/asyncio)
+- [x] Memory compaction & deduplication
+- [x] Multi-tenant isolation for serving multiple users from one engine
