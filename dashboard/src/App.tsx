@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { KonjoApp } from "@konjoai/ui";
 import { MemoryGraph } from "./views/MemoryGraph";
 import { ConceptInput } from "./views/ConceptInput";
 import { DecayCurve } from "./views/DecayCurve";
@@ -17,11 +16,7 @@ export default function App() {
   };
 
   return (
-    <KonjoApp
-      product="kohaku"
-      tagline="Hypervector Memory · Semantic Storage · Temporal Decay"
-      status={{ label: "ready", severity: "ok" }}
-    >
+    <div style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "2rem", textAlign: "left" }}>
       <Hero />
 
       <div className="space-y-6 mt-10">
@@ -48,36 +43,21 @@ export default function App() {
 
         <Footer />
       </div>
-    </KonjoApp>
+    </div>
   );
 }
 
 function Hero() {
   return (
-    <section className="text-center pt-6 pb-2">
-      <p
-        className="text-konjo-mono uppercase tracking-[0.32em] text-konjo-violet"
-        style={{ fontSize: 11 }}
-      >
+    <section style={{ textAlign: "center", paddingTop: "24px", paddingBottom: "8px" }}>
+      <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.32em", color: "var(--color-konjo-violet)" }}>
         kohaku · 记忆 · memory · 概念
       </p>
-      <h1
-        className="text-konjo-display text-konjo-fg mt-4 mx-auto"
-        style={{
-          fontSize: 52,
-          fontWeight: 600,
-          letterSpacing: "-0.025em",
-          maxWidth: 920,
-          lineHeight: 1.05,
-        }}
-      >
+      <h1 style={{ fontSize: "52px", fontWeight: 600, letterSpacing: "-0.025em", maxWidth: "920px", lineHeight: 1.05, margin: "16px auto", color: "var(--color-konjo-fg)" }}>
         Concepts,{" "}
         <span style={{ color: "var(--color-konjo-accent)" }}>remembered</span>.
       </h1>
-      <p
-        className="text-konjo-fg-muted mt-5 mx-auto"
-        style={{ fontSize: 16, maxWidth: 640, lineHeight: 1.55 }}
-      >
+      <p style={{ fontSize: "16px", maxWidth: "640px", lineHeight: 1.55, margin: "20px auto", color: "var(--color-konjo-fg-muted)" }}>
         Hypervector-based semantic memory with temporal decay. Store knowledge,
         retrieve relationships, watch your memory age gracefully.
       </p>

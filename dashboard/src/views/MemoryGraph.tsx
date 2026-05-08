@@ -41,7 +41,11 @@ export function MemoryGraph({
     );
   }
 
-  if (!graph || graph.nodes.length === 0) {
+  if (!graph || !graph.nodes || graph.nodes.length === 0) {
+    return null;
+  }
+
+  if (!graph.similarities || graph.similarities.length === 0) {
     return null;
   }
 
