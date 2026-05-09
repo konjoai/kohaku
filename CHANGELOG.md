@@ -4,7 +4,7 @@ All notable changes to Kohaku are documented here.
 
 ## [0.7.0] — 2026-05-09
 
-### Added — Phase 7: Visualization
+### Added — Phase 7: Visualization + REST API
 - `api/main.py` — FastAPI visualization service backed by the live `kohaku` library. `VizState` loads `demo/sample_memory.json` into an `EpisodicMemory`, runs cosine k-means on the bipolar hypervectors (centroid re-binarised by majority vote each iteration; deterministic seeding), and exposes:
   - `GET /viz/graph?threshold&k&half_life` — `{nodes, edges, dims, threshold, num_clusters, half_life, current_clock}`. Each node carries `id, entry_id, label, cluster, cluster_label, color, last_accessed, age, decay_weight`. Edges include only pairs with `cosine ≥ threshold`. Decay weight is computed by the real `kohaku.decay.decay_weight` from the entry's age in memory ticks — proven by `test_decay_weights_match_ages_in_graph`.
   - `GET /viz/decay?half_life&horizon&steps` — per-concept Ebbinghaus curves: `[{age, weight}]` over `[0, horizon]` plus each concept's `current_age` / `current_weight` marker.
@@ -21,6 +21,28 @@ All notable changes to Kohaku are documented here.
 ### Notes
 - The visualization layer is read-only — it observes a kohaku memory built from the seed file but does not mutate `EpisodicMemory` semantics. The same `VizState` can be wrapped around any external `EpisodicMemory` by passing `memory=...` to `create_app(state=VizState(memory=mem, concepts=...))`.
 - K-means uses farthest-point-free deterministic seeding (first `k` entries) to keep the graph layout stable across reloads. Centroids are re-binarised to ±1 each iteration so they remain valid bipolar hypervectors.
+- The viz layer is read-only — it observes a kohaku memory built from the seed file but does not mutate `EpisodicMemory` semantics.
+- Sign-binarization invariant enforced at the API boundary: raw float vectors collapse to ±1 before entering any HDC op.
+
+### Added — Phase 7: REST API (same release)
+
+Adds a write-able REST surface alongside the viz endpoints, on the same FastAPI app:
+
+- `POST /encode` / `POST /store` / `POST /query` / `POST /bundle` /
+  `GET /stats` / `GET /health`. `RestState` holds an `EpisodicMemory` +
+  `ItemMemory` guarded by `threading.Lock`. `/query` accepts `half_life`
+  and `floor` to attach Ebbinghaus `decayed_similarity` from
+  `query_with_decay`. Probing by `label` uses the learned semantic
+  prototype.
+- `api/requirements.txt` — fastapi, uvicorn[standard], pydantic v2,
+  numpy, httpx (for `TestClient`).
+- `api/Dockerfile` — python:3.11-slim, `PYTHONPATH=/app/python`,
+  uvicorn on `$PORT` (default 8000).
+- `render.yaml` — Render.com web service spec, Docker env, `/health`
+  healthcheck, `KOHAKU_CAPACITY` env var.
+- `api/test_api.py` — 18 integration tests via `TestClient` over the
+  real FastAPI app. No mocks — `encode_text`, `HyperVector.bundle_all`,
+  `EpisodicMemory.store`, `query`, `query_with_decay` all called directly.
 
 ## [0.6.0] — 2026-05-07
 

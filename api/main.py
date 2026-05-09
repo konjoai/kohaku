@@ -1,23 +1,36 @@
-"""Kohaku Visualization API — exposes the live HDC episodic memory as JSON
-suitable for a force-directed graph and Ebbinghaus decay-curve plots.
+"""Kohaku unified HTTP surface — FastAPI app exposing both:
+
+  • Visualization API (/viz/*)  — read-only force-directed graph + decay
+                                   curves over a sample EpisodicMemory.
+  • REST HDC API (/encode, /store, /query, /bundle, /stats, /health)
+                               — write-able episodic + semantic memory
+                                 driven by the live `kohaku` library.
+
+All numbers are computed by the live kohaku library — no mocks.
 
 Endpoints
 =========
 GET  /                          — service descriptor
+GET  /health                    — liveness probe
+GET  /stats                     — runtime stats over the REST-side state
 GET  /viz/graph                 — nodes + edges for the force-directed graph
 GET  /viz/decay                 — per-concept time-decay curves
 POST /viz/probe                 — query → ranked nearest neighbours
 GET  /viz/memory_map.html       — serves the interactive viewer
-
-The memory is populated from `demo/sample_memory.json` on startup. All numbers
-are computed by the live `kohaku` library — no mocks, no shortcuts.
+POST /encode                    — text|vector → bipolar ±1 hypervector
+POST /store                     — encode + persist (also feeds semantic memory)
+POST /query                     — top-k associative retrieval (optional decay)
+POST /bundle                    — bundle_all over a list of inputs
 """
 from __future__ import annotations
 
 import json
+import os
 import sys
+import threading
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 
@@ -30,10 +43,22 @@ if str(PY_PKG) not in sys.path:
 
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field, model_validator
 
-from kohaku import DecayConfig, EpisodicMemory, decay_weight, encode_text
-from kohaku._pure import DIMS
-from kohaku._pure import HyperVector as _PyHyperVector
+from kohaku import (  # noqa: E402
+    DecayConfig,
+    EpisodicMemory,
+    HyperVector,
+    ItemMemory,
+    _BACKEND,
+    decay_weight,
+    encode_text,
+    query as _kohaku_query,
+    query_with_decay,
+)
+from kohaku import __version__ as KOHAKU_VERSION  # noqa: E402
+from kohaku._pure import DIMS  # noqa: E402
+from kohaku._pure import HyperVector as _PyHyperVector  # noqa: E402
 
 DEMO_DIR = ROOT / "demo"
 SAMPLE_PATH = DEMO_DIR / "sample_memory.json"
@@ -46,7 +71,9 @@ DEFAULT_HORIZON = 60
 DEFAULT_STEPS = 30
 
 
-# ───────────────────────── clustering ──────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+#  VIZ — k-means + VizState (read-only sample-backed view)
+# ═══════════════════════════════════════════════════════════════════════════
 
 def _kmeans_cosine(
     hvs: List[Any],
@@ -90,8 +117,6 @@ def _kmeans_cosine(
     return [int(x) for x in assignments]
 
 
-# ───────────────────────── state ───────────────────────────────────────────
-
 class VizState:
     """Loads sample concepts into a real EpisodicMemory and serves /viz queries."""
 
@@ -130,49 +155,40 @@ class VizState:
                 "color": c.get("color"),
             })
 
-    # ── /viz/graph ────────────────────────────────────────────────────────
-    def graph(
-        self,
-        *,
-        threshold: float = DEFAULT_THRESHOLD,
-        k: int = DEFAULT_K,
-        half_life: float = DEFAULT_HALF_LIFE,
-    ) -> Dict[str, Any]:
+    # ── /viz/graph ───────────────────────────────────────────────────────
+    def graph(self, threshold: float, k: int, half_life: float) -> Dict[str, Any]:
         entries = self.memory.entries()
-        n = len(entries)
         hvs = [e.key for e in entries]
-        clusters = _kmeans_cosine(hvs, k=k)
-
-        cfg = DecayConfig(half_life=half_life)
-        now = max(0, self.memory._timestamp - 1)
+        cluster_idx = _kmeans_cosine(hvs, k=k)
+        now_clock = self.memory._timestamp
 
         nodes: List[Dict[str, Any]] = []
-        for idx, e in enumerate(entries):
-            age = max(0, now - e.timestamp)
+        cfg = DecayConfig(half_life=half_life)
+        for i, e in enumerate(entries):
+            meta = self.concepts[i] if i < len(self.concepts) else {}
+            age = max(0, now_clock - 1 - e.timestamp)
             w = decay_weight(age, cfg)
-            meta = self.concepts[idx] if idx < len(self.concepts) else {}
             nodes.append({
                 "id": e.label,
                 "entry_id": e.id,
                 "label": meta.get("label", e.label),
-                "phrase": meta.get("phrase", ""),
-                "cluster": int(clusters[idx]) if clusters else 0,
+                "cluster": int(cluster_idx[i]) if i < len(cluster_idx) else 0,
                 "cluster_label": meta.get("cluster_label", ""),
                 "color": meta.get("color"),
-                "last_accessed": int(e.timestamp),
-                "age": int(age),
+                "last_accessed": e.timestamp,
+                "age": age,
                 "decay_weight": round(float(w), 4),
             })
 
         edges: List[Dict[str, Any]] = []
-        for i in range(n):
-            for j in range(i + 1, n):
-                s = float(hvs[i].cosine_similarity(hvs[j]))
-                if s >= threshold:
+        for i in range(len(entries)):
+            for j in range(i + 1, len(entries)):
+                sim = float(entries[i].key.cosine_similarity(entries[j].key))
+                if sim >= threshold:
                     edges.append({
                         "source": entries[i].label,
                         "target": entries[j].label,
-                        "similarity": round(s, 4),
+                        "similarity": round(sim, 4),
                     })
 
         return {
@@ -180,52 +196,37 @@ class VizState:
             "edges": edges,
             "dims": DIMS,
             "threshold": threshold,
-            "num_clusters": min(k, n) if n else 0,
+            "num_clusters": int(max(cluster_idx) + 1) if cluster_idx else 0,
             "half_life": half_life,
-            "current_clock": int(self.memory._timestamp),
+            "current_clock": now_clock,
         }
 
-    # ── /viz/decay ────────────────────────────────────────────────────────
+    # ── /viz/decay ───────────────────────────────────────────────────────
     def decay_curves(
-        self,
-        *,
-        half_life: float = DEFAULT_HALF_LIFE,
-        horizon: int = DEFAULT_HORIZON,
-        steps: int = DEFAULT_STEPS,
+        self, half_life: float, horizon: int, steps: int
     ) -> Dict[str, Any]:
+        entries = self.memory.entries()
         cfg = DecayConfig(half_life=half_life)
-        now = max(0, self.memory._timestamp - 1)
-
-        ages = sorted({int(round(a)) for a in np.linspace(0, horizon, steps)})
-
-        concepts_out: List[Dict[str, Any]] = []
-        for idx, e in enumerate(self.memory.entries()):
-            current_age = max(0, now - e.timestamp)
-            curve = [
-                {"age": a, "weight": round(decay_weight(a, cfg), 5)}
-                for a in ages
-            ]
-            meta = self.concepts[idx] if idx < len(self.concepts) else {}
-            concepts_out.append({
+        ages = np.linspace(0, horizon, steps).astype(int).tolist()
+        now_clock = self.memory._timestamp
+        curves: List[Dict[str, Any]] = []
+        for i, e in enumerate(entries):
+            current_age = max(0, now_clock - 1 - e.timestamp)
+            curves.append({
                 "id": e.label,
-                "label": meta.get("label", e.label),
-                "color": meta.get("color"),
-                "last_accessed": int(e.timestamp),
-                "current_age": int(current_age),
-                "current_weight": round(decay_weight(current_age, cfg), 5),
-                "curve": curve,
+                "label": (self.concepts[i].get("label", e.label)
+                          if i < len(self.concepts) else e.label),
+                "current_age": current_age,
+                "current_weight": round(float(decay_weight(current_age, cfg)), 4),
+                "samples": [
+                    {"age": int(a), "weight": round(float(decay_weight(int(a), cfg)), 4)}
+                    for a in ages
+                ],
             })
+        return {"curves": curves, "half_life": half_life, "horizon": horizon}
 
-        return {
-            "half_life": half_life,
-            "horizon": horizon,
-            "steps": len(ages),
-            "current_clock": int(self.memory._timestamp),
-            "concepts": concepts_out,
-        }
-
-    # ── /viz/probe ────────────────────────────────────────────────────────
-    def probe(self, text: str, *, top_k: int = 5) -> Dict[str, Any]:
+    # ── /viz/probe ───────────────────────────────────────────────────────
+    def probe(self, text: str, top_k: int) -> Dict[str, Any]:
         text = text.strip()
         if not text:
             raise ValueError("query text must be non-empty")
@@ -245,23 +246,232 @@ class VizState:
         }
 
 
-# ───────────────────────── app factory ──────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+#  REST — write-able state + Pydantic models
+# ═══════════════════════════════════════════════════════════════════════════
 
-def create_app(state: Optional[VizState] = None) -> FastAPI:
-    app = FastAPI(title="Kohaku Visualization API", version="0.7.0")
-    app.state.viz = state or VizState()
+class RestState:
+    """Process-wide HDC state for the write-able REST surface. Guarded by a
+    lock so requests can run on a threadpool without corrupting the FIFO
+    entry list."""
 
+    def __init__(self, capacity: int = 10_000, dims: int = DIMS) -> None:
+        self.dims = dims
+        self.episodic = EpisodicMemory(capacity=capacity)
+        self.semantic = ItemMemory(dims=dims)
+        self.lock = threading.Lock()
+        self.started_at = time.time()
+
+
+InputType = Literal["text", "vector"]
+
+
+class EncodeRequest(BaseModel):
+    input: Union[str, List[float]]
+    type: InputType = "text"
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> "EncodeRequest":
+        if self.type == "text" and not isinstance(self.input, str):
+            raise ValueError("input must be a string when type='text'")
+        if self.type == "vector":
+            if not isinstance(self.input, list):
+                raise ValueError("input must be a list of floats when type='vector'")
+            if len(self.input) != DIMS:
+                raise ValueError(f"vector input must have length {DIMS}, got {len(self.input)}")
+        return self
+
+
+class EncodeResponse(BaseModel):
+    vector: List[int]
+    dims: int
+
+
+class StoreRequest(BaseModel):
+    label: str = Field(..., min_length=1)
+    input: Union[str, List[float]]
+    type: InputType = "text"
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> "StoreRequest":
+        if self.type == "text" and not isinstance(self.input, str):
+            raise ValueError("input must be a string when type='text'")
+        if self.type == "vector" and (
+            not isinstance(self.input, list) or len(self.input) != DIMS
+        ):
+            raise ValueError(f"vector input must be a list of length {DIMS}")
+        return self
+
+
+class StoreResponse(BaseModel):
+    id: int
+    label: str
+    dims: int
+    episodic_size: int
+
+
+class QueryRequest(BaseModel):
+    input: Optional[Union[str, List[float]]] = None
+    label: Optional[str] = None
+    type: InputType = "text"
+    top_k: int = Field(5, ge=1, le=100)
+    half_life: Optional[float] = Field(
+        default=None,
+        description="If set, apply Ebbinghaus decay with this half-life (in store ticks).",
+        gt=0.0,
+    )
+    floor: float = Field(0.0, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _exactly_one_probe(self) -> "QueryRequest":
+        if (self.input is None) == (self.label is None):
+            raise ValueError("provide exactly one of `input` or `label`")
+        if self.type == "vector" and isinstance(self.input, list) and len(self.input) != DIMS:
+            raise ValueError(f"vector input must be a list of length {DIMS}")
+        return self
+
+
+class QueryHit(BaseModel):
+    entry_id: int
+    label: str
+    similarity: float
+    decayed_similarity: Optional[float] = None
+
+
+class QueryResponse(BaseModel):
+    results: List[QueryHit]
+    top_k: int
+    decay_applied: bool
+
+
+class BundleRequest(BaseModel):
+    inputs: List[Union[str, List[float]]] = Field(..., min_length=1)
+    type: InputType = "text"
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> "BundleRequest":
+        if self.type == "text" and not all(isinstance(x, str) for x in self.inputs):
+            raise ValueError("all inputs must be strings when type='text'")
+        if self.type == "vector":
+            for v in self.inputs:
+                if not isinstance(v, list) or len(v) != DIMS:
+                    raise ValueError(f"each vector input must be a list of length {DIMS}")
+        return self
+
+
+class BundleResponse(BaseModel):
+    vector: List[int]
+    dims: int
+    n_inputs: int
+
+
+class StatsResponse(BaseModel):
+    backend: str
+    version: str
+    dims: int
+    episodic_size: int
+    episodic_capacity: int
+    semantic_concepts: int
+    learning_iterations: int
+    uptime_seconds: float
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok"]
+    backend: str
+
+
+def _vec_input_to_hv(values: List[float]) -> HyperVector:
+    """Binarize an arbitrary float vector into a bipolar ±1 hypervector.
+
+    Sign rule matches the rest of the codebase: zero/positive → +1, negative → −1.
+    Enforces the project-wide invariant that every HDC operation receives bipolar input.
+    """
+    arr = np.asarray(values, dtype=np.float32)
+    if arr.shape != (DIMS,):
+        raise HTTPException(status_code=422, detail=f"vector must have shape ({DIMS},)")
+    bits = np.where(arr >= 0.0, np.int8(1), np.int8(-1)).astype(np.int8)
+    return HyperVector(bits)
+
+
+def _encode(input_value: Union[str, List[float]], input_type: InputType) -> HyperVector:
+    if input_type == "text":
+        if not isinstance(input_value, str):
+            raise HTTPException(status_code=422, detail="text input must be a string")
+        return encode_text(input_value)
+    return _vec_input_to_hv(input_value)  # type: ignore[arg-type]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  App factory — registers BOTH /viz/* and the REST surface on one app
+# ═══════════════════════════════════════════════════════════════════════════
+
+def create_app(
+    viz_state: Optional[VizState] = None,
+    rest_state: Optional[RestState] = None,
+) -> FastAPI:
+    app = FastAPI(
+        title="kohaku HDC API",
+        version=KOHAKU_VERSION,
+        description=(
+            "Unified HTTP surface for kohaku — visualization endpoints over a "
+            "sample EpisodicMemory plus a write-able REST API for HDC encoding, "
+            "storage, retrieval, and bundling."
+        ),
+    )
+    # Viz state is optional — instantiating loads sample_memory.json which may
+    # not exist in every deployment; fall back to an empty state if missing.
+    if viz_state is None:
+        try:
+            viz_state = VizState()
+        except FileNotFoundError:
+            viz_state = VizState(concepts=[])
+    app.state.viz = viz_state
+
+    if rest_state is None:
+        capacity = int(os.environ.get("KOHAKU_CAPACITY", "10000"))
+        rest_state = RestState(capacity=capacity, dims=DIMS)
+    app.state.rest = rest_state
+
+    # ── Service descriptor ───────────────────────────────────────────────
     @app.get("/")
     def root() -> Dict[str, Any]:
         viz: VizState = app.state.viz
         return {
-            "name": "kohaku-viz",
-            "version": "0.7.0",
+            "name": "kohaku-api",
+            "version": KOHAKU_VERSION,
+            "backend": _BACKEND,
             "dims": DIMS,
             "num_concepts": len(viz.memory.entries()),
-            "endpoints": ["/viz/graph", "/viz/decay", "/viz/probe", "/viz/memory_map.html"],
+            "endpoints": [
+                "/health", "/stats",
+                "/viz/graph", "/viz/decay", "/viz/probe", "/viz/memory_map.html",
+                "/encode", "/store", "/query", "/bundle",
+            ],
         }
 
+    # ── Liveness + stats ─────────────────────────────────────────────────
+    @app.get("/health", response_model=HealthResponse)
+    def health() -> HealthResponse:
+        return HealthResponse(status="ok", backend=_BACKEND)
+
+    @app.get("/stats", response_model=StatsResponse)
+    def stats() -> StatsResponse:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            iterations = sum(p.n_examples for p in rest.semantic._protos.values())
+            return StatsResponse(
+                backend=_BACKEND,
+                version=KOHAKU_VERSION,
+                dims=rest.dims,
+                episodic_size=len(rest.episodic),
+                episodic_capacity=rest.episodic._capacity,
+                semantic_concepts=len(rest.semantic),
+                learning_iterations=iterations,
+                uptime_seconds=time.time() - rest.started_at,
+            )
+
+    # ── Visualization endpoints ──────────────────────────────────────────
     @app.get("/viz/graph")
     def viz_graph(
         threshold: float = Query(DEFAULT_THRESHOLD, ge=-1.0, le=1.0),
@@ -296,6 +506,70 @@ def create_app(state: Optional[VizState] = None) -> FastAPI:
         if not MEMORY_MAP_HTML.exists():
             raise HTTPException(status_code=404, detail="memory_map.html not found")
         return FileResponse(MEMORY_MAP_HTML, media_type="text/html")
+
+    # ── REST encoding / storage / retrieval ──────────────────────────────
+    @app.post("/encode", response_model=EncodeResponse)
+    def encode(req: EncodeRequest) -> EncodeResponse:
+        hv = _encode(req.input, req.type)
+        return EncodeResponse(vector=hv.data.tolist(), dims=len(hv))
+
+    @app.post("/store", response_model=StoreResponse)
+    def store(req: StoreRequest) -> StoreResponse:
+        rest: RestState = app.state.rest
+        hv = _encode(req.input, req.type)
+        with rest.lock:
+            entry_id = rest.episodic.store(hv, hv, req.label)
+            # Also feed the example into semantic memory so /stats can report
+            # online-learning iterations and so prototypes accumulate by label.
+            rest.semantic.add(req.label, hv)
+            size = len(rest.episodic)
+        return StoreResponse(id=entry_id, label=req.label, dims=len(hv), episodic_size=size)
+
+    @app.post("/query", response_model=QueryResponse)
+    def query_endpoint(req: QueryRequest) -> QueryResponse:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            if req.label is not None:
+                proto = rest.semantic.get(req.label)
+                if proto is None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"no semantic prototype for label {req.label!r}",
+                    )
+                probe = proto.vector
+            else:
+                probe = _encode(req.input, req.type)  # type: ignore[arg-type]
+
+            if rest.episodic.is_empty:
+                return QueryResponse(results=[], top_k=req.top_k, decay_applied=False)
+
+            raw_hits = _kohaku_query(rest.episodic, probe, top_k=req.top_k)
+
+            decay_applied = req.half_life is not None
+            decayed_map: dict[int, float] = {}
+            if decay_applied:
+                cfg = DecayConfig(half_life=req.half_life, floor=req.floor)  # type: ignore[arg-type]
+                for r in query_with_decay(
+                    rest.episodic, probe, top_k=req.top_k, config=cfg
+                ):
+                    decayed_map[r.entry_id] = r.similarity
+
+        hits = [
+            QueryHit(
+                entry_id=r.entry_id,
+                label=r.label,
+                similarity=r.similarity,
+                decayed_similarity=decayed_map.get(r.entry_id) if decay_applied else None,
+            )
+            for r in raw_hits
+        ]
+        return QueryResponse(results=hits, top_k=req.top_k, decay_applied=decay_applied)
+
+    @app.post("/bundle", response_model=BundleResponse)
+    def bundle(req: BundleRequest) -> BundleResponse:
+        hvs = [_encode(item, req.type) for item in req.inputs]
+        bundled = HyperVector.bundle_all(hvs)
+        return BundleResponse(vector=bundled.data.tolist(), dims=len(bundled), n_inputs=len(hvs))
 
     return app
 
