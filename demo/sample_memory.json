@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "description": "12 concepts across 3 ground-truth clusters (animals, programming, cities). Phrases share heavy anchor vocabulary inside each cluster so cosine similarity over kohaku.encode_text reliably exceeds 0.7 within-cluster and stays under 0.4 between clusters.",
+  "concepts": [
+    {
+      "id": "cat",
+      "label": "🐈 cat",
+      "phrase": "the cat purrs as a small wild animal creature living in the forest",
+      "cluster_label": "animals",
+      "color": "#ffb86c"
+    },
+    {
+      "id": "dog",
+      "label": "🐕 dog",
+      "phrase": "the dog barks as a small wild animal creature living in the forest",
+      "cluster_label": "animals",
+      "color": "#ffd394"
+    },
+    {
+      "id": "lion",
+      "label": "🦁 lion",
+      "phrase": "the lion roars as a small wild animal creature living in the forest",
+      "cluster_label": "animals",
+      "color": "#ff9f3f"
+    },
+    {
+      "id": "sparrow",
+      "label": "🐦 sparrow",
+      "phrase": "the sparrow chirps as a small wild animal creature living in the forest",
+      "cluster_label": "animals",
+      "color": "#f5c542"
+    },
+    {
+      "id": "python",
+      "label": "🐍 python",
+      "phrase": "the python runs as a fast modern code program language we write to build",
+      "cluster_label": "programming",
+      "color": "#7dd87d"
+    },
+    {
+      "id": "rust",
+      "label": "🦀 rust",
+      "phrase": "the rust runs as a fast modern code program language we write to build",
+      "cluster_label": "programming",
+      "color": "#6fd2c0"
+    },
+    {
+      "id": "function",
+      "label": "ƒ function",
+      "phrase": "the function runs as a fast modern code program block we write to build",
+      "cluster_label": "programming",
+      "color": "#9ed5ff"
+    },
+    {
+      "id": "debugger",
+      "label": "🐛 debugger",
+      "phrase": "the debugger runs as a fast modern code program tool we write to build",
+      "cluster_label": "programming",
+      "color": "#62b6ff"
+    },
+    {
+      "id": "tokyo",
+      "label": "🗼 tokyo",
+      "phrase": "the tokyo stands as a busy famous historic city place in our world map",
+      "cluster_label": "cities",
+      "color": "#ff7e8a"
+    },
+    {
+      "id": "paris",
+      "label": "🥐 paris",
+      "phrase": "the paris stands as a busy famous historic city place in our world map",
+      "cluster_label": "cities",
+      "color": "#ffaaaa"
+    },
+    {
+      "id": "kyoto",
+      "label": "⛩️ kyoto",
+      "phrase": "the kyoto stands as a quiet famous historic city place in our world map",
+      "cluster_label": "cities",
+      "color": "#bba0ff"
+    },
+    {
+      "id": "london",
+      "label": "🎡 london",
+      "phrase": "the london stands as a busy famous historic city place in our world map",
+      "cluster_label": "cities",
+      "color": "#d8a0ff"
+    }
+  ]
+}

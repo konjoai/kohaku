@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.6.0
+## Current Version: v0.7.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -53,3 +53,14 @@
 - [x] Real-time streaming consolidation (background thread/asyncio)
 - [x] Memory compaction & deduplication
 - [x] Multi-tenant isolation for serving multiple users from one engine
+
+## Phase 7: Visualization (v0.7.0) ✅
+- [x] `api/main.py` — FastAPI service exposing the live HDC memory:
+      `GET /viz/graph` (nodes + edges + cosine k-means cluster labels + per-node Ebbinghaus decay weight),
+      `GET /viz/decay` (per-concept forgetting curves over a configurable horizon),
+      `POST /viz/probe` (encode a query phrase and return ranked nearest neighbours), and
+      `GET /viz/memory_map.html` (serves the viewer).
+- [x] `demo/memory_map.html` — interactive d3-force-directed viewer (d3 v7 via CDN). Node radius = decay weight, colour = k-means cluster, edges = cosine ≥ slider threshold. Probe input animates dashed edges from the strongest-match node to the rest of the activated set. Live sliders for threshold / half-life / k.
+- [x] `demo/sample_memory.json` — 12 concepts across 3 ground-truth clusters (animals / programming / cities). Within-cluster cosine ≥ 0.7, between-cluster ≤ 0.4 by construction, so k-means recovers the labels deterministically.
+- [x] `api/test_viz.py` — 6 tests: graph contract & node-field invariants, edge-threshold subset relation, k-means cluster recovery, decay-curve shape & monotonicity, decay weight matches `decay_weight(age, cfg)` exactly, probe ranks the target cluster at the top.
+- [x] Total tests: **147 passed** (6 new + 141 prior).
