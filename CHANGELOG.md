@@ -2,6 +2,26 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.7.0] — 2026-05-09
+
+### Added — Phase 7: Visualization
+- `api/main.py` — FastAPI visualization service backed by the live `kohaku` library. `VizState` loads `demo/sample_memory.json` into an `EpisodicMemory`, runs cosine k-means on the bipolar hypervectors (centroid re-binarised by majority vote each iteration; deterministic seeding), and exposes:
+  - `GET /viz/graph?threshold&k&half_life` — `{nodes, edges, dims, threshold, num_clusters, half_life, current_clock}`. Each node carries `id, entry_id, label, cluster, cluster_label, color, last_accessed, age, decay_weight`. Edges include only pairs with `cosine ≥ threshold`. Decay weight is computed by the real `kohaku.decay.decay_weight` from the entry's age in memory ticks — proven by `test_decay_weights_match_ages_in_graph`.
+  - `GET /viz/decay?half_life&horizon&steps` — per-concept Ebbinghaus curves: `[{age, weight}]` over `[0, horizon]` plus each concept's `current_age` / `current_weight` marker.
+  - `POST /viz/probe` — encodes a query phrase via `kohaku.encode_text` and returns top-k cosine matches across the live memory.
+  - `GET /viz/memory_map.html` — serves the d3-force viewer.
+- `demo/memory_map.html` — d3-force-directed viewer (d3 v7 via CDN). Node radius scaled by Ebbinghaus decay weight, colour by k-means cluster, edges drawn for cosine ≥ slider threshold. Probe input animates dashed edges from the strongest-match node to the rest of the activated set. Sliders re-issue the API call on change for half-life / threshold / k. Decay panel renders all 12 forgetting curves with the current-age marker.
+- `demo/sample_memory.json` — 12 hand-authored concepts across three ground-truth clusters (animals, programming, cities). Phrases share heavy anchor vocabulary inside each cluster so within-cluster cosine reliably exceeds 0.7 and between-cluster cosine stays under 0.4 — verified by `test_kmeans_recovers_ground_truth_clusters`.
+- `api/test_viz.py` — 6 tests: graph contract & node-field invariants, edge-threshold subset relation across thresholds, k-means recovery of all three ground-truth clusters, decay-curve shape (anchored at 1.0, monotonically non-increasing, half-life crossing at 0.5), graph decay weight ↔ `decay_weight(age, cfg)` agreement, probe ranks programming concepts at the top with empty-query rejection.
+- `python/kohaku/__init__.py` — version bumped to `0.7.0`.
+- `python/pyproject.toml` — version bumped to `0.7.0`.
+- `PLAN.md` — Phase 7 added and ticked.
+- Total test count: **147 passed** (6 new + 141 prior; pre-existing skip resolved).
+
+### Notes
+- The visualization layer is read-only — it observes a kohaku memory built from the seed file but does not mutate `EpisodicMemory` semantics. The same `VizState` can be wrapped around any external `EpisodicMemory` by passing `memory=...` to `create_app(state=VizState(memory=mem, concepts=...))`.
+- K-means uses farthest-point-free deterministic seeding (first `k` entries) to keep the graph layout stable across reloads. Centroids are re-binarised to ±1 each iteration so they remain valid bipolar hypervectors.
+
 ## [0.6.0] — 2026-05-07
 
 ### Added
