@@ -2,9 +2,61 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.8.0] — 2026-05-10
+
+### Added — Phase 9: kyro bridge + cosmos UI
+
+- `python/kohaku/kyro_bridge.py` — `HDCRetriever(capacity, dims)` exposes
+  the kyro-compatible RAG surface over kohaku's HDC engine. `ingest(docs)`
+  accepts strings or `{"text", "id"?}` dicts, encodes each via
+  `encode_text`, stores into a private `EpisodicMemory`, and keeps a
+  parallel `entry_id → (doc_id, text)` map (HVs are not invertible).
+  `retrieve(query, top_k, half_life?, floor?)` returns `RetrievedChunk`
+  rows with raw cosine similarity, optional Ebbinghaus
+  `decayed_similarity`, and `age` (ticks since ingest). 15 unit tests
+  in `python/tests/test_kyro_bridge.py`.
+- `api/main.py` — two bridge endpoints with their own dedicated
+  `HDCRetriever` instance (kept isolated from `/store` + `/query` so the
+  RAG corpus can't pollute the general-purpose memory):
+  - `POST /bridge/ingest` — `{documents: [str | {text, id?}]}` →
+    `{entry_ids, total_chunks}`.
+  - `POST /bridge/retrieve` — `{query, top_k, half_life?, floor?}` →
+    `{results: [{entry_id, doc_id, text, similarity, decayed_similarity, age}], decay_applied, total_chunks}`.
+  7 new TestClient integration tests in `api/test_api.py`.
+- `demo/memory_map.html` — full-screen cosmos visualization. Pure-black
+  background. Each stored memory becomes a star whose **brightness**
+  follows the Ebbinghaus decay curve, **size** grows with access
+  frequency (recall-induced reconsolidation), and **colour** marks one
+  of three signature clusters (amber · rose · teal). Connections form
+  between near-neighbours (cosine > 0.32) and a traveling light dot
+  animates along each link. Queries materialize a probe star with an
+  expanding shockwave ring; lines arc to the top-k matches and the hit
+  stars flare. A **time dial** scrubs the "now" tick forward (memories
+  dim) or backward (memories brighten — the act of remembering).
+  Toggles: **constellation mode** draws faint cluster connectors;
+  **trails** toggle link visibility; **pulse** intensifies twinkle.
+  Pointer-drag a star to nudge it. New memory births spawn 14
+  particles that converge from the screen edges to the star's
+  position. Browser HDC engine (DIMS=1024) ports the kohaku LCG path
+  exactly: bipolar ±1, sign(LCG state >> 63), seed XOR with
+  0xDEAD_BEEF_CAFE_BABE.
+- `demo/index.html` — full rebuild as the cosmos landing page. Black
+  sky with drifting dust, a single floating glass search input, and a
+  curated 16-seed cosmos ready for query. Submitting a query spawns a
+  probe star above the input, fires lines into the sky to the top-5
+  matches, and blooms a row of cluster-coloured chips with similarity
+  scores below. Idle placeholder rotates through evocative prompts.
+
+### Notes
+- `kyro_bridge` ships in this repo so the kyro RAG pipeline pulls it via
+  `pip install kohaku` — no reverse dependency.
+- Both demo pages are single-file, no build step, and run standalone
+  (the in-browser HDC engine matches kohaku's pure-Python path bit-for-bit).
+- Total test count: **182 passed** (15 bridge + 7 API + 159 prior).
+
 ## [0.7.0] — 2026-05-09
 
-### Added — Phase 7: Visualization
+### Added — Phase 7: Visualization + REST API
 - `api/main.py` — FastAPI visualization service backed by the live `kohaku` library. `VizState` loads `demo/sample_memory.json` into an `EpisodicMemory`, runs cosine k-means on the bipolar hypervectors (centroid re-binarised by majority vote each iteration; deterministic seeding), and exposes:
   - `GET /viz/graph?threshold&k&half_life` — `{nodes, edges, dims, threshold, num_clusters, half_life, current_clock}`. Each node carries `id, entry_id, label, cluster, cluster_label, color, last_accessed, age, decay_weight`. Edges include only pairs with `cosine ≥ threshold`. Decay weight is computed by the real `kohaku.decay.decay_weight` from the entry's age in memory ticks — proven by `test_decay_weights_match_ages_in_graph`.
   - `GET /viz/decay?half_life&horizon&steps` — per-concept Ebbinghaus curves: `[{age, weight}]` over `[0, horizon]` plus each concept's `current_age` / `current_weight` marker.
@@ -21,6 +73,28 @@ All notable changes to Kohaku are documented here.
 ### Notes
 - The visualization layer is read-only — it observes a kohaku memory built from the seed file but does not mutate `EpisodicMemory` semantics. The same `VizState` can be wrapped around any external `EpisodicMemory` by passing `memory=...` to `create_app(state=VizState(memory=mem, concepts=...))`.
 - K-means uses farthest-point-free deterministic seeding (first `k` entries) to keep the graph layout stable across reloads. Centroids are re-binarised to ±1 each iteration so they remain valid bipolar hypervectors.
+- The viz layer is read-only — it observes a kohaku memory built from the seed file but does not mutate `EpisodicMemory` semantics.
+- Sign-binarization invariant enforced at the API boundary: raw float vectors collapse to ±1 before entering any HDC op.
+
+### Added — Phase 7: REST API (same release)
+
+Adds a write-able REST surface alongside the viz endpoints, on the same FastAPI app:
+
+- `POST /encode` / `POST /store` / `POST /query` / `POST /bundle` /
+  `GET /stats` / `GET /health`. `RestState` holds an `EpisodicMemory` +
+  `ItemMemory` guarded by `threading.Lock`. `/query` accepts `half_life`
+  and `floor` to attach Ebbinghaus `decayed_similarity` from
+  `query_with_decay`. Probing by `label` uses the learned semantic
+  prototype.
+- `api/requirements.txt` — fastapi, uvicorn[standard], pydantic v2,
+  numpy, httpx (for `TestClient`).
+- `api/Dockerfile` — python:3.11-slim, `PYTHONPATH=/app/python`,
+  uvicorn on `$PORT` (default 8000).
+- `render.yaml` — Render.com web service spec, Docker env, `/health`
+  healthcheck, `KOHAKU_CAPACITY` env var.
+- `api/test_api.py` — 18 integration tests via `TestClient` over the
+  real FastAPI app. No mocks — `encode_text`, `HyperVector.bundle_all`,
+  `EpisodicMemory.store`, `query`, `query_with_decay` all called directly.
 
 ## [0.6.0] — 2026-05-07
 

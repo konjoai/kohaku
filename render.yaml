@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: kohaku-api
+    env: docker
+    plan: starter
+    dockerfilePath: api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: KOHAKU_CAPACITY
+        value: "10000"
+      - key: PORT
+        value: "8000"

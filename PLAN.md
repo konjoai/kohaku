@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.7.0
+## Current Version: v0.8.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -54,13 +54,29 @@
 - [x] Memory compaction & deduplication
 - [x] Multi-tenant isolation for serving multiple users from one engine
 
-## Phase 7: Visualization (v0.7.0) ✅
-- [x] `api/main.py` — FastAPI service exposing the live HDC memory:
-      `GET /viz/graph` (nodes + edges + cosine k-means cluster labels + per-node Ebbinghaus decay weight),
-      `GET /viz/decay` (per-concept forgetting curves over a configurable horizon),
-      `POST /viz/probe` (encode a query phrase and return ranked nearest neighbours), and
-      `GET /viz/memory_map.html` (serves the viewer).
+## Phase 7: Visualization + REST API (v0.7.0) ✅
+- [x] `api/main.py` — unified FastAPI app exposing both surfaces in one process:
+      **viz** — `GET /viz/graph` (nodes + edges + cosine k-means cluster labels + per-node Ebbinghaus decay weight),
+      `GET /viz/decay` (per-concept forgetting curves), `POST /viz/probe` (ranked neighbours),
+      `GET /viz/memory_map.html` (serves the viewer);
+      **REST** — `POST /encode`, `POST /store`, `POST /query`, `POST /bundle`,
+      `GET /stats`, `GET /health`.
+      Two states on one app: read-only `VizState` over `demo/sample_memory.json`,
+      write-able `RestState` (EpisodicMemory + ItemMemory, `threading.Lock`-guarded)
+      for the REST surface. `/query` accepts `half_life` / `floor` and returns
+      `decayed_similarity` via `query_with_decay`. Raw float-vector inputs are
+      sign-binarized at the API boundary so HDC ops always see ±1.
 - [x] `demo/memory_map.html` — interactive d3-force-directed viewer (d3 v7 via CDN). Node radius = decay weight, colour = k-means cluster, edges = cosine ≥ slider threshold. Probe input animates dashed edges from the strongest-match node to the rest of the activated set. Live sliders for threshold / half-life / k.
 - [x] `demo/sample_memory.json` — 12 concepts across 3 ground-truth clusters (animals / programming / cities). Within-cluster cosine ≥ 0.7, between-cluster ≤ 0.4 by construction, so k-means recovers the labels deterministically.
-- [x] `api/test_viz.py` — 6 tests: graph contract & node-field invariants, edge-threshold subset relation, k-means cluster recovery, decay-curve shape & monotonicity, decay weight matches `decay_weight(age, cfg)` exactly, probe ranks the target cluster at the top.
-- [x] Total tests: **147 passed** (6 new + 141 prior).
+- [x] `api/requirements.txt` — fastapi, uvicorn[standard], pydantic v2, numpy, httpx.
+- [x] `api/Dockerfile` — python:3.11-slim, `PYTHONPATH=/app/python`, uvicorn on `$PORT`.
+- [x] `render.yaml` — Render.com web service spec, Docker env, `/health` healthcheck.
+- [x] `api/test_viz.py` — 6 tests: graph contract & node-field invariants, edge-threshold subset relation, k-means cluster recovery, decay-curve shape, decay weight matches `decay_weight(age, cfg)` exactly, probe ranks the target cluster at the top.
+- [x] `api/test_api.py` — 18 integration tests via `TestClient` for the REST surface (no mocks).
+
+## Phase 9: kyro bridge + cosmos UI (v0.8.0) ✅
+- [x] `python/kohaku/kyro_bridge.py` — `HDCRetriever` exposes a kyro-compatible RAG surface. `ingest(docs)` accepts strings or `{"text", "id"?}` dicts; `retrieve(query, top_k, half_life?, floor?)` returns `RetrievedChunk(entry_id, doc_id, text, similarity, decayed_similarity, age)`. Owns its own `EpisodicMemory` and a parallel `entry_id → (doc_id, text)` map (HVs are not invertible). 15 unit tests in `python/tests/test_kyro_bridge.py`.
+- [x] `api/main.py` — `POST /bridge/ingest` and `POST /bridge/retrieve` on the same unified app. App state holds a separate `HDCRetriever` so RAG chunks never pollute `/store` + `/query`. 7 new TestClient tests.
+- [x] `demo/memory_map.html` — full cosmos visualization. Stars = memories (brightness = Ebbinghaus decay, size = access count, colour = cluster), gravity drift along high-similarity links, traveling light dots on connections, query shockwaves with line-arc to top-k, time-dial scrub, constellation/trails/pulse toggles, drag-to-orbit, particle-converge birth animation. Browser HDC engine (DIMS=1024) ports the kohaku LCG path bit-exactly.
+- [x] `demo/index.html` — full rebuild: black-sky landing with floating glass search; query blooms a probe star, top-5 lines, and cluster-coloured chips.
+- [x] 182 tests total (22 new + 160 prior).
