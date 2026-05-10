@@ -48,6 +48,7 @@ from pydantic import BaseModel, Field, model_validator
 from kohaku import (  # noqa: E402
     DecayConfig,
     EpisodicMemory,
+    HDCRetriever,
     HyperVector,
     ItemMemory,
     _BACKEND,
@@ -207,23 +208,33 @@ class VizState:
     ) -> Dict[str, Any]:
         entries = self.memory.entries()
         cfg = DecayConfig(half_life=half_life)
-        ages = np.linspace(0, horizon, steps).astype(int).tolist()
-        now_clock = self.memory._timestamp
-        curves: List[Dict[str, Any]] = []
+        now = max(0, self.memory._timestamp - 1)
+        ages = sorted({int(round(a)) for a in np.linspace(0, horizon, steps)})
+
+        concepts_out: List[Dict[str, Any]] = []
         for i, e in enumerate(entries):
-            current_age = max(0, now_clock - 1 - e.timestamp)
-            curves.append({
+            current_age = max(0, now - e.timestamp)
+            curve = [
+                {"age": int(a), "weight": round(float(decay_weight(int(a), cfg)), 5)}
+                for a in ages
+            ]
+            meta = self.concepts[i] if i < len(self.concepts) else {}
+            concepts_out.append({
                 "id": e.label,
-                "label": (self.concepts[i].get("label", e.label)
-                          if i < len(self.concepts) else e.label),
-                "current_age": current_age,
-                "current_weight": round(float(decay_weight(current_age, cfg)), 4),
-                "samples": [
-                    {"age": int(a), "weight": round(float(decay_weight(int(a), cfg)), 4)}
-                    for a in ages
-                ],
+                "label": meta.get("label", e.label),
+                "color": meta.get("color"),
+                "last_accessed": int(e.timestamp),
+                "current_age": int(current_age),
+                "current_weight": round(float(decay_weight(current_age, cfg)), 5),
+                "curve": curve,
             })
-        return {"curves": curves, "half_life": half_life, "horizon": horizon}
+
+        return {
+            "concepts": concepts_out,
+            "half_life": half_life,
+            "horizon": horizon,
+            "steps": steps,
+        }
 
     # ── /viz/probe ───────────────────────────────────────────────────────
     def probe(self, text: str, top_k: int) -> Dict[str, Any]:
@@ -259,6 +270,10 @@ class RestState:
         self.dims = dims
         self.episodic = EpisodicMemory(capacity=capacity)
         self.semantic = ItemMemory(dims=dims)
+        # Separate retriever for the kyro bridge — keeps RAG chunks isolated
+        # from the general-purpose episodic store so /query and /bridge/retrieve
+        # don't pollute each other.
+        self.bridge = HDCRetriever(capacity=capacity, dims=dims)
         self.lock = threading.Lock()
         self.started_at = time.time()
 
@@ -381,6 +396,44 @@ class HealthResponse(BaseModel):
     backend: str
 
 
+# ── kyro bridge models ────────────────────────────────────────────────────────
+
+class BridgeDoc(BaseModel):
+    text: str = Field(..., min_length=1)
+    id: Optional[str] = None
+
+
+class BridgeIngestRequest(BaseModel):
+    documents: List[Union[str, BridgeDoc]] = Field(..., min_length=1)
+
+
+class BridgeIngestResponse(BaseModel):
+    entry_ids: List[int]
+    total_chunks: int
+
+
+class BridgeRetrieveRequest(BaseModel):
+    query: str = Field(..., min_length=1)
+    top_k: int = Field(5, ge=1, le=100)
+    half_life: Optional[float] = Field(default=None, gt=0.0)
+    floor: float = Field(0.0, ge=0.0, le=1.0)
+
+
+class BridgeChunk(BaseModel):
+    entry_id: int
+    doc_id: str
+    text: str
+    similarity: float
+    decayed_similarity: Optional[float] = None
+    age: int
+
+
+class BridgeRetrieveResponse(BaseModel):
+    results: List[BridgeChunk]
+    total_chunks: int
+    decay_applied: bool
+
+
 def _vec_input_to_hv(values: List[float]) -> HyperVector:
     """Binarize an arbitrary float vector into a bipolar ±1 hypervector.
 
@@ -409,7 +462,11 @@ def _encode(input_value: Union[str, List[float]], input_type: InputType) -> Hype
 def create_app(
     viz_state: Optional[VizState] = None,
     rest_state: Optional[RestState] = None,
+    *,
+    state: Optional[VizState] = None,  # legacy alias for `viz_state`
 ) -> FastAPI:
+    if viz_state is None and state is not None:
+        viz_state = state
     app = FastAPI(
         title="kohaku HDC API",
         version=KOHAKU_VERSION,
@@ -570,6 +627,43 @@ def create_app(
         hvs = [_encode(item, req.type) for item in req.inputs]
         bundled = HyperVector.bundle_all(hvs)
         return BundleResponse(vector=bundled.data.tolist(), dims=len(bundled), n_inputs=len(hvs))
+
+    # ── kyro bridge ──────────────────────────────────────────────────────
+    @app.post("/bridge/ingest", response_model=BridgeIngestResponse)
+    def bridge_ingest(req: BridgeIngestRequest) -> BridgeIngestResponse:
+        """Ingest documents into the HDC retrieval store (kyro RAG backend)."""
+        rest: RestState = app.state.rest
+        payload: list[Union[str, dict]] = []
+        for d in req.documents:
+            if isinstance(d, str):
+                payload.append(d)
+            else:
+                payload.append({"text": d.text, "id": d.id} if d.id else {"text": d.text})
+        with rest.lock:
+            try:
+                ids = rest.bridge.ingest(payload)
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            total = len(rest.bridge)
+        return BridgeIngestResponse(entry_ids=ids, total_chunks=total)
+
+    @app.post("/bridge/retrieve", response_model=BridgeRetrieveResponse)
+    def bridge_retrieve(req: BridgeRetrieveRequest) -> BridgeRetrieveResponse:
+        """HDC-powered top-k retrieval for kyro, with optional Ebbinghaus decay."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            chunks = rest.bridge.retrieve(
+                req.query,
+                top_k=req.top_k,
+                half_life=req.half_life,
+                floor=req.floor,
+            )
+            total = len(rest.bridge)
+        return BridgeRetrieveResponse(
+            results=[BridgeChunk(**c.to_dict()) for c in chunks],
+            total_chunks=total,
+            decay_applied=req.half_life is not None,
+        )
 
     return app
 

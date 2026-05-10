@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.7.0
+## Current Version: v0.8.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -73,3 +73,10 @@
 - [x] `render.yaml` — Render.com web service spec, Docker env, `/health` healthcheck.
 - [x] `api/test_viz.py` — 6 tests: graph contract & node-field invariants, edge-threshold subset relation, k-means cluster recovery, decay-curve shape, decay weight matches `decay_weight(age, cfg)` exactly, probe ranks the target cluster at the top.
 - [x] `api/test_api.py` — 18 integration tests via `TestClient` for the REST surface (no mocks).
+
+## Phase 9: kyro bridge + cosmos UI (v0.8.0) ✅
+- [x] `python/kohaku/kyro_bridge.py` — `HDCRetriever` exposes a kyro-compatible RAG surface. `ingest(docs)` accepts strings or `{"text", "id"?}` dicts; `retrieve(query, top_k, half_life?, floor?)` returns `RetrievedChunk(entry_id, doc_id, text, similarity, decayed_similarity, age)`. Owns its own `EpisodicMemory` and a parallel `entry_id → (doc_id, text)` map (HVs are not invertible). 15 unit tests in `python/tests/test_kyro_bridge.py`.
+- [x] `api/main.py` — `POST /bridge/ingest` and `POST /bridge/retrieve` on the same unified app. App state holds a separate `HDCRetriever` so RAG chunks never pollute `/store` + `/query`. 7 new TestClient tests.
+- [x] `demo/memory_map.html` — full cosmos visualization. Stars = memories (brightness = Ebbinghaus decay, size = access count, colour = cluster), gravity drift along high-similarity links, traveling light dots on connections, query shockwaves with line-arc to top-k, time-dial scrub, constellation/trails/pulse toggles, drag-to-orbit, particle-converge birth animation. Browser HDC engine (DIMS=1024) ports the kohaku LCG path bit-exactly.
+- [x] `demo/index.html` — full rebuild: black-sky landing with floating glass search; query blooms a probe star, top-5 lines, and cluster-coloured chips.
+- [x] 182 tests total (22 new + 160 prior).

@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kohaku · Memory Map · 琥珀</title>
+<style>
+  /* ───────────────────────────────────────────────────────────────────────
+     Cosmic palette — amber preserved in time, on a deep-space dark.
+     ─────────────────────────────────────────────────────────────────────── */
+  :root {
+    --bg-0: #05060a;
+    --bg-1: #0a0c12;
+    --bg-2: #131722;
+    --fg-0: #f0e6d2;
+    --fg-1: #b8b0a0;
+    --fg-2: #6a6258;
+    --amber: #ffb86c;
+    --amber-2: #ffd49a;
+    --gold:  #ffd700;
+    --cyan:  #6cdcff;
+    --cyan-2:#a8eaff;
+    --green: #78e68c;
+    --magenta:#ff79c6;
+    --border: rgba(255,184,108,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  html, body {
+    background: var(--bg-0);
+    color: var(--fg-0);
+    font-family: 'SF Pro Display', -apple-system, 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh; width: 100vw;
+    cursor: crosshair;
+  }
+  body { position: relative; }
+
+  /* ───────────────── Canvas — full bleed ───────────────── */
+  canvas#sky {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    display: block;
+    will-change: transform;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,184,108,0.04), transparent 60%),
+      radial-gradient(circle at 75% 80%, rgba(108,220,255,0.03), transparent 60%),
+      radial-gradient(ellipse at center,  rgba(20,15,30,0.4),    rgba(0,0,0,0.95) 80%),
+      var(--bg-0);
+  }
+
+  /* Subtle film grain overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.008) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+    opacity: 0.35;
+    z-index: 1;
+  }
+
+  /* ───────────────── UI overlays ───────────────── */
+  .ui { position: fixed; z-index: 10; pointer-events: none; }
+  .ui > * { pointer-events: auto; }
+
+  .top-left  { top: 22px; left: 26px; }
+  .top-right { top: 22px; right: 26px; }
+  .bottom-left { bottom: 22px; left: 26px; }
+  .bottom-center { bottom: 22px; left: 50%; transform: translateX(-50%); }
+
+  .brand h1 {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--amber-2) 0%, var(--gold) 50%, var(--amber) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+    text-shadow: 0 0 22px rgba(255,184,108,0.25);
+  }
+  .brand .tag {
+    font-size: 12.5px; color: var(--fg-1); letter-spacing: 1.2px;
+    font-family: 'SF Mono', monospace;
+  }
+  .brand .tag .amber { color: var(--amber); }
+  .brand .pill {
+    display: inline-block; margin-top: 8px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-family: 'SF Mono', monospace; letter-spacing: 1px;
+    text-transform: uppercase; font-weight: 700;
+    color: #1a0e08; background: var(--gold);
+    box-shadow: 0 0 18px rgba(255,215,0,0.3);
+  }
+  .brand .pill.dim { background: var(--bg-2); color: var(--fg-2); box-shadow: none; border: 1px solid var(--border); }
+
+  .legend {
+    background: rgba(10,12,18,0.55);
+    backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12px;
+    font-family: 'SF Mono', monospace;
+    color: var(--fg-1);
+    max-width: 240px;
+  }
+  .legend .row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .legend .row:last-child { margin-bottom: 0; }
+  .legend .swatch {
+    width: 10px; height: 10px; border-radius: 999px;
+    box-shadow: 0 0 10px currentColor;
+  }
+  .legend .label { color: var(--fg-0); flex: 1; }
+  .legend .count { color: var(--fg-2); font-size: 11px; }
+
+  .hint {
+    background: rgba(10,12,18,0.55);
+    backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12px; color: var(--fg-1);
+    font-family: 'SF Mono', monospace;
+    max-width: 360px;
+  }
+  .hint kbd {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 6px; font-size: 10.5px; color: var(--gold);
+    font-family: 'SF Mono', monospace;
+  }
+  .hint .row { margin-bottom: 4px; }
+  .hint .row:last-child { margin-bottom: 0; }
+
+  /* ───────────────── Time dial ───────────────── */
+  .dial {
+    background: rgba(10,12,18,0.65);
+    backdrop-filter: blur(16px) saturate(170%);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 14px 28px;
+    display: flex; align-items: center; gap: 18px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.04),
+      0 18px 50px rgba(0,0,0,0.55);
+  }
+  .dial .label {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--fg-2); font-family: 'SF Mono', monospace;
+  }
+  .dial .value {
+    font-family: 'SF Mono', monospace; font-size: 16px; color: var(--gold);
+    font-weight: 700; min-width: 96px; text-align: center;
+    text-shadow: 0 0 16px rgba(255,215,0,0.4);
+  }
+  .dial input[type="range"] {
+    width: 360px; accent-color: var(--amber);
+    height: 4px;
+  }
+  .dial .knob-readout {
+    font-family: 'SF Mono', monospace; font-size: 11px; color: var(--fg-2);
+  }
+  .dial .knob-readout .gold { color: var(--gold); }
+
+  /* ───────────────── Glass-morphism memory card ───────────────── */
+  #card {
+    position: fixed; z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.95);
+    transition:
+      opacity 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, opacity;
+  }
+  #card.show { opacity: 1; transform: scale(1); pointer-events: auto; }
+  #card .glass {
+    background: linear-gradient(135deg, rgba(20,16,8,0.55) 0%, rgba(8,10,18,0.55) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.08),
+      0 24px 80px rgba(0,0,0,0.55),
+      0 0 40px rgba(255,184,108,0.08);
+    padding: 18px 22px;
+    width: 320px;
+    color: var(--fg-0);
+    font-family: 'SF Pro Display', system-ui, sans-serif;
+  }
+  #card h3 {
+    font-size: 17px; font-weight: 700;
+    color: var(--amber-2); margin-bottom: 4px;
+    letter-spacing: -0.2px;
+  }
+  #card .sub {
+    font-family: 'SF Mono', monospace; font-size: 11px;
+    color: var(--fg-2); letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  #card .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 7px 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 12.5px;
+  }
+  #card .row:first-of-type { border-top: none; }
+  #card .row .k { color: var(--fg-1); font-family: 'SF Mono', monospace; }
+  #card .row .v { color: var(--gold); font-family: 'SF Mono', monospace; }
+  #card .matches {
+    margin-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 10px;
+  }
+  #card .matches .head {
+    font-size: 10.5px; color: var(--fg-2); letter-spacing: 1.2px;
+    text-transform: uppercase; margin-bottom: 6px;
+    font-family: 'SF Mono', monospace;
+  }
+  #card .matches .item {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-size: 12px; padding: 3px 0;
+    font-family: 'SF Mono', monospace;
+  }
+  #card .matches .item .lab { color: var(--fg-0); }
+  #card .matches .item .sim { color: var(--amber); }
+
+  /* ───────────────── Boot splash ───────────────── */
+  #boot {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-0);
+    transition: opacity 700ms ease;
+  }
+  #boot.hidden { opacity: 0; pointer-events: none; }
+  #boot .ribbon {
+    font-family: 'SF Mono', monospace;
+    color: var(--gold);
+    font-size: 14px; letter-spacing: 4px;
+    animation: pulse 1.6s ease-in-out infinite;
+    text-shadow: 0 0 18px rgba(255,215,0,0.5);
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+
+<!-- ─── UI ─── -->
+<div class="ui top-left brand">
+  <h1>Kohaku · Memory Map</h1>
+  <div class="tag">琥珀 · <span class="amber">amber preserved in time</span></div>
+  <div class="pill" id="modePill">offline simulation</div>
+</div>
+
+<div class="ui top-right">
+  <div class="legend" id="legend">
+    <div class="row"><span class="swatch" style="color:#ffb86c; background:#ffb86c"></span>
+      <span class="label">Episodic</span><span class="count" id="ep-count">— stars</span></div>
+    <div class="row"><span class="swatch" style="color:#6cdcff; background:#6cdcff"></span>
+      <span class="label">Semantic</span><span class="count" id="se-count">— stars</span></div>
+    <div class="row"><span class="swatch" style="color:#78e68c; background:#78e68c"></span>
+      <span class="label">Consolidated</span><span class="count" id="co-count">— stars</span></div>
+  </div>
+</div>
+
+<div class="ui bottom-left">
+  <div class="hint">
+    <div class="row">Move the <kbd>time dial</kbd> ↓ to scrub through forgetting</div>
+    <div class="row">Hold <kbd>Shift</kbd> + hover to draw constellations</div>
+    <div class="row"><kbd>Hover</kbd> → resonance · <kbd>Click</kbd> → query nova</div>
+  </div>
+</div>
+
+<div class="ui bottom-center">
+  <div class="dial">
+    <span class="label">Days since learned</span>
+    <input id="dial" type="range" min="0" max="365" value="0" step="1" />
+    <span class="value" id="dialVal">0 d</span>
+    <span class="knob-readout">half-life <span class="gold" id="halfVal">30</span> d</span>
+  </div>
+</div>
+
+<!-- ─── Glass-morphism detail card ─── -->
+<div id="card">
+  <div class="glass">
+    <h3 id="cardTitle">—</h3>
+    <div class="sub" id="cardSub">memory · cluster</div>
+    <div class="row"><span class="k">strength</span><span class="v" id="cardStrength">—</span></div>
+    <div class="row"><span class="k">decay weight</span><span class="v" id="cardDecay">—</span></div>
+    <div class="row"><span class="k">depth</span><span class="v" id="cardDepth">—</span></div>
+    <div class="row"><span class="k">cluster</span><span class="v" id="cardCluster">—</span></div>
+    <div class="matches">
+      <div class="head">resonant neighbors</div>
+      <div id="cardMatches"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Boot ribbon ─── -->
+<div id="boot"><div class="ribbon">ቆንጆ · 根性 · 康宙 · 건조 · কুঞ্জ</div></div>
+
+<script>
+"use strict";
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+const TAU = Math.PI * 2;
+const FOCAL = 700;          // perspective focal length
+const Z_NEAR = 60;
+const Z_FAR  = 1800;
+const CAMERA_DRIFT = 0.18;  // forward drift per frame (z decrement)
+const STAR_BASE_R = 2.4;    // base radius before perspective scaling
+const NEBULA_LAYERS = 4;
+const CONSTELLATION_RADIUS_PX = 110;
+const CONSTELLATION_FADE_S = 4.0;
+const NOVA_PARTICLES = 60;
+const NOVA_DURATION_MS = 800;
+const RESONANCE_SPEEDS = [30, 50, 70];   // px/s for the 3 rings
+const SPRING_K = 0.05;                     // pull factor toward hover
+const SPRING_DAMP = 0.78;
+const WARP_VELOCITY_THRESHOLD = 12;        // dial units / 100ms to trigger warp
+const HALF_LIFE_DAYS = 30;
+const GLYPHS = ["✦", "✧", "ᨒ", "᨞", "✺", "✸"];
+
+// Cluster definitions ────────────────────────────────────────────────────
+const CLUSTERS = [
+  { id: "episodic",     name: "Episodic",     rgb: [255, 184, 108], center: [-260,  -40,  900],  spread: [180, 180, 380] },
+  { id: "semantic",     name: "Semantic",     rgb: [108, 220, 255], center: [ 240, -100, 1100],  spread: [180, 160, 380] },
+  { id: "consolidated", name: "Consolidated", rgb: [120, 230, 140], center: [   0,  140, 1300],  spread: [220, 140, 380] },
+];
+
+// Sample memory phrases for star labels (non-real but plausible)
+const PHRASES = {
+  episodic: [
+    "coffee at 8:14 am", "kitten napping in sunbeam", "river bend at noon",
+    "rain on the kitchen window", "first ride on the new bike",
+    "tabby in the laundry basket", "bird outside the office",
+    "forgotten umbrella by the door", "grandmother's hand on mine",
+    "skype call missed twice", "thunderstorm last tuesday",
+    "blue scarf on the train", "espresso double shot",
+    "moss on the sidewalk crack", "first jasmine of spring",
+    "letter signed in green ink", "crow in the parking lot",
+    "snow on the driveway monday", "warm bread out of the oven",
+    "phone call from a friend",
+  ],
+  semantic: [
+    "cats are independent", "rivers flow downhill",
+    "coffee is warm and bitter", "rain comes from clouds",
+    "bicycles need balance", "felines purr when content",
+    "windows let light through", "umbrellas block water",
+    "sunlight is yellow-white", "thunder follows lightning",
+    "kindness is contagious", "memory fades with time",
+    "espresso is concentrated", "moss grows in shade",
+    "jasmine blooms in spring", "letters carry weight",
+    "snow is cold and quiet", "bread rises with yeast",
+    "friendship needs care", "names hold meaning",
+  ],
+  consolidated: [
+    "cat-on-mat archetype", "morning-coffee ritual",
+    "river-flow concept", "rain-on-window mood",
+    "feline-warmth memory", "espresso-bitter taste",
+    "blue-on-train moment", "spring-jasmine season",
+    "first-snow image", "warm-bread-home feeling",
+    "lost-umbrella story", "thunder-storm fear",
+    "letter-arrival joy", "morning-light pattern",
+    "crow-call sound", "moss-shade textures",
+    "phone-call-friend bond", "missed-call regret",
+    "kitten-purr soothing", "sunbeam-on-floor warmth",
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById("sky");
+const ctx    = canvas.getContext("2d", { alpha: true });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W = 0, H = 0, CX = 0, CY = 0;
+
+let camera = { z: 0 };          // global drift accumulator
+let lastTime = performance.now();
+
+let stars = [];                  // array of star objects
+let clusters = [];               // cluster centroid metadata for nebulae
+
+let mouseX = -9999, mouseY = -9999;
+let hoverIdx = -1;
+let selectedIdx = -1;
+let shiftHeld = false;
+
+// Effect collections
+let novas = [];                  // active nova explosions
+let resonances = [];             // active hover-rings
+let constellations = [];         // active constellation lines
+let glyphs = [];                 // floating constellation glyphs
+
+// Time dial / decay
+let daysSince = 0;
+let prevDays = 0;
+let dialVelocity = 0;            // smoothed dial velocity (units/sec)
+let lastDialChangeT = performance.now();
+
+// Live mode
+let liveMode = false;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function rand(seed) {
+  // Mulberry32 — small deterministic PRNG
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = rand(0xc0ffee);
+
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function lerp(a, b, t)    { return a + (b - a) * t; }
+function easeOutExpo(t)   { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+function easeOutBack(t)   { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+function easeOutCubic(t)  { return 1 - Math.pow(1 - t, 3); }
+function rgba(rgb, a)     { return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
+
+function decayWeight(days, halfLife) {
+  return Math.pow(0.5, days / Math.max(0.5, halfLife));
+}
+
+// Project (x,y,z) world → (sx, sy, scale, depthFactor)
+// depthFactor in [0,1]: 1 = closest, 0 = far away
+function project(x, y, z) {
+  const zEff = Math.max(Z_NEAR, z - camera.z);
+  const k = FOCAL / zEff;
+  const sx = CX + (x) * k;
+  const sy = CY + (y) * k;
+  const scale = k;
+  const depth = clamp(1 - (zEff - Z_NEAR) / (Z_FAR - Z_NEAR), 0, 1);
+  return { sx, sy, scale, depth, zEff };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  WORLD GEN
+// ═══════════════════════════════════════════════════════════════════════════
+function buildWorld() {
+  stars = [];
+  clusters = CLUSTERS.map(c => ({ ...c, count: 0, x: 0, y: 0, z: 0 }));
+  let id = 0;
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = CLUSTERS[ci];
+    const phrases = PHRASES[c.id];
+    const N = 22;          // ~66 stars total
+    for (let i = 0; i < N; i++) {
+      // gaussian-ish jitter around center
+      const r = () => (rng() + rng() + rng() + rng() - 2) / 2;
+      const x = c.center[0] + r() * c.spread[0];
+      const y = c.center[1] + r() * c.spread[1];
+      const z = c.center[2] + r() * c.spread[2];
+      stars.push({
+        id: id++,
+        cluster: ci,
+        clusterId: c.id,
+        rgb: c.rgb,
+        x, y, z,
+        // visual state
+        homeX: x, homeY: y, homeZ: z,   // for spring snap-back
+        sprX: 0, sprY: 0,                // current spring offset (screen-space)
+        sprVx: 0, sprVy: 0,
+        bornDay: Math.floor(rng() * 90),  // each star has its own learning age
+        labelText: phrases[i % phrases.length],
+        twinkle: rng() * TAU,
+        flash: 0,                          // 0..1, decays — used by nova source
+      });
+      clusters[ci].count++;
+    }
+  }
+}
+
+function clusterCenterScreen(ci) {
+  // average projected position of all stars in cluster
+  let sx = 0, sy = 0, n = 0;
+  for (const s of stars) if (s.cluster === ci) {
+    const p = project(s.x, s.y, s.z);
+    sx += p.sx; sy += p.sy; n++;
+  }
+  return n ? { sx: sx / n, sy: sy / n } : { sx: CX, sy: CY };
+}
+
+// Cosine-similarity surrogate from world distance (deterministic from positions).
+// Real kohaku gives bipolar cosine ∈ [-1,1]; here we use a smooth function of 3D distance.
+function similarity(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  // same cluster → high; cross-cluster → falls off
+  const same = a.cluster === b.cluster ? 1.0 : 0.4;
+  // map distance 0..600 → 1..0
+  const n = clamp(1 - d / 700, 0, 1);
+  return same * n;
+}
+
+// Top-K neighbors of a star by similarity
+function neighborsOf(idx, k = 4) {
+  const a = stars[idx];
+  const out = [];
+  for (let j = 0; j < stars.length; j++) {
+    if (j === idx) continue;
+    out.push({ j, sim: similarity(a, stars[j]) });
+  }
+  out.sort((x, y) => y.sim - x.sim);
+  return out.slice(0, k);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER PIECES
+// ═══════════════════════════════════════════════════════════════════════════
+function renderNebulae() {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = CLUSTERS[ci];
+    const center = clusterCenterScreen(ci);
+    // base radius scales with screen size
+    const baseR = Math.min(W, H) * 0.32;
+    for (let layer = NEBULA_LAYERS; layer >= 1; layer--) {
+      const r = baseR * (layer / NEBULA_LAYERS) * 1.05;
+      const alpha = (0.16 / layer) * (0.85 + 0.15 * Math.sin(performance.now() * 0.0006 + ci));
+      const grad = ctx.createRadialGradient(
+        center.sx, center.sy, 0,
+        center.sx, center.sy, r
+      );
+      grad.addColorStop(0,   rgba(c.rgb, alpha));
+      grad.addColorStop(0.4, rgba(c.rgb, alpha * 0.5));
+      grad.addColorStop(1,   rgba(c.rgb, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(center.sx, center.sy, r, 0, TAU);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function inAnyNebula(sx, sy) {
+  // returns true if point is within the inner third of any cluster nebula
+  const r = Math.min(W, H) * 0.32 * 0.7;
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = clusterCenterScreen(ci);
+    const dx = sx - c.sx, dy = sy - c.sy;
+    if (dx*dx + dy*dy < r*r) return true;
+  }
+  return false;
+}
+
+function renderStars(dt) {
+  const warping = Math.abs(dialVelocity) > WARP_VELOCITY_THRESHOLD;
+  const maxV = 200;
+  const vNorm = clamp(Math.abs(dialVelocity) / maxV, 0, 1);
+
+  // Ages all stars by dialing forward in time
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+    const age = daysSince + s.bornDay * 0.2;  // each star has slight age offset
+    const w = decayWeight(age, HALF_LIFE_DAYS);
+    s._decayWeight = w;
+
+    // spring physics — pull toward hovered star if it's a high-sim neighbor
+    let targetSprX = 0, targetSprY = 0;
+    if (hoverIdx >= 0 && hoverIdx !== i) {
+      const sim = similarity(s, stars[hoverIdx]);
+      if (sim > 0.55) {
+        const ph = project(stars[hoverIdx].x, stars[hoverIdx].y, stars[hoverIdx].z);
+        const pi = project(s.x, s.y, s.z);
+        const dx = ph.sx - pi.sx, dy = ph.sy - pi.sy;
+        const dlen = Math.sqrt(dx*dx + dy*dy) || 1;
+        const pull = 4 * (sim - 0.55) / 0.45;
+        targetSprX = (dx / dlen) * pull;
+        targetSprY = (dy / dlen) * pull;
+      }
+    }
+    // Spring update
+    s.sprVx += (targetSprX - s.sprX) * SPRING_K;
+    s.sprVy += (targetSprY - s.sprY) * SPRING_K;
+    s.sprVx *= SPRING_DAMP;
+    s.sprVy *= SPRING_DAMP;
+    s.sprX += s.sprVx;
+    s.sprY += s.sprVy;
+
+    // flash decay
+    if (s.flash > 0) s.flash = Math.max(0, s.flash - dt * 1.4);
+  }
+
+  // Sort by depth (far → near) so near stars render on top
+  const sorted = stars
+    .map((s, i) => ({ s, i, p: project(s.x, s.y, s.z) }))
+    .sort((a, b) => b.p.zEff - a.p.zEff);
+
+  ctx.save();
+  for (const { s, i, p } of sorted) {
+    const sx = p.sx + s.sprX;
+    const sy = p.sy + s.sprY;
+    const r = STAR_BASE_R * (FOCAL / p.zEff);
+    if (sx < -50 || sx > W + 50 || sy < -50 || sy > H + 50 || r < 0.2) continue;
+
+    const decay = s._decayWeight;
+    const inNeb = inAnyNebula(sx, sy);
+    const baseBright = (0.45 + 0.55 * p.depth) * (0.30 + 0.70 * decay);
+    const bright = clamp(baseBright * (inNeb ? 1.30 : 1.0), 0, 1.4);
+
+    const twinkle = 0.85 + 0.15 * Math.sin(performance.now() * 0.003 + s.twinkle);
+
+    if (warping && vNorm > 0.04) {
+      // ── WARP STREAK ──
+      const streakLen = vNorm * 70 * (FOCAL / p.zEff);  // deeper → shorter
+      const sign = Math.sign(dialVelocity) || 1;
+      const x2 = sx - sign * streakLen;
+      ctx.strokeStyle = `rgba(${s.rgb[0]},${s.rgb[1]},${s.rgb[2]},${0.55 * vNorm * bright})`;
+      ctx.lineWidth = Math.max(0.5, 2 * (FOCAL / p.zEff));
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(x2, sy);
+      ctx.stroke();
+    }
+
+    // ── Star core (with optional nova flash) ──
+    if (s.flash > 0) {
+      // nova white-hot pulse
+      const fr = r * (1 + s.flash * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.85 * s.flash})`;
+      ctx.shadowColor = rgba(s.rgb, 0.8);
+      ctx.shadowBlur = 30 * s.flash;
+      ctx.beginPath(); ctx.arc(sx, sy, fr, 0, TAU); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // halo
+    const haloA = 0.35 * bright * twinkle;
+    ctx.fillStyle = rgba(s.rgb, haloA);
+    ctx.beginPath(); ctx.arc(sx, sy, r * 2.4, 0, TAU); ctx.fill();
+
+    // core
+    const coreA = bright * twinkle;
+    if (i === selectedIdx) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, coreA + 0.3)})`;
+      ctx.shadowColor = rgba(s.rgb, 1);
+      ctx.shadowBlur = 18;
+    } else {
+      ctx.fillStyle = `rgba(${s.rgb[0]+20},${s.rgb[1]+20},${s.rgb[2]+20},${coreA})`;
+      ctx.shadowColor = rgba(s.rgb, 0.6);
+      ctx.shadowBlur = 8;
+    }
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // hover ring
+    if (i === hoverIdx) {
+      ctx.strokeStyle = rgba(s.rgb, 0.9);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 3.2, 0, TAU); ctx.stroke();
+    }
+
+    // label, only when close OR hovered/selected
+    const showLabel = (i === hoverIdx || i === selectedIdx) || p.depth > 0.78;
+    if (showLabel && r > 1.2) {
+      ctx.font = `${Math.round(11 + 2 * p.depth)}px 'SF Mono', monospace`;
+      ctx.fillStyle = `rgba(240,230,210,${0.55 + 0.4 * p.depth})`;
+      ctx.textBaseline = "middle";
+      ctx.fillText(s.labelText, sx + r * 2.4 + 6, sy);
+    }
+    s._sx = sx; s._sy = sy; s._sr = r; s._depth = p.depth;
+  }
+  ctx.restore();
+}
+
+function renderResonance(dt) {
+  // hovered star's resonance: 3 expanding rings
+  if (hoverIdx < 0) {
+    // tick down all
+    for (const r of resonances) r.life -= dt;
+  } else {
+    // spawn new rings periodically
+    const now = performance.now();
+    const last = resonances.length ? resonances[resonances.length - 1].born : 0;
+    if (now - last > 250) {
+      const s = stars[hoverIdx];
+      // hue from neighbor similarity
+      const ns = neighborsOf(hoverIdx, 5);
+      const avgSim = ns.reduce((a, b) => a + b.sim, 0) / Math.max(1, ns.length);
+      // warm (amber) for high sim, cool (cyan) for low
+      const rgb = avgSim > 0.5
+        ? [255, Math.round(184 - (avgSim - 0.5) * 200), Math.round(108 - (avgSim - 0.5) * 200)]
+        : [108 + (0.5 - avgSim) * 200, 220, Math.round(255 - (0.5 - avgSim) * 80)];
+      for (let k = 0; k < 3; k++) {
+        resonances.push({
+          x: s._sx ?? CX, y: s._sy ?? CY,
+          r: 0,
+          speed: RESONANCE_SPEEDS[k],
+          rgb,
+          life: 1.0,
+          born: now,
+        });
+      }
+    }
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const r of resonances) {
+    if (r.life <= 0) continue;
+    r.r += r.speed * dt;
+    r.life -= dt * 0.6;
+    const a = Math.max(0, r.life) * 0.55;
+    ctx.strokeStyle = rgba(r.rgb, a);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+  resonances = resonances.filter(r => r.life > 0 && r.r < Math.max(W, H));
+}
+
+function renderNovas(dt) {
+  // For each active nova, advance particles + draw
+  ctx.save();
+  for (const n of novas) {
+    const t = (performance.now() - n.start) / NOVA_DURATION_MS;
+    if (t >= 1) { n.dead = true; continue; }
+    const e = easeOutCubic(t);
+    for (const p of n.particles) {
+      const px = n.x + p.vx * e * 1.6;
+      const py = n.y + p.vy * e * 1.6;
+      ctx.shadowColor = rgba(n.rgb, 0.9);
+      ctx.shadowBlur = 40 * (1 - e);
+      ctx.fillStyle = `rgba(${n.rgb[0]+30},${n.rgb[1]+30},${n.rgb[2]+30},${(1 - e) * 0.95})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.6 + (1 - e) * 2.2, 0, TAU);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    // shockwave ring
+    ctx.strokeStyle = rgba(n.rgb, (1 - e) * 0.6);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 30 + e * 220, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+  novas = novas.filter(n => !n.dead);
+}
+
+function renderConstellations(dt) {
+  // age out old constellations
+  const now = performance.now();
+  for (const c of constellations) {
+    c.age = (now - c.born) / 1000;
+  }
+  constellations = constellations.filter(c => c.age < CONSTELLATION_FADE_S + 0.5);
+  glyphs = glyphs.filter(g => (now - g.born) / 1000 < CONSTELLATION_FADE_S + 1.0);
+
+  ctx.save();
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = "#ffd700";
+  for (const c of constellations) {
+    const t = c.age / CONSTELLATION_FADE_S;
+    // draw-in 0..0.25 then fade 0.25..1
+    let drawT = clamp(t / 0.25, 0, 1);
+    let fade = t > 0.25 ? Math.max(0, 1 - (t - 0.25) / 0.75) : 1.0;
+    drawT = easeOutCubic(drawT);
+    const a = stars[c.i], b = stars[c.j];
+    if (a._sx === undefined || b._sx === undefined) continue;
+    const x1 = a._sx, y1 = a._sy;
+    const x2 = lerp(a._sx, b._sx, drawT);
+    const y2 = lerp(a._sy, b._sy, drawT);
+    ctx.strokeStyle = `rgba(255,215,0,${0.55 * fade})`;
+    ctx.lineWidth = 1.0;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  for (const g of glyphs) {
+    const t = (now - g.born) / 1000;
+    const fade = t > 0.4 ? Math.max(0, 1 - (t - 0.4) / 1.2) : easeOutCubic(t / 0.4);
+    ctx.fillStyle = `rgba(255,215,0,${0.85 * fade})`;
+    ctx.font = `${22}px 'SF Pro Display', serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(g.glyph, g.x, g.y);
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INTERACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function findStarUnder(mx, my) {
+  // pick smallest (closest by depth) star whose center is within hit radius
+  let best = -1, bestDist = 30 * 30;
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+    if (s._sx === undefined) continue;
+    const dx = mx - s._sx, dy = my - s._sy;
+    const d2 = dx*dx + dy*dy;
+    const hit = Math.max(8, s._sr * 3.5);
+    if (d2 < hit * hit && d2 < bestDist) {
+      bestDist = d2; best = i;
+    }
+  }
+  return best;
+}
+
+function spawnNova(idx) {
+  const s = stars[idx];
+  if (!s) return;
+  const particles = [];
+  const speed = 110;
+  for (let i = 0; i < NOVA_PARTICLES; i++) {
+    const a = (i / NOVA_PARTICLES) * TAU + rng() * 0.05;
+    const sp = speed * (0.6 + rng() * 0.6);
+    particles.push({ vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+  }
+  novas.push({
+    x: s._sx, y: s._sy, rgb: s.rgb,
+    particles, start: performance.now(), dead: false,
+  });
+  s.flash = 1.0;
+}
+
+function spawnConstellations() {
+  if (!shiftHeld || hoverIdx < 0) return;
+  const now = performance.now();
+  // cap rate: only fire if last constellation > 200ms ago
+  if (constellations.length && (now - constellations[constellations.length-1].born) < 180) return;
+
+  const a = stars[hoverIdx];
+  if (a._sx === undefined) return;
+  const partners = [];
+  for (let j = 0; j < stars.length; j++) {
+    if (j === hoverIdx) continue;
+    const b = stars[j];
+    if (b._sx === undefined) continue;
+    const dx = b._sx - a._sx, dy = b._sy - a._sy;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < CONSTELLATION_RADIUS_PX * CONSTELLATION_RADIUS_PX) {
+      partners.push({ j, d2 });
+    }
+  }
+  partners.sort((x, y) => x.d2 - y.d2);
+  partners.slice(0, 3).forEach(p => {
+    constellations.push({ i: hoverIdx, j: p.j, born: now, age: 0 });
+  });
+  // glyph at centroid of formed constellation
+  if (partners.length > 0) {
+    let cx = a._sx, cy = a._sy, c = 1;
+    partners.slice(0, 3).forEach(p => {
+      cx += stars[p.j]._sx; cy += stars[p.j]._sy; c++;
+    });
+    glyphs.push({
+      x: cx / c, y: cy / c,
+      glyph: GLYPHS[Math.floor(rng() * GLYPHS.length)],
+      born: now,
+    });
+  }
+}
+
+function showCard(idx) {
+  if (idx < 0) { hideCard(); return; }
+  const s = stars[idx];
+  const card = document.getElementById("card");
+  card.classList.add("show");
+  document.getElementById("cardTitle").textContent = s.labelText;
+  document.getElementById("cardSub").textContent = `${CLUSTERS[s.cluster].name.toLowerCase()} memory · #${s.id}`;
+  const decay = decayWeight(daysSince + s.bornDay * 0.2, HALF_LIFE_DAYS);
+  const strength = decay * 100;
+  document.getElementById("cardStrength").textContent = `${strength.toFixed(1)}%`;
+  document.getElementById("cardDecay").textContent = decay.toFixed(3);
+  document.getElementById("cardDepth").textContent = `${s._depth?.toFixed(2) ?? "—"}`;
+  document.getElementById("cardCluster").textContent = CLUSTERS[s.cluster].name;
+  // neighbors
+  const neighbors = neighborsOf(idx, 4);
+  const html = neighbors.map(n =>
+    `<div class="item"><span class="lab">${stars[n.j].labelText}</span><span class="sim">${(n.sim * 100).toFixed(0)}%</span></div>`
+  ).join("");
+  document.getElementById("cardMatches").innerHTML = html;
+  // Position card near the star, but clamped to screen
+  positionCard(s._sx, s._sy);
+}
+
+function positionCard(sx, sy) {
+  const card = document.getElementById("card");
+  const w = 320, h = 260;
+  const margin = 22;
+  let x = sx + 32, y = sy - h / 2;
+  if (x + w + margin > W) x = sx - w - 32;
+  y = clamp(y, margin, H - h - margin);
+  card.style.left = `${x}px`;
+  card.style.top  = `${y}px`;
+}
+
+function hideCard() {
+  document.getElementById("card").classList.remove("show");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════════════════════════
+function tick(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+
+  // camera drift forward; z-wrap stars when they get too close
+  camera.z += CAMERA_DRIFT;
+  for (const s of stars) {
+    const zEff = s.z - camera.z;
+    if (zEff < Z_NEAR) {
+      // wrap to far
+      s.z += (Z_FAR - Z_NEAR);
+    }
+    if (zEff > Z_FAR + 200) {
+      s.z -= (Z_FAR - Z_NEAR);
+    }
+  }
+
+  // dial velocity smoothing (decay)
+  dialVelocity *= 0.85;
+
+  // clear
+  ctx.clearRect(0, 0, W, H);
+
+  // 1. Nebulae (screen-blend behind everything)
+  renderNebulae();
+
+  // 2. Stars (with warp streaks if scrubbing)
+  renderStars(dt);
+
+  // 3. Constellation lines (Shift+hover)
+  if (shiftHeld) spawnConstellations();
+  renderConstellations(dt);
+
+  // 4. Resonance rings (hover)
+  renderResonance(dt);
+
+  // 5. Nova explosions (clicks)
+  renderNovas(dt);
+
+  // Update card position if a star is selected
+  if (selectedIdx >= 0) {
+    const s = stars[selectedIdx];
+    if (s && s._sx !== undefined) positionCard(s._sx, s._sy);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EVENT WIRING
+// ═══════════════════════════════════════════════════════════════════════════
+function resize() {
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  CX = W / 2;
+  CY = H / 2;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width  = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+
+canvas.addEventListener("mousemove", (e) => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  const idx = findStarUnder(mouseX, mouseY);
+  if (idx !== hoverIdx) {
+    hoverIdx = idx;
+    canvas.style.cursor = idx >= 0 ? "pointer" : "crosshair";
+  }
+});
+canvas.addEventListener("mouseleave", () => { hoverIdx = -1; });
+
+canvas.addEventListener("click", (e) => {
+  const idx = findStarUnder(e.clientX, e.clientY);
+  if (idx >= 0) {
+    selectedIdx = idx;
+    spawnNova(idx);
+    // Also pulse the top neighbors with a brief flash
+    const ns = neighborsOf(idx, 3);
+    for (const n of ns) {
+      stars[n.j].flash = Math.max(stars[n.j].flash, 0.5 * n.sim);
+    }
+    showCard(idx);
+  } else {
+    selectedIdx = -1;
+    hideCard();
+  }
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Shift") shiftHeld = true;
+  if (e.key === "Escape") { selectedIdx = -1; hideCard(); }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.key === "Shift") shiftHeld = false;
+});
+
+const dial = document.getElementById("dial");
+const dialVal = document.getElementById("dialVal");
+const halfVal = document.getElementById("halfVal");
+halfVal.textContent = HALF_LIFE_DAYS;
+
+dial.addEventListener("input", () => {
+  const now = performance.now();
+  const dt = Math.max(0.001, (now - lastDialChangeT) / 1000);
+  const v = +dial.value;
+  // velocity (units per second)
+  const inst = (v - prevDays) / dt;
+  // exponential moving average
+  dialVelocity = dialVelocity * 0.6 + inst * 0.4;
+  prevDays = v;
+  daysSince = v;
+  lastDialChangeT = now;
+  dialVal.textContent = `${v} d`;
+  if (selectedIdx >= 0) showCard(selectedIdx);  // refresh strength
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LIVE-MODE PROBE (optional — works fine without a server)
+// ═══════════════════════════════════════════════════════════════════════════
+async function probeLive() {
+  try {
+    const r = await fetch("/api/health", { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    const h = await r.json();
+    if (!h.real_kohaku) throw new Error();
+    liveMode = true;
+    const pill = document.getElementById("modePill");
+    pill.textContent = `live · kohaku v${h.version}`;
+    pill.classList.remove("dim");
+  } catch {
+    const pill = document.getElementById("modePill");
+    pill.textContent = "offline simulation";
+    pill.classList.add("dim");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+function boot() {
+  resize();
+  buildWorld();
+
+  // legend counts
+  document.getElementById("ep-count").textContent = `${clusters[0].count} stars`;
+  document.getElementById("se-count").textContent = `${clusters[1].count} stars`;
+  document.getElementById("co-count").textContent = `${clusters[2].count} stars`;
+
+  // hide boot ribbon
+  setTimeout(() => document.getElementById("boot").classList.add("hidden"), 1100);
+
+  probeLive();
+  requestAnimationFrame(tick);
+}
+boot();
+</script>
+</body>
+</html>

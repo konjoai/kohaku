@@ -16,16 +16,23 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from main import DIMS, app, state  # noqa: E402
-from kohaku import EpisodicMemory, ItemMemory  # noqa: E402
+from main import DIMS, app  # noqa: E402
+from kohaku import EpisodicMemory, HDCRetriever, ItemMemory  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def _reset_state():
-    """Wipe global memory before every test — full isolation."""
-    state.episodic = EpisodicMemory(capacity=state.episodic._capacity)
-    state.semantic = ItemMemory(dims=state.dims)
+    """Wipe in-process REST state before every test — full isolation."""
+    rest = app.state.rest
+    rest.episodic = EpisodicMemory(capacity=rest.episodic._capacity)
+    rest.semantic = ItemMemory(dims=rest.dims)
+    rest.bridge = HDCRetriever(capacity=rest.episodic._capacity, dims=rest.dims)
     yield
+
+
+# Compatibility alias so the existing tests that reference `state.episodic._capacity`
+# keep reading the live REST state.
+state = app.state.rest
 
 
 @pytest.fixture
@@ -214,4 +221,87 @@ def test_bundle_similar_to_each_member(client: TestClient):
 
 def test_bundle_empty_rejected(client: TestClient):
     r = client.post("/bundle", json={"inputs": [], "type": "text"})
+    assert r.status_code == 422
+
+
+# ── /bridge ───────────────────────────────────────────────────────────────────
+
+def test_bridge_ingest_assigns_ids_and_persists_text(client: TestClient):
+    r = client.post(
+        "/bridge/ingest",
+        json={
+            "documents": [
+                "Hyperdimensional computing uses high-D vectors.",
+                {"text": "Ebbinghaus described the forgetting curve in 1885.", "id": "ebb-1"},
+                {"text": "Coffee is dark and hot."},
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["entry_ids"] == [1, 2, 3]
+    assert body["total_chunks"] == 3
+
+
+def test_bridge_ingest_rejects_string_documents_field(client: TestClient):
+    # Bare string, not a list — must fail validation, not crash.
+    r = client.post("/bridge/ingest", json={"documents": "just a string"})
+    assert r.status_code == 422
+
+
+def test_bridge_ingest_rejects_empty_text(client: TestClient):
+    r = client.post("/bridge/ingest", json={"documents": [{"text": "", "id": "x"}]})
+    # pydantic min_length=1 rejects empty string before reaching the bridge.
+    assert r.status_code == 422
+
+
+def test_bridge_retrieve_returns_top_k_with_self(client: TestClient):
+    docs = [
+        "Hyperdimensional computing uses high-D vectors.",
+        "Ebbinghaus described the forgetting curve in 1885.",
+        "The ocean is wide and blue.",
+    ]
+    client.post("/bridge/ingest", json={"documents": docs})
+    r = client.post(
+        "/bridge/retrieve",
+        json={"query": "Hyperdimensional computing uses high-D vectors.", "top_k": 3},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["decay_applied"] is False
+    assert body["total_chunks"] == 3
+    assert len(body["results"]) == 3
+    top = body["results"][0]
+    assert top["text"] == docs[0]
+    assert top["similarity"] == pytest.approx(1.0, abs=1e-5)
+    assert top["decayed_similarity"] is None
+    assert top["age"] >= 0
+
+
+def test_bridge_retrieve_with_decay_attaches_decayed_score(client: TestClient):
+    for i in range(5):
+        client.post(
+            "/bridge/ingest",
+            json={"documents": [{"text": f"chunk number {i} carrots", "id": f"c{i}"}]},
+        )
+    r = client.post(
+        "/bridge/retrieve",
+        json={"query": "chunk number 0 carrots", "top_k": 5, "half_life": 1.0},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["decay_applied"] is True
+    for hit in body["results"]:
+        assert hit["decayed_similarity"] is not None
+        assert abs(hit["decayed_similarity"]) <= abs(hit["similarity"]) + 1e-6
+
+
+def test_bridge_retrieve_empty_returns_empty(client: TestClient):
+    r = client.post("/bridge/retrieve", json={"query": "anything", "top_k": 5})
+    assert r.status_code == 200
+    assert r.json()["results"] == []
+
+
+def test_bridge_retrieve_rejects_blank_query(client: TestClient):
+    r = client.post("/bridge/retrieve", json={"query": "", "top_k": 1})
     assert r.status_code == 422

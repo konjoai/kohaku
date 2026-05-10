@@ -1,1989 +1,550 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Kohaku — A memory that thinks like a brain</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>kohaku — a memory that thinks like a sky</title>
+<meta name="description" content="kohaku — hyperdimensional episodic memory for LLMs. Persistent, associative, beyond context." />
 <style>
   :root {
-    --bg-0: #0a0708;
-    --bg-1: #110c0a;
-    --bg-2: #1a120e;
-    --bg-3: #251a14;
-    --fg-0: #f5ead8;
-    --fg-1: #c9b89d;
-    --fg-2: #8a7a64;
+    --bg: #000000;
+    --ink: #f5ead8;
+    --dim: #6b6258;
+    --glass: rgba(10, 8, 6, 0.55);
+    --border: rgba(255, 235, 200, 0.10);
     --amber: #ffb86c;
-    --amber-2: #ffd394;
-    --amber-3: #ff9f3f;
-    --gold:  #f5c542;
     --rose:  #ff7e8a;
     --teal:  #6fd2c0;
-    --green: #7dd87d;
-    --red:   #ff6b6b;
-    --border: #3a2820;
-    --shadow: 0 14px 40px rgba(0,0,0,0.55);
-    --grad: linear-gradient(135deg, #ffd394 0%, #ffb86c 35%, #ff9f3f 70%, #f5c542 100%);
-    --grad-warm: linear-gradient(135deg, #ffb86c, #ff7e8a);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
-    background: var(--bg-0);
-    color: var(--fg-0);
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
-    line-height: 1.65;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background:
-      radial-gradient(900px circle at 12% 8%,  rgba(255,184,108,0.18), transparent 55%),
-      radial-gradient(800px circle at 88% 20%, rgba(245,197,66,0.10),  transparent 55%),
-      radial-gradient(900px circle at 50% 90%, rgba(255,126,138,0.08), transparent 60%);
-    pointer-events: none;
-    z-index: -1;
-  }
-  body::after {
-    /* subtle grain */
-    content: '';
-    position: fixed; inset: 0;
-    background-image: radial-gradient(rgba(255,184,108,0.04) 1px, transparent 1px);
-    background-size: 3px 3px;
-    pointer-events: none;
-    z-index: -1;
-    opacity: 0.5;
-  }
-  a { color: var(--amber); text-decoration: none; }
-  a:hover { color: var(--amber-2); }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+  body { position: relative; }
 
-  /* ─── Hero ─── */
-  .hero { padding: 110px 0 70px; text-align: center; position: relative; }
-  .badge {
-    display: inline-block;
-    padding: 7px 18px;
-    border: 1px solid rgba(255,184,108,0.4);
-    background: rgba(255,184,108,0.08);
-    color: var(--amber);
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 1px;
-    margin-bottom: 28px;
-    text-transform: uppercase;
+  canvas#sky { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+  .frame {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .frame > * { pointer-events: auto; }
+
+  header.top {
+    padding: 24px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  header.top .brand {
+    font-size: 13px; letter-spacing: 5px; text-transform: uppercase;
+    color: var(--ink); opacity: 0.92;
+  }
+  header.top nav {
+    pointer-events: auto;
+    display: flex; gap: 22px;
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--dim);
+  }
+  header.top nav a { color: var(--dim); text-decoration: none; transition: color 0.18s ease; }
+  header.top nav a:hover { color: var(--ink); }
+
+  .hero {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 24px;
+    pointer-events: none;
+  }
+  .hero .eyebrow {
+    font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--amber); opacity: 0.85;
+    margin-bottom: 20px;
   }
   .hero h1 {
-    font-size: clamp(54px, 9vw, 120px);
-    font-weight: 800;
-    letter-spacing: -3px;
-    line-height: 1;
-    background: var(--grad);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 300; letter-spacing: -2.5px; line-height: 1.02;
+    text-align: center;
+    text-shadow: 0 8px 40px rgba(0, 0, 0, 0.85);
     margin-bottom: 18px;
-    filter: drop-shadow(0 0 40px rgba(255,184,108,0.25));
   }
-  .hero .subname {
-    color: var(--fg-2); font-size: 14px; letter-spacing: 4px;
-    margin-bottom: 28px; font-family: 'SF Mono', monospace;
-    text-transform: uppercase;
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(180deg, #fff5dd 0%, var(--amber) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .hero .tag {
-    font-size: clamp(20px, 2.4vw, 30px);
-    color: var(--fg-0);
-    max-width: 800px;
-    margin: 0 auto 18px;
-    font-weight: 500;
-    line-height: 1.35;
+  .hero p.lead {
+    color: var(--ink); opacity: 0.78;
+    font-size: 16px; letter-spacing: 0.3px;
+    text-align: center; max-width: 560px;
+    margin-bottom: 38px;
   }
-  .hero .tag .em {
-    color: var(--amber);
-    font-weight: 700;
-  }
-  .hero .sub {
-    font-size: clamp(15px, 1.6vw, 18px);
-    color: var(--fg-1);
-    max-width: 640px;
-    margin: 0 auto 36px;
-  }
-  .hero .meta {
-    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
-    color: var(--fg-1); font-size: 13.5px; font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
-  }
-  .hero .meta span {
-    padding: 8px 14px;
+
+  .search {
+    pointer-events: auto;
+    width: min(640px, calc(100vw - 32px));
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: var(--bg-2);
+    padding: 6px 6px 6px 22px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow:
+      0 24px 80px rgba(0,0,0,0.65),
+      inset 0 1px 0 rgba(255,235,200,0.05),
+      0 0 60px rgba(255, 184, 108, 0.08);
+    transition: box-shadow 0.4s ease, border-color 0.4s ease;
   }
-
-  /* ─── Section header ─── */
-  section { padding: 80px 0; position: relative; }
-  .section-head { margin-bottom: 44px; max-width: 760px; }
-  .eyebrow {
-    color: var(--amber);
-    font-size: 12px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    margin-bottom: 14px;
-    font-weight: 600;
+  .search:focus-within {
+    border-color: rgba(255,184,108,0.40);
+    box-shadow:
+      0 24px 80px rgba(0,0,0,0.65),
+      0 0 80px rgba(255, 184, 108, 0.22);
   }
-  h2 {
-    font-size: clamp(28px, 3.6vw, 44px);
-    font-weight: 700;
-    letter-spacing: -1px;
-    margin-bottom: 14px;
-    line-height: 1.15;
-  }
-  h2 .em { color: var(--amber); }
-  .section-head p {
-    color: var(--fg-1);
-    font-size: 17px;
-  }
-
-  /* ─── Cards ─── */
-  .grid { display: grid; gap: 20px; }
-  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-  .card {
-    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 26px;
-    transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
-    position: relative; overflow: hidden;
-  }
-  .card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(255,184,108,0.45);
-    box-shadow: 0 16px 36px rgba(255,184,108,0.10);
-  }
-  .card .icon {
-    width: 48px; height: 48px;
-    display: grid; place-items: center;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(255,184,108,0.22), rgba(245,197,66,0.16));
-    margin-bottom: 18px;
-    font-size: 24px;
-    box-shadow: inset 0 0 0 1px rgba(255,184,108,0.18);
-  }
-  .card h3 { font-size: 19px; margin-bottom: 8px; color: var(--fg-0); }
-  .card p { color: var(--fg-1); font-size: 14.5px; }
-  .card .tech {
-    margin-top: 14px; font-family: 'SF Mono', monospace; font-size: 12px; color: var(--fg-2);
-    border-top: 1px dashed var(--border); padding-top: 12px;
-  }
-
-  /* ─── Code blocks ─── */
-  pre, code { font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; }
-  pre {
-    background: var(--bg-1);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 22px 24px;
-    overflow-x: auto;
-    font-size: 13.5px;
-    line-height: 1.7;
-    box-shadow: var(--shadow);
-  }
-  code { color: var(--amber-2); }
-  pre code { color: inherit; }
-  .tok-kw  { color: var(--rose); }
-  .tok-str { color: var(--gold); }
-  .tok-fn  { color: var(--amber); }
-  .tok-com { color: var(--fg-2); font-style: italic; }
-  .tok-num { color: var(--green); }
-
-  /* ─── Two-column ─── */
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: stretch; }
-  @media (max-width: 920px) { .two-col { grid-template-columns: 1fr; } }
-
-  /* ─── Visualizers ─── */
-  .viz {
-    background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 26px;
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
-  }
-  .viz::before {
-    content: '';
-    position: absolute; inset: -1px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(255,184,108,0.18), transparent 35%, transparent 65%, rgba(245,197,66,0.10));
-    pointer-events: none;
-    z-index: 0;
-  }
-  .viz > * { position: relative; z-index: 1; }
-  .viz h3 { margin-bottom: 6px; font-size: 19px; color: var(--fg-0); }
-  .viz .sub { color: var(--fg-2); font-size: 13.5px; margin-bottom: 18px; }
-
-  /* ─── Graph ─── */
-  svg.graph { width: 100%; height: 520px; display: block; cursor: default; touch-action: none; }
-  svg.graph .edge {
-    stroke: var(--border);
-    stroke-width: 1;
-    transition: stroke .35s, stroke-opacity .35s;
-    fill: none;
-  }
-  svg.graph .edge.active {
-    stroke: var(--amber);
-    stroke-opacity: 0.95;
-    filter: drop-shadow(0 0 6px rgba(255,184,108,0.6));
-  }
-  svg.graph .edge.dim { stroke-opacity: 0.10; }
-  svg.graph .node circle.core {
-    cursor: pointer;
-    transition: stroke .25s, stroke-width .25s;
-    stroke: var(--bg-0); stroke-width: 3;
-    filter: drop-shadow(0 0 12px currentColor);
-  }
-  svg.graph .node circle.halo {
-    fill: currentColor; opacity: 0.18; pointer-events: none;
-    transform-origin: center; transform-box: fill-box;
-  }
-  svg.graph .node text {
-    fill: var(--fg-0); font-size: 13px; pointer-events: none; font-weight: 600;
-  }
-  svg.graph .node.selected circle.core { stroke: var(--gold); stroke-width: 4; }
-  svg.graph .node.dim { opacity: 0.32; }
-  svg.graph .label-bg { fill: var(--bg-0); fill-opacity: 0.88; }
-  svg.graph .sim-badge { font-family: 'SF Mono', monospace; font-size: 12px; fill: var(--amber); font-weight: 700; }
-  svg.graph .flash { fill: none; stroke: var(--gold); stroke-width: 3; opacity: 0; }
-
-  @keyframes nodepulse {
-    0%   { transform: scale(1);    opacity: 0.18; }
-    50%  { transform: scale(1.7);  opacity: 0.05; }
-    100% { transform: scale(1);    opacity: 0.18; }
-  }
-  svg.graph .node circle.halo { animation: nodepulse 4s ease-in-out infinite; }
-
-  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 13.5px; color: var(--fg-1); align-items: center; }
-  .legend .dot { display: inline-block; width: 11px; height: 11px; border-radius: 999px; vertical-align: middle; margin-right: 6px; }
-  .hint-line { color: var(--fg-2); font-size: 13px; margin-left: auto; font-style: italic; }
-
-  /* ─── Controls ─── */
-  .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-  .ctrl-grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-top: 18px; }
-  @media (max-width: 720px) { .ctrl-grid { grid-template-columns: 1fr; } }
-  .ctrl {
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-  }
-  .ctrl label { font-size: 12.5px; color: var(--fg-2); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 8px; }
-  .ctrl input[type=range] { width: 100%; accent-color: var(--amber); }
-  .ctrl .v {
-    display: flex; justify-content: space-between; align-items: baseline;
-    color: var(--amber); font-family: 'SF Mono', monospace; font-size: 13.5px;
-  }
-  .ctrl .v small { color: var(--fg-2); font-size: 11.5px; }
-
-  .add-row { display: flex; gap: 10px; margin-top: 16px; }
-  .add-row input[type=text] {
+  .search input {
     flex: 1; min-width: 0;
-    background: var(--bg-2); border: 1px solid var(--border);
-    color: var(--fg-0); border-radius: 10px; padding: 12px 14px; font-size: 14.5px;
-    font-family: inherit; outline: none; transition: border-color .2s;
+    background: transparent; border: none; outline: none;
+    color: var(--ink);
+    font: 400 17px/1.4 inherit;
+    letter-spacing: 0.2px;
+    padding: 12px 0;
   }
-  .add-row input[type=text]:focus { border-color: var(--amber); }
-  .add-row button, .quiz button {
-    background: linear-gradient(135deg, var(--amber), var(--amber-3));
-    border: none; color: #1a0e08; font-weight: 700; cursor: pointer;
-    border-radius: 10px; padding: 12px 22px; font-size: 14px; letter-spacing: 0.5px;
-    transition: transform .2s, box-shadow .2s;
-    box-shadow: 0 6px 18px rgba(255,184,108,0.30);
+  .search input::placeholder { color: var(--dim); }
+  .search button {
+    border: none;
+    background: linear-gradient(135deg, #fff0d4, var(--amber));
+    color: #1a1208;
+    font-weight: 600;
+    font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+    padding: 12px 24px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 8px 24px rgba(255, 184, 108, 0.35);
   }
-  .add-row button:hover, .quiz button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 24px rgba(255,184,108,0.40);
-  }
-  .add-row button:active, .quiz button:active { transform: translateY(0); }
-  .add-row .helper { font-size: 12px; color: var(--fg-2); margin-top: 8px; }
+  .search button:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(255, 184, 108, 0.50); }
 
-  /* ─── Chart ─── */
-  svg.chart { width: 100%; height: 340px; display: block; }
-  svg.chart .axis { stroke: var(--border); }
-  svg.chart .axis-text { fill: var(--fg-2); font-size: 11.5px; font-family: 'SF Mono', monospace; }
-  svg.chart .grid-line { stroke: var(--border); stroke-opacity: 0.45; stroke-dasharray: 2,3; }
-  svg.chart .curve { fill: none; stroke: url(#decayGrad); stroke-width: 3; stroke-linecap: round; }
-  svg.chart .curve-eb { fill: none; stroke: var(--rose); stroke-width: 2; stroke-dasharray: 5,4; opacity: 0.85; }
-  svg.chart .area { fill: url(#decayArea); opacity: 0.55; }
-  svg.chart .marker {
-    fill: var(--gold); stroke: var(--bg-0); stroke-width: 2;
-    filter: drop-shadow(0 0 10px rgba(245,197,66,0.7));
-    transition: cx 0.6s cubic-bezier(.2,.8,.2,1), cy 0.6s cubic-bezier(.2,.8,.2,1);
-  }
-  svg.chart .ref-text { fill: var(--amber); font-size: 12px; font-family: 'SF Mono', monospace; }
-  svg.chart .eb-dot { fill: var(--rose); }
-  svg.chart .legend-text { fill: var(--fg-1); font-size: 12px; }
-
-  /* ─── Bars ─── */
-  .bars { display: grid; grid-template-columns: 90px 1fr 110px; gap: 14px; align-items: center; margin-bottom: 14px; }
-  .bars .name { color: var(--fg-1); font-size: 14px; font-family: 'SF Mono', monospace; }
-  .bars .track { background: var(--bg-3); border-radius: 10px; height: 32px; position: relative; overflow: hidden; }
-  .bars .fill { height: 100%; border-radius: 10px; transition: width 1.2s cubic-bezier(.2,.8,.2,1); }
-  .bars .fill.json { background: linear-gradient(90deg, #ff7e8a, #ff5566); }
-  .bars .fill.hkb  { background: linear-gradient(90deg, #ffd394, #ffb86c); }
-  .bars .size { color: var(--amber); font-family: 'SF Mono', monospace; font-size: 13px; text-align: right; }
-
-  /* ─── Quiz ─── */
-  .quiz {
-    margin-top: 18px;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 14px; padding: 22px;
-  }
-  .quiz h4 {
-    color: var(--amber); font-size: 14px; letter-spacing: 2px;
-    text-transform: uppercase; margin-bottom: 14px;
-  }
-  .quiz .prompt { font-size: 17px; color: var(--fg-0); margin-bottom: 12px; }
-  .quiz .target {
-    color: var(--gold); font-weight: 700; font-size: 19px;
-    background: rgba(245,197,66,0.10);
-    padding: 4px 12px; border-radius: 8px; display: inline-block;
-  }
-  .quiz .answer {
-    margin-top: 14px; padding: 14px 16px;
-    background: var(--bg-3); border-left: 3px solid var(--amber);
-    border-radius: 8px; color: var(--fg-1); font-size: 15px;
-    transition: opacity .4s, transform .4s;
-  }
-  .quiz .answer.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
-  .quiz .strength { font-family: 'SF Mono', monospace; color: var(--gold); font-weight: 700; }
-
-  /* ─── Footer ─── */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 50px 0;
-    color: var(--fg-2);
-    font-size: 13.5px;
+  .hint {
+    margin-top: 16px;
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--dim);
     text-align: center;
   }
-  footer .ribbon {
-    font-family: 'SF Mono', monospace;
-    color: var(--amber);
-    margin-bottom: 8px;
-    letter-spacing: 1.5px;
-  }
-  footer a { color: var(--amber); }
+  .hint b { color: var(--ink); font-weight: 500; }
 
-  /* utility */
-  .gold { color: var(--gold); }
-  .amber { color: var(--amber); }
-  .center { text-align: center; }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-6px); }
+  .chips {
+    pointer-events: none;
+    margin-top: 32px;
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    max-width: 720px;
+    min-height: 32px;
   }
-  .floating { animation: float 5s ease-in-out infinite; }
-
-  /* ─── Live API status banner ─── */
-  .live-banner {
-    position: sticky; top: 0; z-index: 50;
-    background: linear-gradient(180deg, rgba(10,7,8,0.96), rgba(17,12,10,0.92));
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(8px);
-    padding: 10px 0;
-    font-size: 13.5px;
-    color: var(--fg-1);
-    font-family: 'SF Mono', monospace;
-  }
-  .live-banner .row { gap: 12px; align-items: center; }
-  .live-banner .pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 4px 12px; border-radius: 999px; font-weight: 600;
+  .chip {
+    pointer-events: auto;
+    font-size: 11px; letter-spacing: 1.5px;
+    color: var(--ink);
     border: 1px solid var(--border);
+    background: rgba(10, 8, 6, 0.5);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    padding: 7px 14px;
+    border-radius: 999px;
+    opacity: 0; transform: translateY(8px);
+    animation: chip-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
-  .live-banner .pill.offline { color: var(--fg-2); background: rgba(0,0,0,0.3); }
-  .live-banner .pill.live    { color: #1a0e08; background: linear-gradient(135deg, #7dd87d, #50c850); border-color: transparent; }
-  .live-banner .pill.checking { color: var(--amber); background: rgba(255,184,108,0.10); }
-  .live-banner .dotled {
-    width: 8px; height: 8px; border-radius: 999px; display: inline-block;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
+  .chip .sim { color: var(--dim); margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .chip.amber { box-shadow: 0 0 16px rgba(255,184,108,0.18); border-color: rgba(255,184,108,0.30); }
+  .chip.rose  { box-shadow: 0 0 16px rgba(255,126,138,0.18); border-color: rgba(255,126,138,0.30); }
+  .chip.teal  { box-shadow: 0 0 16px rgba(111,210,192,0.18); border-color: rgba(111,210,192,0.30); }
+  @keyframes chip-in {
+    0%   { opacity: 0; transform: translateY(8px) scale(0.94); }
+    100% { opacity: 1; transform: translateY(0)    scale(1);    }
   }
-  .live-banner .pill.live .dotled { animation: livepulse 1.6s ease-in-out infinite; }
-  @keyframes livepulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: 0.6; transform: scale(1.4); }
-  }
-  .live-banner code {
-    background: var(--bg-2); padding: 3px 8px; border-radius: 6px;
-    color: var(--amber); border: 1px solid var(--border);
-  }
-  .live-banner .hint { color: var(--fg-2); margin-left: auto; }
 
-  /* LIVE / SIM badges on real-data sections */
-  .badge-live {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase;
-    background: linear-gradient(135deg, #7dd87d, #50c850); color: #0a1a0a;
-    margin-left: 10px;
+  footer.bottom {
+    padding: 24px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--dim);
+    pointer-events: none;
   }
-  .badge-sim {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase;
-    background: var(--bg-3); color: var(--fg-2); margin-left: 10px;
-    border: 1px solid var(--border);
+  footer.bottom a {
+    pointer-events: auto;
+    color: var(--dim); text-decoration: none;
+    transition: color 0.18s ease;
   }
-  .save-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
-  .save-row button {
-    background: var(--bg-3); color: var(--amber); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 18px; font-size: 13.5px; cursor: pointer;
-    font-family: 'SF Mono', monospace; font-weight: 600;
-    transition: border-color .2s, color .2s, background .2s;
+  footer.bottom a:hover { color: var(--ink); }
+  footer.bottom .pulse {
+    display: inline-block; width: 6px; height: 6px;
+    background: var(--amber); border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 0 12px var(--amber);
+    animation: pulse 2.4s ease-in-out infinite;
   }
-  .save-row button:hover { border-color: var(--amber); color: var(--amber-2); background: rgba(255,184,108,0.06); }
-  .save-row button:disabled { opacity: 0.4; cursor: not-allowed; }
-  .save-row .out {
-    flex: 1; min-width: 200px;
-    color: var(--fg-2); font-family: 'SF Mono', monospace; font-size: 12.5px;
-    align-self: center; padding: 6px 10px;
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.85); }
+    50%      { opacity: 1.0; transform: scale(1.15); }
   }
-  .save-row .out .ok { color: var(--green); }
-  .save-row .out .ratio { color: var(--amber); font-weight: 700; }
+
+  @media (max-width: 640px) {
+    header.top nav { display: none; }
+    .hero p.lead { font-size: 14px; }
+    .search button { padding: 10px 16px; font-size: 11px; }
+    footer.bottom { flex-direction: column; gap: 8px; align-items: flex-start; }
+  }
 </style>
 </head>
 <body>
+  <canvas id="sky"></canvas>
 
-<!-- ─── LIVE API STATUS BANNER ─── -->
-<div class="live-banner">
-  <div class="wrap row">
-    <span class="pill checking" id="liveStatus">
-      <span class="dotled"></span> Checking…
-    </span>
-    <span id="liveDetail">
-      Run <code>python demo/server.py</code> to see <strong>real</strong> kohaku
-      vectors instead of the offline simulation.
-    </span>
-    <span class="hint" id="liveHint"></span>
-  </div>
-</div>
+  <div class="frame">
+    <header class="top">
+      <div class="brand">kohaku</div>
+      <nav>
+        <a href="memory_map.html">cosmos</a>
+        <a href="https://github.com/konjoai/kohaku" target="_blank" rel="noopener">github</a>
+        <a href="/health">api</a>
+      </nav>
+    </header>
 
-<!-- ─── HERO ─── -->
-<section class="hero">
-  <div class="wrap">
-    <span class="badge">琥珀 · amber · preserved in time</span>
-    <h1 class="floating">Kohaku</h1>
-    <div class="subname">k o · h a · k u   ·   v 0 . 4 . 0</div>
-    <p class="tag">
-      Give your AI a memory that works <span class="em">like a human brain</span> —
-      remembers what matters, forgets what doesn't.
-    </p>
-    <p class="sub">
-      An open-source memory engine that learns, organizes, and gracefully forgets —
-      so chatbots, study apps, and recommenders can finally stop starting every conversation
-      from zero.
-    </p>
-    <div class="meta">
-      <span>🧠 brain-inspired</span>
-      <span>💾 saves to disk</span>
-      <span>🌱 organizes itself</span>
-      <span>🕰️ forgets like you do</span>
-    </div>
-  </div>
-</section>
-
-<!-- ─── WHAT IS IT ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">the idea, in plain words</div>
-      <h2>What is <span class="em">Kohaku</span>?</h2>
-      <p>
-        Today's AI assistants forget everything the moment a chat ends. Kohaku gives them
-        a memory layer that <em>actually remembers</em> — and forgets the right things at the right speed.
-        It draws on how human memory works: encode an experience, link related ones, replay them
-        when relevant, let unused ones fade.
+    <section class="hero">
+      <div class="eyebrow">hyperdimensional · episodic · associative</div>
+      <h1>memory that <em>thinks like a sky</em></h1>
+      <p class="lead">
+        ten-thousand-dimensional bipolar vectors. Ebbinghaus decay.
+        Recall by resonance, not lookup. Type a thought to see the cosmos remember.
       </p>
-    </div>
 
-    <div class="grid grid-3">
-      <div class="card">
-        <div class="icon">🧠</div>
-        <h3>How memories are stored</h3>
-        <p>
-          Each idea becomes a <strong>brain-like pattern</strong> — thousands of numbers that
-          capture meaning. Similar ideas get similar patterns; unrelated ones look different.
-        </p>
-        <div class="tech">technical: 10 000-D bipolar ±1 hypervectors</div>
+      <form class="search" id="searchForm" autocomplete="off" onsubmit="return false;">
+        <input id="q" type="text" placeholder="speak a thought · the cosmos will answer" />
+        <button id="go" type="submit">recall</button>
+      </form>
+
+      <div class="hint">
+        <b>enter</b> to query · the brightest constellation is your answer
       </div>
-      <div class="card">
-        <div class="icon">🔗</div>
-        <h3>Combining memories</h3>
-        <p>
-          Merge a handful of related memories into <strong>one prototype</strong> that recalls all of them.
-          Like remembering "what cats are like" instead of every cat you've ever met.
-        </p>
-        <div class="tech">technical: bundle (majority-vote superposition)</div>
+
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <footer class="bottom">
+      <div><span class="pulse"></span>v0.7.0 · 159 tests passing · BUSL-1.1</div>
+      <div>
+        <a href="memory_map.html">enter the cosmos →</a>
       </div>
-      <div class="card">
-        <div class="icon">📏</div>
-        <h3>How related two memories are</h3>
-        <p>
-          A single number from <code>-1</code> to <code>+1</code> tells you how closely two
-          memories match. Higher means more related.
-        </p>
-        <div class="tech">technical: cosine similarity</div>
-      </div>
-      <div class="card">
-        <div class="icon">💾</div>
-        <h3>Save &amp; reload</h3>
-        <p>
-          Memory survives across sessions. Two formats: a readable JSON for inspection,
-          and a tightly packed <code>.hkb</code> binary that's <strong>~27× smaller</strong>.
-        </p>
-        <div class="tech">technical: bit-packed serialization</div>
-      </div>
-      <div class="card">
-        <div class="icon">🌱</div>
-        <h3>Organize itself</h3>
-        <p>
-          Many noisy memories get compressed into a few clean prototypes — the same way
-          your brain consolidates a week of experiences during sleep.
-        </p>
-        <div class="tech">technical: bundle-of-bundles clustering</div>
-      </div>
-      <div class="card">
-        <div class="icon">🕰️</div>
-        <h3>The forgetting curve</h3>
-        <p>
-          Memories fade over time — just like in humans. Recent things stay sharp;
-          unused ones gently fade. You set how fast.
-        </p>
-        <div class="tech">technical: exponential decay (Ebbinghaus)</div>
-      </div>
-    </div>
+    </footer>
   </div>
-</section>
 
-<!-- ─── HUMAN MEMORY INSPIRATION ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">root inspiration · 1885 → today</div>
-      <h2>How <span class="em">human memory</span> inspired this</h2>
-      <p>
-        In 1885, German psychologist <strong>Hermann Ebbinghaus</strong> taught himself nonsense
-        syllables, then tested how many he could recall at intervals. He discovered that
-        forgetting follows a smooth, predictable curve — sharp at first, then leveling off.
-        Kohaku's memory model is the same shape.
-      </p>
-    </div>
+<script type="module">
+"use strict";
 
-    <div class="two-col">
-      <div class="viz">
-        <h3>Side-by-side: Ebbinghaus vs Kohaku</h3>
-        <p class="sub">Pink dashed line: Ebbinghaus's published 1885 data. Amber line: Kohaku's tunable curve.</p>
-        <svg class="chart" id="ebChart" viewBox="0 0 900 340"></svg>
-      </div>
+/* HDC core — same LCG as kohaku/_pure.py, dims=1024 in browser. */
+const DIMS = 1024;
+const MUL  = 6364136223846793005n;
+const ADD  = 1442695040888963407n;
+const MASK = 0xFFFFFFFFFFFFFFFFn;
+const SEED_XOR = 0xDEADBEEFCAFEBABEn;
 
-      <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
-        <h3 style="font-size: 22px; margin-bottom: 14px;">Three principles, taken from biology</h3>
-        <p style="margin-bottom: 14px;">
-          <strong>1. Recency wins.</strong> A memory from 5 minutes ago is worth more than one
-          from last month — until you replay it.
-        </p>
-        <p style="margin-bottom: 14px;">
-          <strong>2. Similar memories merge.</strong> Your brain doesn't store every coffee
-          you've had — it stores "coffee" and a few exceptions.
-        </p>
-        <p>
-          <strong>3. Unused fades, used strengthens.</strong> Spaced repetition — the principle
-          behind Anki and Duolingo — is just a forgetting curve, queried.
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── INTERACTIVE GRAPH ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">interactive · play with it</div>
-      <h2>The <span class="em">memory map</span></h2>
-      <p>
-        Each circle is one memory. Lines between them show how related they are — closer
-        memories sit closer together. <strong>Click any memory</strong> to recall it; the top matches
-        light up. <strong>Add a new memory</strong> below and watch it find its place. Drag the
-        <strong>days slider</strong> and watch the whole map fade as memories age.
-      </p>
-    </div>
-
-    <div class="viz">
-      <svg class="graph" id="graph" viewBox="0 0 900 520" aria-label="Live memory map"></svg>
-
-      <div class="legend">
-        <span><span class="dot" style="background:var(--gold)"></span>You picked this</span>
-        <span><span class="dot" style="background:var(--amber)"></span>Top match</span>
-        <span><span class="dot" style="background:var(--fg-2)"></span>Faded / unrelated</span>
-        <span class="hint-line" id="hint">Click any memory or add one below ↓</span>
-      </div>
-
-      <div class="add-row">
-        <input id="newConcept" type="text" placeholder="Type a phrase — e.g. 'a tabby kitten napping' or 'iced latte in the afternoon'" maxlength="80" />
-        <button id="addBtn">+ Add memory <span id="addModeBadge" class="badge-sim">sim</span></button>
-      </div>
-      <div class="add-row" style="margin-top: 6px;">
-        <div class="helper" id="addHelper">
-          The new memory finds its place automatically — similar concepts pull it close,
-          unrelated ones push it away.
-        </div>
-      </div>
-
-      <div class="save-row">
-        <button id="saveBtn" disabled>💾 Save memory to .hkb</button>
-        <button id="loadBtn" disabled>📂 Reload from disk</button>
-        <button id="resetBtn" disabled>🔄 Reset to seed</button>
-        <div class="out" id="saveOut">
-          <span style="opacity:0.6;">save/load is disabled in offline mode — start the server to enable</span>
-        </div>
-      </div>
-
-      <div class="ctrl-grid">
-        <div class="ctrl">
-          <label>📅 Days since each memory was learned</label>
-          <input type="range" id="daysSlider" min="0" max="120" step="1" value="0" />
-          <div class="v"><span>days = <span id="daysVal">0</span></span><small>drag to fast-forward time</small></div>
-        </div>
-        <div class="ctrl">
-          <label>🕰️ Half-life — how fast you forget</label>
-          <input type="range" id="halfMain" min="3" max="60" step="1" value="20" />
-          <div class="v"><span>half_life = <span id="halfMainVal">20</span> days</span><small>shorter = forgets faster</small></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── DECAY VISUALIZER ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">forgetting in motion</div>
-      <h2>Watch a memory <span class="em">fade</span></h2>
-      <p>
-        Drag the time slider. The dot slides along the curve, showing exactly how strong
-        the memory is at any moment. Try a quiz — pick a concept and see how well you'd
-        recall it after some days have passed.
-      </p>
-    </div>
-
-    <div class="two-col">
-      <div class="viz">
-        <h3>Live decay curve</h3>
-        <p class="sub">Strength = 1 means perfectly remembered · 0 means gone.</p>
-        <svg class="chart" id="chart" viewBox="0 0 900 340">
-          <defs>
-            <linearGradient id="decayGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%"  stop-color="#ffd394" />
-              <stop offset="50%" stop-color="#ffb86c" />
-              <stop offset="100%" stop-color="#ff7e8a" />
-            </linearGradient>
-            <linearGradient id="decayArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"  stop-color="#ffb86c" stop-opacity="0.5" />
-              <stop offset="100%" stop-color="#ffb86c" stop-opacity="0" />
-            </linearGradient>
-          </defs>
-        </svg>
-
-        <div class="ctrl-grid">
-          <div class="ctrl">
-            <label>days passed</label>
-            <input type="range" id="ageSlider" min="0" max="200" step="1" value="0" />
-            <div class="v"><span>age = <span id="ageVal">0</span> days</span><small>marker tracks the curve</small></div>
-          </div>
-          <div class="ctrl">
-            <label>half-life</label>
-            <input type="range" id="halfDecay" min="2" max="80" step="1" value="20" />
-            <div class="v"><span>half_life = <span id="halfDecayVal">20</span></span><small>at this age, strength = 0.5</small></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="viz">
-        <h3>🎯 Quiz me</h3>
-        <p class="sub">A random memory · how strong is it after some time?</p>
-
-        <div class="quiz">
-          <h4>Question</h4>
-          <div class="prompt">
-            How well will you recall <span class="target" id="quizTarget">…</span>
-            after <span class="strength" id="quizDays">…</span> days?
-          </div>
-          <div class="row" style="gap: 10px;">
-            <button id="quizReveal">Reveal answer</button>
-            <button id="quizNew" style="background: var(--bg-3); color: var(--amber); box-shadow: none; border: 1px solid var(--border);">New question</button>
-          </div>
-          <div class="answer hidden" id="quizAnswer">
-            <div>Memory strength: <span class="strength" id="quizStrength">—</span></div>
-            <div id="quizVerdict" style="margin-top: 6px;"></div>
-            <div style="margin-top: 8px; color: var(--fg-2); font-size: 13px;" id="quizExplain"></div>
-          </div>
-        </div>
-
-        <div style="margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--border); border-radius: 10px; color: var(--fg-1); font-size: 13.5px;">
-          <strong style="color: var(--amber);">Tip:</strong> in a real app, you'd
-          <em>refresh</em> a memory whenever it's used — re-storing it resets the
-          forgetting clock. That's spaced repetition, baked in.
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── USE CASES ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">where it fits</div>
-      <h2>What you can <span class="em">build</span> with it</h2>
-      <p>
-        A memory layer is invisible plumbing — but it's the difference between an assistant
-        that knows you and one that asks your name on every visit.
-      </p>
-    </div>
-
-    <div class="grid grid-3">
-      <div class="card">
-        <div class="icon">🤖</div>
-        <h3>Personalized AI assistants</h3>
-        <p>
-          Your chatbot remembers your preferences, your project, your kid's name —
-          across sessions, weeks, months. Old details fade gracefully so the model
-          doesn't drown in trivia.
-        </p>
-        <div class="tech">e.g. customer support · personal copilots · journaling</div>
-      </div>
-
-      <div class="card">
-        <div class="icon">📚</div>
-        <h3>Smarter study tools</h3>
-        <p>
-          Every flashcard app reinvents spaced repetition. Kohaku gives you the
-          forgetting curve out of the box — so a study app can re-surface a card
-          right when you're about to forget it.
-        </p>
-        <div class="tech">e.g. Anki-style apps · language learning · medical training</div>
-      </div>
-
-      <div class="card">
-        <div class="icon">🎯</div>
-        <h3>Recommendation engines</h3>
-        <p>
-          Recent likes weigh more than ones from years ago. Related items cluster
-          automatically. Suggest "more like this" without a vector database or
-          a retraining pipeline.
-        </p>
-        <div class="tech">e.g. music · books · video · product discovery</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── STORAGE ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">건조 · strip to the essence</div>
-      <h2>One memory bank, two file formats</h2>
-      <p>
-        Save memories to disk. Two formats: a readable JSON (great for debugging),
-        and a packed binary (great for production). Both survive a round trip — exact
-        same recall after reload.
-      </p>
-    </div>
-
-    <div class="two-col">
-      <div class="viz">
-        <h3>Disk size for 1 000 memories</h3>
-        <p class="sub">Each memory ≈ 10 000 numbers · same exact recall after reload.</p>
-        <div class="bars">
-          <div class="name">.json</div>
-          <div class="track"><div class="fill json" id="bar-json" style="width:0"></div></div>
-          <div class="size" id="size-json">— MB</div>
-        </div>
-        <div class="bars">
-          <div class="name">.hkb</div>
-          <div class="track"><div class="fill hkb" id="bar-hkb" style="width:0"></div></div>
-          <div class="size" id="size-hkb">— MB</div>
-        </div>
-        <div style="margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px; color: var(--amber); font-family: 'SF Mono', monospace; font-size: 13px;">
-          <span id="ratio">.hkb is —× smaller</span>
-        </div>
-      </div>
-
-      <div class="viz">
-        <h3>What's inside <code>.hkb</code></h3>
-        <p class="sub">A small header, then each memory packed into a tight bit string.</p>
-<pre><code><span class="tok-com">// header (32 bytes)</span>
-<span class="tok-kw">magic</span>        : b<span class="tok-str">"KHKU"</span>      <span class="tok-com">// "this is a kohaku file"</span>
-<span class="tok-kw">version</span>      : <span class="tok-fn">u16</span>           <span class="tok-com">// format version</span>
-<span class="tok-kw">dims</span>         : <span class="tok-fn">u32</span>           <span class="tok-com">// pattern size, e.g. 10 000</span>
-<span class="tok-kw">capacity</span>     : <span class="tok-fn">u32</span>           <span class="tok-com">// max memories held</span>
-<span class="tok-kw">next_id</span>      : <span class="tok-fn">u64</span>
-<span class="tok-kw">timestamp</span>    : <span class="tok-fn">u64</span>           <span class="tok-com">// internal clock</span>
-<span class="tok-kw">num_entries</span>  : <span class="tok-fn">u32</span>
-
-<span class="tok-com">// per memory</span>
-<span class="tok-kw">id</span>           : <span class="tok-fn">u64</span>
-<span class="tok-kw">timestamp</span>    : <span class="tok-fn">u64</span>           <span class="tok-com">// when it was learned</span>
-<span class="tok-kw">label</span>        : utf-8 string
-<span class="tok-kw">key_bits</span>     : 1 bit per ±1   <span class="tok-com">// 8× tighter than int8</span>
-<span class="tok-kw">value_bits</span>   : 1 bit per ±1</code></pre>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ─── CODE ─── -->
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="eyebrow">api · pip install kohaku</div>
-      <h2>The whole library, in <span class="em">eight lines</span></h2>
-      <p>Encode. Combine. Save. Organize. Forget. Done.</p>
-    </div>
-<pre><code><span class="tok-kw">from</span> kohaku <span class="tok-kw">import</span> (
-    EpisodicMemory, encode_text,           <span class="tok-com"># learn new memories</span>
-    save, load,                            <span class="tok-com"># persist to disk</span>
-    consolidate_to_memory,                 <span class="tok-com"># merge similar ones</span>
-    DecayConfig, query_with_decay,         <span class="tok-com"># recall + forgetting</span>
-)
-
-mem = <span class="tok-fn">EpisodicMemory</span>(capacity=<span class="tok-num">1000</span>)
-key = <span class="tok-fn">encode_text</span>(<span class="tok-str">"konjo means beautiful"</span>)
-mem.<span class="tok-fn">store</span>(key, key, label=<span class="tok-str">"amharic word"</span>)
-
-<span class="tok-fn">save</span>(mem, <span class="tok-str">"memories.hkb"</span>)              <span class="tok-com"># 27× smaller than JSON, same recall</span>
-
-cfg = <span class="tok-fn">DecayConfig</span>(half_life=<span class="tok-num">100.0</span>)        <span class="tok-com"># memories halve every 100 ticks</span>
-results = <span class="tok-fn">query_with_decay</span>(mem, key, top_k=<span class="tok-num">5</span>, config=cfg)</code></pre>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap">
-    <div class="ribbon">ቆንጆ · 根性 · 康宙 · कोहजो · ᨀᨚᨐᨚ · конйо · 건조 · কুঞ্জ</div>
-    <div>Build, ship, repeat. · Kohaku v0.4.0 · BUSL-1.1</div>
-    <div style="margin-top: 8px;">
-      <a href="https://github.com/konjoai/kohaku">github.com/konjoai/kohaku</a>
-    </div>
-  </div>
-</footer>
-
-<script>
-'use strict';
-
-// ════════════════════════════════════════════════════════════════════════════
-//  EBBINGHAUS COMPARISON CHART
-// ════════════════════════════════════════════════════════════════════════════
-(function ebChart() {
-  const svg = document.getElementById("ebChart");
-  const W = 900, H = 340;
-  const M = { l: 56, r: 24, t: 28, b: 44 };
-  const innerW = W - M.l - M.r, innerH = H - M.t - M.b;
-  const X_MAX = 31; // days
-  const xToPx = x => M.l + (x / X_MAX) * innerW;
-  const yToPx = y => M.t + (1 - y) * innerH;
-
-  // Ebbinghaus 1885 published savings (memory retention) in %
-  const eb = [
-    { d: 0,    r: 1.00 },
-    { d: 0.014, r: 0.582 }, // 20 min
-    { d: 0.04, r: 0.442 },  // 1 hour
-    { d: 0.38, r: 0.358 },  // 9 hours
-    { d: 1.0,  r: 0.337 },
-    { d: 2.0,  r: 0.278 },
-    { d: 6.0,  r: 0.254 },
-    { d: 31.0, r: 0.211 },
-  ];
-
-  const frag = [];
-  // grid + y labels
-  for (let y = 0; y <= 1.0001; y += 0.25) {
-    frag.push(`<line class="grid-line" x1="${M.l}" x2="${W - M.r}" y1="${yToPx(y)}" y2="${yToPx(y)}"/>`);
-    frag.push(`<text class="axis-text" x="${M.l - 8}" y="${yToPx(y) + 4}" text-anchor="end">${(y*100).toFixed(0)}%</text>`);
+function lcgBipolar(seed64) {
+  let s = (seed64 ^ SEED_XOR) & MASK;
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) {
+    s = (s * MUL + ADD) & MASK;
+    out[i] = (s >> 63n) === 0n ? 1 : -1;
   }
-  for (let x of [0, 1, 7, 14, 21, 30]) {
-    frag.push(`<line class="grid-line" x1="${xToPx(x)}" x2="${xToPx(x)}" y1="${M.t}" y2="${H - M.b}"/>`);
-    frag.push(`<text class="axis-text" x="${xToPx(x)}" y="${H - M.b + 18}" text-anchor="middle">${x}d</text>`);
-  }
-  frag.push(`<line class="axis" x1="${M.l}" x2="${M.l}" y1="${M.t}" y2="${H - M.b}"/>`);
-  frag.push(`<line class="axis" x1="${M.l}" x2="${W - M.r}" y1="${H - M.b}" y2="${H - M.b}"/>`);
-  frag.push(`<text class="axis-text" x="${W/2}" y="${H - 10}" text-anchor="middle">days since learning</text>`);
-  frag.push(`<text class="axis-text" x="14" y="${M.t + innerH/2}" text-anchor="middle" transform="rotate(-90 14 ${M.t + innerH/2})">memory retained</text>`);
-
-  // Kohaku curve — exponential, half_life ≈ 1.2 days (matches Ebbinghaus visually)
-  const halfLife = 1.2, floor = 0.20; // floor matches Ebbinghaus's leveling-off
-  const N = 200;
-  let pathD = "";
-  let areaD = "";
-  for (let i = 0; i <= N; i++) {
-    const x = (i / N) * X_MAX;
-    const w = Math.max(Math.pow(0.5, x / halfLife), floor);
-    pathD += `${i === 0 ? "M" : "L"}${xToPx(x).toFixed(1)},${yToPx(w).toFixed(1)}`;
-  }
-  areaD = pathD + ` L${xToPx(X_MAX).toFixed(1)},${yToPx(0).toFixed(1)} L${xToPx(0).toFixed(1)},${yToPx(0).toFixed(1)} Z`;
-
-  // Ebbinghaus dashed line through measured points
-  let ebD = "";
-  eb.forEach((p, i) => { ebD += `${i === 0 ? "M" : "L"}${xToPx(p.d).toFixed(1)},${yToPx(p.r).toFixed(1)}`; });
-
-  // legend
-  frag.push(`<g transform="translate(${W - M.r - 240}, ${M.t + 8})">
-    <rect x="0" y="0" width="220" height="56" rx="8" fill="rgba(10,7,8,0.7)" stroke="${'rgba(58,40,32,0.8)'}"/>
-    <line x1="14" y1="20" x2="46" y2="20" stroke="#ff7e8a" stroke-width="2" stroke-dasharray="5,4"/>
-    <text x="54" y="24" class="legend-text">Ebbinghaus 1885 (humans)</text>
-    <line x1="14" y1="42" x2="46" y2="42" stroke="url(#decayGrad)" stroke-width="2.5"/>
-    <text x="54" y="46" class="legend-text">Kohaku exponential model</text>
-  </g>`);
-
-  // Draw
-  svg.innerHTML = `
-    <defs>
-      <linearGradient id="ebGrad" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#ffd394"/><stop offset="100%" stop-color="#ff9f3f"/>
-      </linearGradient>
-    </defs>
-    ${frag.join("")}
-    <path d="${areaD}" fill="url(#decayArea)" opacity="0.45"/>
-    <path id="ebKohakuPath" d="${pathD}" fill="none" stroke="url(#ebGrad)" stroke-width="3" stroke-linecap="round"/>
-    <path id="ebHumanPath" d="${ebD}" fill="none" stroke="#ff7e8a" stroke-width="2" stroke-dasharray="5,4" opacity="0.9"/>
-    ${eb.map(p => `<circle class="eb-dot" cx="${xToPx(p.d).toFixed(1)}" cy="${yToPx(p.r).toFixed(1)}" r="3.5"/>`).join("")}
-  `;
-
-  // Animate stroke draw on load (intersection observer)
-  const animatePath = (id) => {
-    const path = svg.querySelector(`#${id}`);
-    if (!path) return;
-    const len = path.getTotalLength();
-    path.style.strokeDasharray = len;
-    path.style.strokeDashoffset = len;
-    path.getBoundingClientRect();
-    path.style.transition = 'stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1)';
-    path.style.strokeDashoffset = '0';
-  };
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          animatePath('ebKohakuPath');
-          setTimeout(() => animatePath('ebHumanPath'), 400);
-        }
-      });
-    }, { threshold: 0.3 }).observe(svg);
-  }
-})();
-
-// ════════════════════════════════════════════════════════════════════════════
-//  MEMORY MAP — physics simulation + interactive
-// ════════════════════════════════════════════════════════════════════════════
-const Graph = (function () {
-  const W = 900, H = 520;
-  const NODE_R = 28;
-
-  // Initial seed concepts. The "vec" is a tiny deterministic feature vector
-  // (8 dims) used only to compute pairwise similarity inside the demo —
-  // production kohaku uses 10 000-D bipolar hypervectors. Keeping the demo
-  // small means the page stays self-contained at <1 MB.
-  const seed = [
-    { id: "cat",      label: "🐈 cat",      color: "#ffd394" },
-    { id: "feline",   label: "😺 feline",   color: "#ffb86c" },
-    { id: "espresso", label: "☕ espresso", color: "#ff9f3f" },
-    { id: "coffee",   label: "🫖 coffee",   color: "#f5c542" },
-    { id: "river",    label: "🌊 river",    color: "#7dd87d" },
-    { id: "ocean",    label: "🌊 ocean",    color: "#6fd2c0" },
-  ];
-  // Hand-curated similarities — symmetric. Values are realistic for what
-  // encode_text() produces in the live library.
-  const seedSim = {
-    "cat|feline":     0.74,
-    "cat|espresso":   0.05,
-    "cat|coffee":     0.07,
-    "cat|river":      0.04,
-    "cat|ocean":      0.03,
-    "feline|espresso":0.06,
-    "feline|coffee":  0.05,
-    "feline|river":   0.05,
-    "feline|ocean":   0.04,
-    "espresso|coffee":0.78,
-    "espresso|river": 0.04,
-    "espresso|ocean": 0.04,
-    "coffee|river":   0.05,
-    "coffee|ocean":   0.04,
-    "river|ocean":    0.71,
-  };
-
-  // String → 8-D feature vector, deterministic (FNV-style hash → bits).
-  function vecOf(s) {
-    s = s.toLowerCase();
-    const dims = 8;
-    const v = new Array(dims).fill(0);
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-      v[i % dims] += ((h & 1) ? 1 : -1);
-    }
-    // bigram features for stronger word-level signal
-    for (let i = 0; i < s.length - 1; i++) {
-      const code = s.charCodeAt(i) * 257 + s.charCodeAt(i+1);
-      v[code % dims] += 1;
-    }
-    // also: char-set hashing into bipolar slots for short tokens
-    const seen = new Set(s);
-    for (const ch of seen) {
-      v[ch.charCodeAt(0) % dims] += 0.3;
-    }
-    // normalize
-    const n = Math.sqrt(v.reduce((a, x) => a + x*x, 0)) || 1;
-    return v.map(x => x / n);
-  }
-  function cosine(a, b) {
-    let s = 0;
-    for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-    return Math.max(-1, Math.min(1, s));
-  }
-
-  // node: { id, label, color, vec, x, y, vx, vy, born, ageDays, isNew }
-  // edge: { i, j, sim }
-  const nodes = [];
-  const edges = [];
-  let selectedIdx = -1;
-  let topSet = new Set();
-  let halfLifeDays = 20;
-  let daysSince   = 0;
-
-  // simulation tuning
-  const PHYS = {
-    k_rep: 5500,
-    k_spring: 0.038,
-    k_center: 0.0014,
-    damp: 0.78,
-    edge_rest_min: 90,
-    edge_rest_range: 220,
-  };
-
-  function similarityFor(aId, bId, aVec, bVec) {
-    if (aId === bId) return 1.0;
-    const k1 = `${aId}|${bId}`, k2 = `${bId}|${aId}`;
-    if (k1 in seedSim) return seedSim[k1];
-    if (k2 in seedSim) return seedSim[k2];
-    return cosine(aVec, bVec);
-  }
-
-  function rebuildEdges() {
-    edges.length = 0;
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const sim = similarityFor(nodes[i].id, nodes[j].id, nodes[i].vec, nodes[j].vec);
-        edges.push({ i, j, sim });
-      }
-    }
-  }
-
-  function addNode(spec) {
-    // Initial position: average of similar seeds + small jitter
-    let cx = W / 2, cy = H / 2, weight = 0;
-    for (const n of nodes) {
-      const s = Math.max(0, similarityFor(spec.id, n.id, spec.vec, n.vec) - 0.05);
-      cx += n.x * s; cy += n.y * s; weight += s;
-    }
-    if (weight > 0) { cx /= (weight + 1); cy /= (weight + 1); }
-    const node = {
-      ...spec,
-      x: cx + (Math.random() - 0.5) * 80,
-      y: cy + (Math.random() - 0.5) * 80,
-      vx: 0, vy: 0,
-      born: performance.now(),
-      isNew: true,
-    };
-    nodes.push(node);
-    rebuildEdges();
-    triggerFlash(nodes.length - 1);
-    setTimeout(() => { node.isNew = false; renderNodes(); }, 800);
-    return node;
-  }
-
-  function tick() {
-    // forces
-    for (const n of nodes) { n._fx = 0; n._fy = 0; }
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i], b = nodes[j];
-        let dx = b.x - a.x, dy = b.y - a.y;
-        let d2 = dx*dx + dy*dy;
-        if (d2 < 1) { dx = Math.random()-0.5; dy = Math.random()-0.5; d2 = 1; }
-        const f = PHYS.k_rep / d2;
-        const d = Math.sqrt(d2);
-        const ux = dx/d, uy = dy/d;
-        a._fx -= f * ux; a._fy -= f * uy;
-        b._fx += f * ux; b._fy += f * uy;
-      }
-    }
-    for (const e of edges) {
-      const a = nodes[e.i], b = nodes[e.j];
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const d = Math.sqrt(dx*dx + dy*dy) || 1;
-      const rest = PHYS.edge_rest_min + (1 - Math.max(0, e.sim)) * PHYS.edge_rest_range;
-      const strength = Math.max(0.05, e.sim) * PHYS.k_spring;
-      const ux = dx/d, uy = dy/d;
-      const f = (d - rest) * strength;
-      a._fx += f * ux; a._fy += f * uy;
-      b._fx -= f * ux; b._fy -= f * uy;
-    }
-    for (const n of nodes) {
-      n._fx += (W/2 - n.x) * PHYS.k_center;
-      n._fy += (H/2 - n.y) * PHYS.k_center;
-    }
-    // tiny breathing motion (organic float)
-    const t = performance.now() * 0.0012;
-    for (let i = 0; i < nodes.length; i++) {
-      const phase = i * 1.7;
-      nodes[i]._fx += Math.sin(t + phase) * 0.04;
-      nodes[i]._fy += Math.cos(t * 0.83 + phase) * 0.04;
-    }
-    // integrate
-    for (const n of nodes) {
-      n.vx = (n.vx + n._fx) * PHYS.damp;
-      n.vy = (n.vy + n._fy) * PHYS.damp;
-      n.x = Math.max(NODE_R + 6, Math.min(W - NODE_R - 6, n.x + n.vx));
-      n.y = Math.max(NODE_R + 6, Math.min(H - NODE_R - 6, n.y + n.vy));
-    }
-    renderPositions();
-    requestAnimationFrame(tick);
-  }
-
-  // SVG nodes + edges are persistent groups; we update positions every frame
-  // and rebuild only on add/remove.
-  let svgEl, edgeLayer, nodeLayer, flashLayer;
-
-  function buildSvg() {
-    svgEl = document.getElementById("graph");
-    svgEl.innerHTML = `
-      <defs>
-        <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="rgba(255,184,108,0.10)"/>
-          <stop offset="100%" stop-color="rgba(255,184,108,0)"/>
-        </radialGradient>
-      </defs>
-      <rect x="0" y="0" width="${W}" height="${H}" fill="url(#bgGlow)"/>
-      <g id="edgeLayer"></g>
-      <g id="nodeLayer"></g>
-      <g id="flashLayer"></g>
-    `;
-    edgeLayer  = svgEl.querySelector("#edgeLayer");
-    nodeLayer  = svgEl.querySelector("#nodeLayer");
-    flashLayer = svgEl.querySelector("#flashLayer");
-  }
-
-  function renderEdges() {
-    edgeLayer.innerHTML = "";
-    edges.forEach((e, k) => {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("class", "edge");
-      path.setAttribute("data-i", e.i);
-      path.setAttribute("data-j", e.j);
-      path.setAttribute("data-sim", e.sim.toFixed(3));
-      path.setAttribute("stroke-width", Math.max(0.6, e.sim * 5));
-      path.setAttribute("stroke-opacity", Math.max(0.10, e.sim * 0.85));
-      edgeLayer.appendChild(path);
-    });
-  }
-
-  function renderNodes() {
-    nodeLayer.innerHTML = "";
-    nodes.forEach((n, i) => {
-      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      g.setAttribute("class", "node" + (i === selectedIdx ? " selected" : ""));
-      g.setAttribute("data-id", n.id);
-      g.setAttribute("data-i", i);
-      g.style.color = n.color;
-
-      const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      halo.setAttribute("class", "halo");
-      halo.setAttribute("r", NODE_R);
-      halo.setAttribute("cx", 0);
-      halo.setAttribute("cy", 0);
-      halo.style.animationDelay = `${(i * 380) % 4000}ms`;
-      g.appendChild(halo);
-
-      const core = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      core.setAttribute("class", "core");
-      core.setAttribute("r", NODE_R);
-      core.setAttribute("cx", 0);
-      core.setAttribute("cy", 0);
-      core.setAttribute("fill", n.color);
-      g.appendChild(core);
-
-      // label pill
-      const labelText = n.label;
-      const charW = 7.6, padX = 10, h = 22;
-      const w = labelText.length * charW + padX * 2;
-      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      rect.setAttribute("class", "label-bg");
-      rect.setAttribute("x", -w/2);
-      rect.setAttribute("y", NODE_R + 6);
-      rect.setAttribute("width", w);
-      rect.setAttribute("height", h);
-      rect.setAttribute("rx", 6);
-      g.appendChild(rect);
-      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("y", NODE_R + 6 + h - 6);
-      text.textContent = labelText;
-      g.appendChild(text);
-
-      // similarity badge above node
-      const badge = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      badge.setAttribute("class", "sim-badge");
-      badge.setAttribute("text-anchor", "middle");
-      badge.setAttribute("y", -NODE_R - 8);
-      badge.style.opacity = "0";
-      badge.textContent = "";
-      g.appendChild(badge);
-
-      g.addEventListener("click", () => select(i));
-      nodeLayer.appendChild(g);
-    });
-  }
-
-  function renderPositions() {
-    if (!nodeLayer) return;
-    const ngs = nodeLayer.children;
-    for (let i = 0; i < nodes.length && i < ngs.length; i++) {
-      const n = nodes[i];
-      ngs[i].setAttribute("transform", `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
-      // apply per-node decay to opacity / size
-      const ageDays = Math.max(0, daysSince - (n.bornDay || 0));
-      const w = Math.pow(0.5, ageDays / halfLifeDays);
-      const op = (i === selectedIdx ? 1.0 : (topSet.has(i) ? 1.0 : 0.32 + 0.68 * w));
-      ngs[i].style.opacity = op;
-      const core = ngs[i].querySelector(".core");
-      const halo = ngs[i].querySelector(".halo");
-      const r = NODE_R * (0.55 + 0.45 * w);
-      core.setAttribute("r", r);
-      halo.setAttribute("r", r);
-    }
-    // edge endpoints
-    const egs = edgeLayer.children;
-    for (let k = 0; k < edges.length && k < egs.length; k++) {
-      const e = edges[k];
-      const a = nodes[e.i], b = nodes[e.j];
-      const path = egs[k];
-      const d = `M${a.x.toFixed(1)},${a.y.toFixed(1)} L${b.x.toFixed(1)},${b.y.toFixed(1)}`;
-      path.setAttribute("d", d);
-    }
-  }
-
-  function setSelected(idx) {
-    selectedIdx = idx;
-    if (idx < 0) { topSet = new Set(); return; }
-    const me = nodes[idx];
-    const sims = nodes.map((n, j) => ({ j, v: similarityFor(me.id, n.id, me.vec, n.vec) }));
-    const others = sims.filter(s => s.j !== idx).sort((a, b) => b.v - a.v);
-    topSet = new Set(others.slice(0, 2).map(s => s.j));
-    // update node classes + sim badges
-    Array.from(nodeLayer.children).forEach((g, j) => {
-      g.classList.toggle("selected", j === idx);
-      g.classList.toggle("dim", j !== idx && !topSet.has(j));
-      const badge = g.querySelector(".sim-badge");
-      if (j === idx) {
-        badge.textContent = "you picked this";
-        badge.style.opacity = "1";
-      } else {
-        badge.textContent = `match ${(sims[j].v * 100).toFixed(0)}%`;
-        badge.style.opacity = topSet.has(j) ? "1" : "0.45";
-      }
-    });
-    // edges
-    Array.from(edgeLayer.children).forEach((path) => {
-      const i = +path.getAttribute("data-i"), j = +path.getAttribute("data-j");
-      const incident = (i === idx || j === idx);
-      const otherIdx = (i === idx) ? j : i;
-      const isTop = incident && topSet.has(otherIdx);
-      path.classList.toggle("active", isTop);
-      path.classList.toggle("dim", !incident);
-      if (isTop) animateEdgeDraw(path);
-    });
-    document.getElementById("hint").textContent =
-      `Recalling "${me.id}" — top matches: ` +
-      others.slice(0, 2).map(s => `${nodes[s.j].id} (${(s.v*100).toFixed(0)}%)`).join(", ");
-  }
-
-  function select(idx) { setSelected(idx); }
-
-  function animateEdgeDraw(path) {
-    try {
-      const len = path.getTotalLength();
-      path.style.strokeDasharray = len;
-      path.style.strokeDashoffset = len;
-      // force reflow
-      path.getBoundingClientRect();
-      path.style.transition = "stroke-dashoffset 0.7s cubic-bezier(.2,.8,.2,1)";
-      path.style.strokeDashoffset = "0";
-      // clear after
-      setTimeout(() => {
-        path.style.transition = "";
-        path.style.strokeDasharray = "";
-        path.style.strokeDashoffset = "";
-      }, 800);
-    } catch (e) {/* getTotalLength may throw on hidden elements */}
-  }
-
-  function triggerFlash(idx) {
-    const n = nodes[idx];
-    const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    ring.setAttribute("class", "flash");
-    ring.setAttribute("cx", n.x);
-    ring.setAttribute("cy", n.y);
-    ring.setAttribute("r", NODE_R);
-    ring.setAttribute("fill", "none");
-    ring.setAttribute("stroke", "var(--gold)");
-    ring.setAttribute("stroke-width", "3");
-    ring.setAttribute("opacity", "1");
-    flashLayer.appendChild(ring);
-    const start = performance.now();
-    const dur = 900;
-    function step(now) {
-      const t = Math.min(1, (now - start) / dur);
-      ring.setAttribute("r", (NODE_R + t * 80).toFixed(1));
-      ring.setAttribute("opacity", (1 - t).toFixed(3));
-      ring.setAttribute("cx", nodes[idx].x);
-      ring.setAttribute("cy", nodes[idx].y);
-      if (t < 1) requestAnimationFrame(step);
-      else flashLayer.removeChild(ring);
-    }
-    requestAnimationFrame(step);
-  }
-
-  function init() {
-    buildSvg();
-    // seed nodes
-    seed.forEach((s, i) => {
-      const angle = (i / seed.length) * Math.PI * 2;
-      nodes.push({
-        ...s,
-        vec: vecOf(s.id),
-        x: W/2 + Math.cos(angle) * 180,
-        y: H/2 + Math.sin(angle) * 130,
-        vx: 0, vy: 0,
-        bornDay: 0,
-      });
-    });
-    rebuildEdges();
-    renderEdges();
-    renderNodes();
-    requestAnimationFrame(tick);
-    // auto-select after a beat to avoid blank state
-    setTimeout(() => select(0), 900);
-  }
-
-  // ── public api ──────────────────────────────────────────────────────────
-  return {
-    init,
-    addByText(text) {
-      const id = text.trim().toLowerCase().slice(0, 32);
-      if (!id) return null;
-      if (nodes.some(n => n.id === id)) {
-        document.getElementById("hint").textContent = `"${id}" is already on the map`;
-        return null;
-      }
-      const palette = ["#ffd394","#ffb86c","#ff9f3f","#f5c542","#7dd87d","#6fd2c0","#ff7e8a","#ffaaaa"];
-      const node = addNode({
-        id,
-        label: id,
-        color: palette[nodes.length % palette.length],
-        vec: vecOf(id),
-        bornDay: daysSince,
-      });
-      renderEdges();
-      renderNodes();
-      // animate the new node's strongest connections
-      const idx = nodes.length - 1;
-      setTimeout(() => {
-        select(idx);
-      }, 400);
-      return node;
-    },
-    setDays(d) {
-      daysSince = d;
-      renderPositions();
-    },
-    setHalfLife(h) {
-      halfLifeDays = h;
-      renderPositions();
-    },
-    randomConcept() {
-      return nodes[Math.floor(Math.random() * nodes.length)];
-    },
-    nodes,
-    edges,
-    // ── live-mode hooks ─────────────────────────────────────────────────
-    /** Replace whole graph from server response: {nodes:[{id,label,color,phrase}], edges:[{i,j,sim}], dims}.
-     *  Preserves x/y of nodes that match by id; new ones get a smart initial position. */
-    replaceFromServer(serverGraph) {
-      // build new node array, preserving positions where id matches
-      const oldByIdx = nodes.slice();
-      const oldById = {};
-      for (const n of oldByIdx) oldById[n.id] = n;
-      nodes.length = 0;
-      const sNodes = serverGraph.nodes || [];
-      const sEdges = serverGraph.edges || [];
-      // helper: lookup similarity between two indices in the new graph
-      const simAt = (i, j) => {
-        if (i === j) return 1.0;
-        for (const e of sEdges) {
-          if ((e.i === i && e.j === j) || (e.i === j && e.j === i)) return e.sim;
-        }
-        return 0.0;
-      };
-      sNodes.forEach((sn, idx) => {
-        const prev = oldById[sn.id];
-        // For new nodes, place near the centroid of similar already-placed nodes.
-        let x = W/2, y = H/2;
-        if (prev) {
-          x = prev.x; y = prev.y;
-        } else {
-          let cx = 0, cy = 0, w = 0;
-          for (let k = 0; k < idx; k++) {
-            const s = Math.max(0, simAt(idx, k) - 0.05);
-            cx += nodes[k].x * s;
-            cy += nodes[k].y * s;
-            w += s;
-          }
-          if (w > 0) { x = cx / w; y = cy / w; }
-          x += (Math.random() - 0.5) * 60;
-          y += (Math.random() - 0.5) * 60;
-        }
-        nodes.push({
-          id: sn.id,
-          label: sn.label || sn.id,
-          phrase: sn.phrase || sn.id,
-          color: sn.color || "#ffb86c",
-          vec: vecOf(sn.id),  // unused in live mode but kept for fallback
-          x, y,
-          vx: prev ? prev.vx : 0,
-          vy: prev ? prev.vy : 0,
-          bornDay: prev ? (prev.bornDay || 0) : daysSince,
-          serverIdx: idx,
-        });
-      });
-      // rebuild edges from server (replace local computed edges entirely)
-      edges.length = 0;
-      for (const e of sEdges) edges.push({ i: e.i, j: e.j, sim: e.sim });
-      renderEdges();
-      renderNodes();
-      renderPositions();
-    },
-    /** Highlight a node by its id, mark top-k id list as the "matches".
-     *  matches: array of {id, decayed_strength} from /api/query response. */
-    showServerMatches(queriedId, matches) {
-      // find queried node index by id (or -1)
-      const qIdx = nodes.findIndex(n => n.id === queriedId);
-      // Build set of top-2 match ids (excluding the query itself when it's in the graph)
-      const topIds = new Set(
-        matches
-          .filter(m => m.id !== queriedId)
-          .slice(0, 2)
-          .map(m => m.id)
-      );
-      const topIdx = new Set();
-      nodes.forEach((n, i) => { if (topIds.has(n.id)) topIdx.add(i); });
-
-      selectedIdx = qIdx;
-      topSet = topIdx;
-      // update DOM
-      Array.from(nodeLayer.children).forEach((g, i) => {
-        g.classList.toggle("selected", i === qIdx);
-        g.classList.toggle("dim", i !== qIdx && !topIdx.has(i));
-        const badge = g.querySelector(".sim-badge");
-        if (i === qIdx) {
-          badge.textContent = "you queried this";
-          badge.style.opacity = "1";
-        } else {
-          const m = matches.find(mm => mm.id === nodes[i].id);
-          if (m) {
-            badge.textContent = `match ${(m.decayed_strength * 100).toFixed(0)}%`;
-            badge.style.opacity = topIdx.has(i) ? "1" : "0.45";
-          } else {
-            badge.textContent = "";
-            badge.style.opacity = "0";
-          }
-        }
-      });
-      Array.from(edgeLayer.children).forEach((path) => {
-        const i = +path.getAttribute("data-i"), j = +path.getAttribute("data-j");
-        const incident = (i === qIdx || j === qIdx);
-        const otherIdx = (i === qIdx) ? j : i;
-        const isTop = incident && topIdx.has(otherIdx);
-        path.classList.toggle("active", isTop);
-        path.classList.toggle("dim", !incident);
-        if (isTop) animateEdgeDraw(path);
-      });
-    },
-    /** Apply per-node decayed strengths from the server (id → strength in [0,1]).
-     *  Drives node opacity + radius without touching local decay math. */
-    applyServerStrengths(strengthsById, queriedId) {
-      const ngs = nodeLayer.children;
-      for (let i = 0; i < nodes.length && i < ngs.length; i++) {
-        const id = nodes[i].id;
-        const s = (id === queriedId) ? 1.0 : (strengthsById[id] ?? 0);
-        const op = (i === selectedIdx ? 1.0 : 0.25 + 0.75 * Math.max(0, Math.min(1, s)));
-        ngs[i].style.opacity = op;
-        const core = ngs[i].querySelector(".core");
-        const halo = ngs[i].querySelector(".halo");
-        const r = NODE_R * (0.55 + 0.45 * Math.max(0, Math.min(1, s)));
-        core.setAttribute("r", r);
-        halo.setAttribute("r", r);
-      }
-    },
-    /** Click handler hook (server-mode): replace the per-node click. */
-    setClickHandler(fn) {
-      Array.from(nodeLayer.children).forEach((g, i) => {
-        const fresh = g.cloneNode(true);
-        g.parentNode.replaceChild(fresh, g);
-        fresh.addEventListener("click", () => fn(i, nodes[i]));
-      });
-    },
-    triggerFlashByIdx(idx) { triggerFlash(idx); },
-  };
-})();
-
-Graph.init();
-
-document.getElementById("addBtn").addEventListener("click", () => {
-  const inp = document.getElementById("newConcept");
-  if (!inp.value.trim()) return;
-  Graph.addByText(inp.value);
-  inp.value = "";
-});
-document.getElementById("newConcept").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") document.getElementById("addBtn").click();
-});
-
-// Days slider — applies to ALL nodes in the graph
-const daysSlider = document.getElementById("daysSlider");
-const daysVal    = document.getElementById("daysVal");
-const halfMain   = document.getElementById("halfMain");
-const halfMainV  = document.getElementById("halfMainVal");
-function syncDays() {
-  daysVal.textContent = daysSlider.value;
-  halfMainV.textContent = halfMain.value;
-  Graph.setDays(+daysSlider.value);
-  Graph.setHalfLife(+halfMain.value);
+  return out;
 }
-daysSlider.addEventListener("input", syncDays);
-halfMain.addEventListener("input", syncDays);
-syncDays();
-
-// ════════════════════════════════════════════════════════════════════════════
-//  DECAY CHART (separate from Ebbinghaus chart)
-// ════════════════════════════════════════════════════════════════════════════
-(function decayChart() {
-  const svg = document.getElementById("chart");
-  const W = 900, H = 340;
-  const M = { l: 56, r: 24, t: 24, b: 44 };
-  const innerW = W - M.l - M.r, innerH = H - M.t - M.b;
-  const X_MAX = 200; // days
-  const xToPx = x => M.l + (x / X_MAX) * innerW;
-  const yToPx = y => M.t + (1 - y) * innerH;
-
-  const frag = [];
-  for (let y = 0; y <= 1.0001; y += 0.25) {
-    frag.push(`<line class="grid-line" x1="${M.l}" x2="${W - M.r}" y1="${yToPx(y)}" y2="${yToPx(y)}"/>`);
-    frag.push(`<text class="axis-text" x="${M.l - 8}" y="${yToPx(y) + 4}" text-anchor="end">${y.toFixed(2)}</text>`);
+function hashToken(tok) {
+  let h = 0n;
+  for (let i = 0; i < tok.length; i++) h = (h * 31n + BigInt(tok.charCodeAt(i))) & MASK;
+  return h;
+}
+function encodeText(text) {
+  const tokens = (text || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return lcgBipolar(0n);
+  const acc = new Float32Array(DIMS);
+  for (const tok of tokens) {
+    const v = lcgBipolar(hashToken(tok));
+    for (let i = 0; i < DIMS; i++) acc[i] += v[i];
   }
-  for (let x = 0; x <= X_MAX; x += 50) {
-    frag.push(`<line class="grid-line" x1="${xToPx(x)}" x2="${xToPx(x)}" y1="${M.t}" y2="${H - M.b}"/>`);
-    frag.push(`<text class="axis-text" x="${xToPx(x)}" y="${H - M.b + 18}" text-anchor="middle">${x}d</text>`);
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) out[i] = acc[i] >= 0 ? 1 : -1;
+  return out;
+}
+function cosine(a, b) { let d = 0; for (let i = 0; i < DIMS; i++) d += a[i] * b[i]; return d / DIMS; }
+
+/* ── Cosmos seeds. Three signature clusters: amber · rose · teal ───────── */
+const COLORS = [
+  { r: 255, g: 184, b: 108 }, // amber
+  { r: 255, g: 126, b: 138 }, // rose
+  { r: 111, g: 210, b: 192 }, // teal
+];
+const SEEDS = [
+  ["amber light",         0],
+  ["forgetting curve",    0],
+  ["the smell of rain",   0],
+  ["bipolar vector",      0],
+  ["binding operation",   0],
+
+  ["episodic memory",     1],
+  ["the hippocampus",     1],
+  ["sleep consolidation", 1],
+  ["a dreaming brain",    1],
+  ["recall by resonance", 1],
+
+  ["semantic prototype",  2],
+  ["online learning",     2],
+  ["associative recall",  2],
+  ["hopfield network",    2],
+  ["cosine similarity",   2],
+  ["ten thousand dimensions", 2],
+];
+
+const stars = [];
+const probes = [];
+const flares = [];
+
+const canvas = document.getElementById("sky");
+const ctx = canvas.getContext("2d");
+let DPR = 1, W = 0, H = 0;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize(); window.addEventListener("resize", () => { resize(); layout(); });
+
+function layout() {
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+    if (s.placed) continue;
+    const angle = (i / stars.length) * Math.PI * 2 + Math.random() * 0.4;
+    const radius = Math.min(W, H) * (0.20 + Math.random() * 0.34);
+    s.x = W / 2 + Math.cos(angle) * radius * 1.3;
+    s.y = H / 2 + Math.sin(angle) * radius * 0.85;
+    s.placed = true;
   }
-  frag.push(`<line class="axis" x1="${M.l}" x2="${M.l}" y1="${M.t}" y2="${H - M.b}"/>`);
-  frag.push(`<line class="axis" x1="${M.l}" x2="${W - M.r}" y1="${H - M.b}" y2="${H - M.b}"/>`);
-  frag.push(`<text class="axis-text" x="${W/2}" y="${H - 10}" text-anchor="middle">days passed</text>`);
-  frag.push(`<text class="axis-text" x="14" y="${M.t + innerH/2}" text-anchor="middle" transform="rotate(-90 14 ${M.t + innerH/2})">memory strength</text>`);
-
-  frag.push(`<path class="area" id="dA" d=""/>`);
-  frag.push(`<path class="curve" id="dC" d=""/>`);
-  frag.push(`<line id="ageRef" stroke="#f5c542" stroke-dasharray="3,3" stroke-width="1.2" x1="0" x2="0" y1="0" y2="0"/>`);
-  frag.push(`<text id="ageText" class="ref-text" x="0" y="0"></text>`);
-  frag.push(`<circle class="marker" id="marker" r="7" cx="-100" cy="-100"/>`);
-
-  // preserve existing <defs>
-  const defs = svg.querySelector("defs").outerHTML;
-  svg.innerHTML = defs + frag.join("");
-
-  const ageEl   = document.getElementById("ageSlider");
-  const ageVal  = document.getElementById("ageVal");
-  const halfEl  = document.getElementById("halfDecay");
-  const halfVal = document.getElementById("halfDecayVal");
-  const curve   = document.getElementById("dC");
-  const area    = document.getElementById("dA");
-  const ageRef  = document.getElementById("ageRef");
-  const ageText = document.getElementById("ageText");
-  const marker  = document.getElementById("marker");
-
-  let firstDraw = true;
-
-  function update() {
-    const half = +halfEl.value;
-    const age  = +ageEl.value;
-    halfVal.textContent = half;
-    ageVal.textContent  = age;
-
-    const N = 200;
-    let pathD = "";
-    for (let i = 0; i <= N; i++) {
-      const x = (i / N) * X_MAX;
-      const w = Math.pow(0.5, x / half);
-      pathD += `${i === 0 ? "M" : "L"}${xToPx(x).toFixed(1)},${yToPx(w).toFixed(1)}`;
-    }
-    curve.setAttribute("d", pathD);
-    area.setAttribute("d", pathD + ` L${xToPx(X_MAX).toFixed(1)},${yToPx(0).toFixed(1)} L${xToPx(0).toFixed(1)},${yToPx(0).toFixed(1)} Z`);
-
-    // marker
-    const w = Math.pow(0.5, age / half);
-    const mx = xToPx(age), my = yToPx(w);
-    marker.setAttribute("cx", mx);
-    marker.setAttribute("cy", my);
-    ageRef.setAttribute("x1", mx); ageRef.setAttribute("x2", mx);
-    ageRef.setAttribute("y1", H - M.b); ageRef.setAttribute("y2", my);
-    ageText.setAttribute("x", mx + 8);
-    ageText.setAttribute("y", my - 8);
-    ageText.textContent = `strength = ${w.toFixed(3)}`;
-
-    if (firstDraw) {
-      firstDraw = false;
-      // animate stroke draw on first paint
-      const len = curve.getTotalLength();
-      curve.style.strokeDasharray = len;
-      curve.style.strokeDashoffset = len;
-      curve.getBoundingClientRect();
-      curve.style.transition = "stroke-dashoffset 1.4s cubic-bezier(.2,.8,.2,1)";
-      curve.style.strokeDashoffset = "0";
-    }
-  }
-  ageEl.addEventListener("input", update);
-  halfEl.addEventListener("input", update);
-  // animate on scroll-into-view
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) update(); });
-    }, { threshold: 0.3 }).observe(svg);
-  }
-  update();
-})();
-
-// ════════════════════════════════════════════════════════════════════════════
-//  QUIZ ME
-// ════════════════════════════════════════════════════════════════════════════
-(function quiz() {
-  const targetEl   = document.getElementById("quizTarget");
-  const daysEl     = document.getElementById("quizDays");
-  const ansEl      = document.getElementById("quizAnswer");
-  const strEl      = document.getElementById("quizStrength");
-  const verdictEl  = document.getElementById("quizVerdict");
-  const explainEl  = document.getElementById("quizExplain");
-  const revealBtn  = document.getElementById("quizReveal");
-  const newBtn     = document.getElementById("quizNew");
-  const ageSlider  = document.getElementById("ageSlider");
-  const halfDecay  = document.getElementById("halfDecay");
-  const halfMain   = document.getElementById("halfMain");
-
-  let current = null;
-
-  function pickNew() {
-    const node = Graph.randomConcept();
-    const days = 5 + Math.floor(Math.random() * 90);
-    current = { node, days };
-    targetEl.textContent = node.id;
-    daysEl.textContent = `${days}`;
-    ansEl.classList.add("hidden");
-    explainEl.textContent = "";
-    verdictEl.textContent = "";
-  }
-  function reveal() {
-    if (!current) return;
-    const half = +halfMain.value;
-    const w = Math.pow(0.5, current.days / half);
-    strEl.textContent = `${(w * 100).toFixed(1)}%`;
-    let verdict, color;
-    if (w > 0.6)      { verdict = "💡 Sharp — you'd recall this clearly."; color = "var(--green)"; }
-    else if (w > 0.3) { verdict = "🌅 Hazy — a hint would bring it back."; color = "var(--gold)"; }
-    else if (w > 0.1) { verdict = "🌫️ Faint — mostly gone unless reinforced."; color = "var(--amber)"; }
-    else              { verdict = "🌑 Forgotten — re-learning required.";   color = "var(--rose)"; }
-    verdictEl.innerHTML = `<span style="color:${color}; font-weight:700;">${verdict}</span>`;
-    explainEl.textContent = `Math: 0.5 ^ (${current.days} / ${half}) = ${w.toFixed(4)}`;
-    ansEl.classList.remove("hidden");
-
-    // animate the decay chart to this exact age
-    ageSlider.value = current.days;
-    halfDecay.value = half;
-    halfDecay.dispatchEvent(new Event("input"));
-    ageSlider.dispatchEvent(new Event("input"));
-  }
-
-  revealBtn.addEventListener("click", reveal);
-  newBtn.addEventListener("click", pickNew);
-  pickNew();
-})();
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STORAGE BARS
-// ════════════════════════════════════════════════════════════════════════════
-(function storageBars() {
-  const jsonMB = 135.0;
-  const hkbMB  = 5.0;
-  document.getElementById("size-json").textContent = `${jsonMB.toFixed(1)} MB`;
-  document.getElementById("size-hkb").textContent  = `${hkbMB.toFixed(1)} MB`;
-  document.getElementById("ratio").textContent =
-    `.hkb is ${(jsonMB / hkbMB).toFixed(1)}× smaller — same exact recall after reload.`;
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver((entries, obs) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          document.getElementById("bar-json").style.width = "100%";
-          document.getElementById("bar-hkb").style.width = `${(hkbMB / jsonMB) * 100}%`;
-          obs.disconnect();
-        }
-      });
-    }, { threshold: 0.3 }).observe(document.querySelector("#bar-json").closest(".viz"));
-  } else {
-    document.getElementById("bar-json").style.width = "100%";
-    document.getElementById("bar-hkb").style.width = `${(hkbMB / jsonMB) * 100}%`;
-  }
-})();
-
-// ════════════════════════════════════════════════════════════════════════════
-//  LIVE API INTEGRATION — probe /api/health and switch to real kohaku data
-// ════════════════════════════════════════════════════════════════════════════
-(function liveMode() {
-  const banner   = document.getElementById("liveStatus");
-  const detail   = document.getElementById("liveDetail");
-  const hint     = document.getElementById("liveHint");
-  const addBtn   = document.getElementById("addBtn");
-  const addModeBadge = document.getElementById("addModeBadge");
-  const addHelper = document.getElementById("addHelper");
-  const inputEl  = document.getElementById("newConcept");
-  const saveBtn  = document.getElementById("saveBtn");
-  const loadBtn  = document.getElementById("loadBtn");
-  const resetBtn = document.getElementById("resetBtn");
-  const saveOut  = document.getElementById("saveOut");
-  const daysSlider = document.getElementById("daysSlider");
-  const halfMain   = document.getElementById("halfMain");
-  const ratioBox   = document.getElementById("ratio");
-  const sizeJson   = document.getElementById("size-json");
-  const sizeHkb    = document.getElementById("size-hkb");
-  const barJson    = document.getElementById("bar-json");
-  const barHkb     = document.getElementById("bar-hkb");
-
-  const API = (path, body) => fetch(path, {
-    method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  }).then(r => {
-    if (!r.ok) return r.json().then(j => Promise.reject(j.error || r.statusText));
-    return r.json();
+}
+function spawnSeed(label, cluster) {
+  stars.push({
+    x: 0, y: 0,
+    vx: (Math.random() - 0.5) * 0.04, vy: (Math.random() - 0.5) * 0.04,
+    label, hv: encodeText(label), cluster, accesses: 0,
+    brightness: 0.55 + Math.random() * 0.4,
+    placed: false,
   });
+}
 
-  let live = false;
-  let selectedId = null;
-  let pendingDecay = null;
+/* background dust — pure decoration, no HDC */
+const dust = Array.from({ length: 220 }, () => ({
+  x: Math.random(), y: Math.random(),
+  size: Math.random() * 0.9 + 0.2,
+  twinkle: Math.random() * Math.PI * 2,
+}));
 
-  function setOffline(reason) {
-    banner.className = "pill offline";
-    banner.innerHTML = `<span class="dotled"></span> Offline · simulation`;
-    detail.innerHTML = `Run <code>python demo/server.py</code> to switch to <strong>real</strong> kohaku data.`;
-    if (reason) hint.textContent = `(${reason})`;
+function render(now) {
+  ctx.fillStyle = "rgba(0,0,0,0.30)";
+  ctx.fillRect(0, 0, W, H);
+
+  for (const d of dust) {
+    const tw = 0.4 + 0.6 * Math.abs(Math.sin(now * 0.0009 + d.twinkle));
+    ctx.fillStyle = `rgba(245, 234, 216, ${0.10 + tw * 0.18})`;
+    ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.size, 0, Math.PI * 2); ctx.fill();
   }
 
-  function setLive(health) {
-    live = true;
-    banner.className = "pill live";
-    banner.innerHTML = `<span class="dotled"></span> Live · real kohaku v${health.version}`;
-    detail.innerHTML = `<code>backend=${health.backend}</code> · <code>dims=${health.dims.toLocaleString()}</code> · <code>${health.num_concepts} memories</code>`;
-    hint.textContent = `Every number on this page is computed by the live library →`;
-    addModeBadge.className = "badge-live";
-    addModeBadge.textContent = "live";
-    addHelper.innerHTML = `<strong style="color: var(--green);">LIVE:</strong> the new memory is encoded server-side as a real 10 000-D hypervector. Edge thicknesses below are <em>real cosine similarities</em>.`;
-    [saveBtn, loadBtn, resetBtn].forEach(b => b.disabled = false);
-    saveOut.innerHTML = `<span style="color: var(--fg-2);">Click 💾 Save to write a real <code>.hkb</code> file to disk.</span>`;
-    inputEl.placeholder = "Type a phrase — encoded as a real 10 000-D vector on the server";
+  for (let i = 0; i < stars.length; i++) {
+    for (let j = i + 1; j < stars.length; j++) {
+      const sim = cosine(stars[i].hv, stars[j].hv);
+      if (sim < 0.35) continue;
+      const a = stars[i], b = stars[j];
+      const alpha = (sim - 0.35) * 0.22;
+      ctx.strokeStyle = `rgba(255, 235, 200, ${alpha})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
   }
 
-  // ── debounce helper ─────────────────────────────────────────────────────
-  function debounce(fn, ms) {
-    let t = null;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), ms);
-    };
-  }
+  for (let i = probes.length - 1; i >= 0; i--) {
+    const p = probes[i];
+    const age = now - p.born;
+    if (age > p.lifetime) { probes.splice(i, 1); continue; }
+    const t = age / p.lifetime;
 
-  // ── live-mode operations ────────────────────────────────────────────────
-  async function liveQuery(concept) {
-    if (!live) return;
-    const days = +daysSlider.value;
-    const half = +halfMain.value;
-    try {
-      const res = await API("/api/query", {
-        concept, days_since: days, half_life: half, top_k: 8,
-      });
-      // build {id → decayed_strength} for ALL nodes currently on the map
-      const strengthsById = {};
-      for (const m of res.matches) {
-        strengthsById[m.id] = Math.max(0, Math.min(1, m.decayed_strength));
+    const ringR = 6 + t * Math.min(W, H) * 0.45;
+    ctx.strokeStyle = `rgba(255, 235, 200, ${0.55 * (1 - t)})`;
+    ctx.lineWidth = 1.0 * (1 - t * 0.7);
+    ctx.beginPath(); ctx.arc(p.x, p.y, ringR, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.shadowBlur = 28; ctx.shadowColor = "rgba(255,235,200,0.85)";
+    ctx.fillStyle = `rgba(255, 245, 220, ${0.95 * (1 - t * 0.5)})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4 + Math.sin(now * 0.012) * 0.8, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    for (const h of p.hits) {
+      const s = stars[h.idx]; if (!s) continue;
+      const reach = Math.min(1, t * 2.6);
+      const ex = p.x + (s.x - p.x) * reach;
+      const ey = p.y + (s.y - p.y) * reach;
+      const c = COLORS[s.cluster];
+      ctx.strokeStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${0.85 * (1 - t * 0.7)})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+      if (reach >= 1) {
+        ctx.shadowBlur = 22; ctx.shadowColor = `rgba(${c.r}, ${c.g}, ${c.b}, 0.9)`;
+        ctx.fillStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${0.9 * (1 - t)})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, 6 + (1 - t) * 5, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
       }
-      Graph.showServerMatches(selectedId || concept, res.matches);
-      Graph.applyServerStrengths(strengthsById, selectedId || concept);
-      const hintEl = document.getElementById("hint");
-      const top = res.matches.slice(0, 3)
-        .map(m => `${m.id} (${(m.decayed_strength*100).toFixed(0)}%)`)
-        .join(", ");
-      hintEl.textContent = `LIVE · "${concept}" → ${top} · ${res.latency_ms}ms · weight=${res.decay_weight}`;
-    } catch (e) {
-      console.error("liveQuery failed:", e);
     }
   }
 
-  const debouncedRequery = debounce(() => {
-    if (selectedId) liveQuery(selectedId);
-  }, 180);
-
-  async function liveAdd(text) {
-    if (!live) return Graph.addByText(text);  // fall through to sim
-    try {
-      const res = await API("/api/add-concept", { concept: text });
-      Graph.replaceFromServer(res.graph);
-      // re-attach click handlers in live mode
-      Graph.setClickHandler(async (idx, node) => {
-        selectedId = node.id;
-        await liveQuery(node.phrase || node.id);
-      });
-      // flash the new node and select it
-      const idx = res.graph.nodes.findIndex(n => n.id === text.trim().toLowerCase());
-      if (idx >= 0) {
-        Graph.triggerFlashByIdx(idx);
-        selectedId = res.graph.nodes[idx].id;
-        await liveQuery(res.graph.nodes[idx].phrase);
-      }
-    } catch (e) {
-      console.error("liveAdd failed:", e);
-    }
+  for (let i = flares.length - 1; i >= 0; i--) {
+    const f = flares[i];
+    const age = now - f.born;
+    if (age > f.lifetime) { flares.splice(i, 1); continue; }
+    const t = age / f.lifetime;
+    const x = f.x + (f.tx - f.x) * (1 - Math.pow(1 - t, 3));
+    const y = f.y + (f.ty - f.y) * (1 - Math.pow(1 - t, 3));
+    const c = COLORS[f.cluster];
+    ctx.fillStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${0.85 * (1 - t)})`;
+    ctx.beginPath(); ctx.arc(x, y, 1.6 * (1 - t * 0.5), 0, Math.PI * 2); ctx.fill();
   }
 
-  async function liveSave() {
-    try {
-      const r = await API("/api/save", {});
-      const kb = (n) => (n / 1024).toFixed(1) + " KB";
-      saveOut.innerHTML = `<span class="ok">✓ saved</span> · <code>${r.hkb_path}</code> · ` +
-        `<code>${kb(r.size_bytes_hkb)}</code> · ` +
-        `<span class="ratio">${r.ratio}× smaller than .json (${kb(r.size_bytes_json)})</span>`;
-      // Update the storage bars to reflect REAL sizes
-      sizeJson.innerHTML = kb(r.size_bytes_json) + ` <span class="badge-live" style="margin-left:6px;">live</span>`;
-      sizeHkb.innerHTML  = kb(r.size_bytes_hkb)  + ` <span class="badge-live" style="margin-left:6px;">live</span>`;
-      barJson.style.width = "100%";
-      barHkb.style.width  = `${100 * r.size_bytes_hkb / r.size_bytes_json}%`;
-      ratioBox.innerHTML = `LIVE · <code>${r.num_entries}</code> memories · .hkb is <strong>${r.ratio}× smaller</strong> than .json — same exact recall after reload.`;
-    } catch (e) {
-      saveOut.innerHTML = `<span style="color: var(--red);">✗ ${e}</span>`;
+  for (const s of stars) {
+    const c = COLORS[s.cluster];
+    const pulse = 0.92 + 0.08 * Math.sin(now * 0.002 + s.x * 0.01);
+    const size = 2.2 + s.brightness * 2.0 + Math.log1p(s.accesses) * 1.0;
+    ctx.shadowBlur = 22 * s.brightness;
+    ctx.shadowColor = `rgba(${c.r}, ${c.g}, ${c.b}, ${0.85 * s.brightness})`;
+    ctx.fillStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${0.82 * s.brightness * pulse})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, size, 0, Math.PI * 2); ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(255, 245, 220, ${0.85 * s.brightness * pulse})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, size * 0.42, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function step(dt) {
+  for (let i = 0; i < stars.length; i++) {
+    for (let j = i + 1; j < stars.length; j++) {
+      const a = stars[i], b = stars[j];
+      const sim = cosine(a.hv, b.hv);
+      if (sim < 0.30) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) + 1e-3;
+      const target = 110 + (1 - sim) * 240;
+      const f = (d - target) * 0.0000125 * sim;
+      a.vx += f * dx / d * dt;
+      a.vy += f * dy / d * dt;
+      b.vx -= f * dx / d * dt;
+      b.vy -= f * dy / d * dt;
     }
   }
-
-  async function liveLoad() {
-    try {
-      const r = await API("/api/load", {});
-      Graph.replaceFromServer(r.graph);
-      Graph.setClickHandler(async (idx, node) => {
-        selectedId = node.id;
-        await liveQuery(node.phrase || node.id);
-      });
-      saveOut.innerHTML = `<span class="ok">✓ reloaded</span> · ${r.num_entries} memories from <code>${r.loaded_from}</code> (${(r.size_bytes_hkb/1024).toFixed(1)} KB)`;
-    } catch (e) {
-      saveOut.innerHTML = `<span style="color: var(--red);">✗ ${e}</span>`;
-    }
+  const cx = W / 2, cy = H / 2;
+  for (const s of stars) {
+    s.vx += (cx - s.x) * 0.0000022 * dt;
+    s.vy += (cy - s.y) * 0.0000022 * dt;
+    s.vx *= 0.991; s.vy *= 0.991;
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.x < 30) { s.x = 30; s.vx *= -0.4; }
+    if (s.x > W - 30) { s.x = W - 30; s.vx *= -0.4; }
+    if (s.y < 30) { s.y = 30; s.vy *= -0.4; }
+    if (s.y > H - 30) { s.y = H - 30; s.vy *= -0.4; }
   }
+}
 
-  async function liveReset() {
-    try {
-      const r = await API("/api/reset", {});
-      Graph.replaceFromServer(r.graph);
-      Graph.setClickHandler(async (idx, node) => {
-        selectedId = node.id;
-        await liveQuery(node.phrase || node.id);
-      });
-      saveOut.innerHTML = `<span class="ok">✓ reset</span> · seeded ${r.graph.nodes.length} memories`;
-      selectedId = r.graph.nodes[0]?.id || null;
-      if (selectedId) await liveQuery(r.graph.nodes[0].phrase);
-    } catch (e) {
-      saveOut.innerHTML = `<span style="color: var(--red);">✗ ${e}</span>`;
-    }
-  }
+const chipsEl = document.getElementById("chips");
+const SEARCH_FORM = document.getElementById("searchForm");
+const Q = document.getElementById("q");
+const GO = document.getElementById("go");
 
-  // ── boot ─────────────────────────────────────────────────────────────────
-  fetch("/api/health", { cache: "no-store" })
-    .then(r => r.ok ? r.json() : Promise.reject("health endpoint returned " + r.status))
-    .then(async (health) => {
-      if (!health.real_kohaku) throw new Error("not a kohaku server");
-      setLive(health);
+function clusterClass(c) { return ["amber", "rose", "teal"][c] || "amber"; }
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 
-      // 1. Replace the offline graph with the server graph
-      const g = await API("/api/graph");
-      Graph.replaceFromServer(g);
+function runQuery(text) {
+  if (!text.trim()) return;
+  const hv = encodeText(text);
+  const ranked = stars
+    .map((s, i) => ({ idx: i, sim: cosine(s.hv, hv), s }))
+    .sort((a, b) => b.sim - a.sim)
+    .slice(0, 5);
+  for (const r of ranked) r.s.accesses += 1;
 
-      // 2. Hook click → real query
-      Graph.setClickHandler(async (idx, node) => {
-        selectedId = node.id;
-        await liveQuery(node.phrase || node.id);
-      });
+  const formRect = SEARCH_FORM.getBoundingClientRect();
+  const probe = {
+    x: formRect.left + formRect.width / 2,
+    y: Math.max(120, formRect.top - 80),
+    born: performance.now(),
+    lifetime: 4400,
+    hits: ranked,
+  };
+  probes.push(probe);
 
-      // 3. Hook add button → real add
-      addBtn.replaceWith(addBtn.cloneNode(true));
-      const addBtn2 = document.getElementById("addBtn");
-      addBtn2.addEventListener("click", async () => {
-        const v = inputEl.value.trim();
-        if (!v) return;
-        await liveAdd(v);
-        inputEl.value = "";
-      });
-      inputEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") addBtn2.click();
-      });
-
-      // 4. Hook days/half_life sliders → re-query selected concept (debounced)
-      daysSlider.addEventListener("input", debouncedRequery);
-      halfMain.addEventListener("input", debouncedRequery);
-
-      // 5. Hook save/load/reset
-      saveBtn.addEventListener("click", liveSave);
-      loadBtn.addEventListener("click", liveLoad);
-      resetBtn.addEventListener("click", liveReset);
-
-      // 6. Auto-select first concept so the user sees something immediately
-      const first = g.nodes[0];
-      if (first) {
-        selectedId = first.id;
-        setTimeout(() => liveQuery(first.phrase), 400);
-      }
-    })
-    .catch((err) => {
-      setOffline(typeof err === "string" ? err : "no server detected");
+  for (let i = 0; i < 14; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 220 + Math.random() * 240;
+    flares.push({
+      x: probe.x + Math.cos(ang) * dist,
+      y: probe.y + Math.sin(ang) * dist,
+      tx: probe.x, ty: probe.y,
+      born: performance.now(),
+      lifetime: 800 + Math.random() * 300,
+      cluster: ranked[0]?.s.cluster ?? 0,
     });
-})();
-</script>
+  }
 
+  chipsEl.innerHTML = "";
+  ranked.forEach((r, i) => {
+    const el = document.createElement("div");
+    el.className = `chip ${clusterClass(r.s.cluster)}`;
+    el.style.animationDelay = `${i * 80}ms`;
+    el.innerHTML = `${escapeHtml(r.s.label)}<span class="sim">${r.sim.toFixed(2)}</span>`;
+    chipsEl.appendChild(el);
+  });
+}
+
+GO.addEventListener("click", (e) => { e.preventDefault(); runQuery(Q.value); });
+SEARCH_FORM.addEventListener("submit", (e) => { e.preventDefault(); runQuery(Q.value); });
+Q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runQuery(Q.value); } });
+
+for (const [label, cluster] of SEEDS) spawnSeed(label, cluster);
+layout();
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(40, now - last); last = now;
+  step(dt); render(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+const idleQueries = [
+  "speak a thought · the cosmos will answer",
+  "what does memory feel like",
+  "how does the brain remember",
+  "what is a hyperdimensional vector",
+  "consolidation · sleep · dream",
+  "associative recall by resonance",
+];
+let idleIdx = 0;
+setInterval(() => {
+  if (document.activeElement === Q || Q.value) return;
+  idleIdx = (idleIdx + 1) % idleQueries.length;
+  Q.placeholder = idleQueries[idleIdx];
+}, 4200);
+</script>
 </body>
 </html>
