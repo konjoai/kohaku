@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>kohaku · memory cosmos</title>
+<style>
+  :root {
+    --bg: #000000;
+    --ink: #f5ead8;
+    --dim: #6b6258;
+    --line: rgba(255, 235, 200, 0.06);
+    --glass: rgba(10, 8, 6, 0.55);
+    --border: rgba(255, 235, 200, 0.10);
+    --amber: #ffb86c;
+    --rose:  #ff7e8a;
+    --teal:  #6fd2c0;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body { position: relative; }
+  canvas#sky {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* ── HUD layers ───────────────────────────────────────────────────────── */
+  .hud {
+    position: fixed; z-index: 10;
+    color: var(--ink);
+    user-select: none;
+    pointer-events: none;
+  }
+  .hud.interactive { pointer-events: auto; }
+
+  .brand { top: 22px; left: 26px; }
+  .brand .title {
+    font-size: 13px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--ink); opacity: 0.92;
+  }
+  .brand .sub {
+    font-size: 11px; letter-spacing: 2px; color: var(--dim); margin-top: 4px;
+  }
+
+  .stats {
+    top: 22px; right: 26px; text-align: right;
+    font-feature-settings: "tnum";
+  }
+  .stats .row {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 3px;
+  }
+  .stats .row b {
+    color: var(--ink); font-weight: 500; margin-left: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .controls {
+    bottom: 24px; left: 50%; transform: translateX(-50%);
+    width: min(720px, calc(100vw - 32px));
+    background: var(--glass);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 16px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,235,200,0.04);
+  }
+  .controls .row { display: flex; gap: 10px; align-items: center; }
+  .controls input[type="text"] {
+    flex: 1; min-width: 0;
+    background: transparent;
+    border: none; outline: none;
+    color: var(--ink);
+    font: 400 16px/1.4 inherit;
+    letter-spacing: 0.2px;
+    padding: 6px 4px;
+  }
+  .controls input::placeholder { color: var(--dim); }
+  .controls .pill {
+    flex: 0 0 auto;
+    border: 1px solid var(--border);
+    background: rgba(255, 184, 108, 0.05);
+    color: var(--ink);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .controls .pill:hover { background: rgba(255,184,108,0.12); border-color: rgba(255,184,108,0.40); }
+  .controls .pill.amber { color: var(--amber); border-color: rgba(255,184,108,0.30); }
+  .controls .help {
+    margin-top: 10px;
+    font-size: 11px; color: var(--dim);
+    letter-spacing: 1px; text-transform: uppercase;
+    text-align: center;
+  }
+  .controls .help b { color: var(--ink); font-weight: 500; }
+
+  .dial {
+    bottom: 24px; right: 26px;
+    width: 220px;
+    background: var(--glass);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  }
+  .dial .label {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  .dial .label b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .dial input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 18px; background: transparent; cursor: pointer;
+  }
+  .dial input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px; background: linear-gradient(to right, var(--amber), rgba(255,184,108,0.15));
+    border-radius: 1px;
+  }
+  .dial input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink);
+    margin-top: -6px;
+    box-shadow: 0 0 12px rgba(255,184,108,0.65);
+  }
+  .dial input[type="range"]::-moz-range-track {
+    height: 2px; background: linear-gradient(to right, var(--amber), rgba(255,184,108,0.15));
+  }
+  .dial input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%; background: var(--ink); border: none;
+    box-shadow: 0 0 12px rgba(255,184,108,0.65);
+  }
+
+  .toggles {
+    top: 50%; right: 26px; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .toggle {
+    width: 44px; height: 44px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--dim);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-size: 16px;
+    transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  }
+  .toggle:hover { color: var(--ink); border-color: rgba(255,235,200,0.20); }
+  .toggle.active { color: var(--amber); border-color: rgba(255,184,108,0.45); background: rgba(255,184,108,0.08); }
+
+  .toast {
+    position: fixed; left: 50%; top: 80px; transform: translateX(-50%);
+    background: var(--glass);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 8px 16px; border-radius: 999px;
+    opacity: 0; transition: opacity 0.4s ease;
+    pointer-events: none; z-index: 11;
+  }
+  .toast.show { opacity: 1; }
+
+  .legend {
+    bottom: 24px; left: 26px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .legend .swatch {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: 8px; vertical-align: middle;
+    box-shadow: 0 0 10px currentColor;
+  }
+  .legend .a { color: var(--amber); }
+  .legend .r { color: var(--rose);  }
+  .legend .t { color: var(--teal);  }
+
+  @media (max-width: 640px) {
+    .toggles { top: auto; bottom: 200px; transform: none; }
+    .dial { width: calc(100vw - 52px); }
+    .legend { display: none; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="sky"></canvas>
+
+  <div class="hud brand">
+    <div class="title">kohaku</div>
+    <div class="sub">memory cosmos</div>
+  </div>
+
+  <div class="hud stats">
+    <div class="row">stars <b id="stat-n">0</b></div>
+    <div class="row">links <b id="stat-l">0</b></div>
+    <div class="row">tick <b id="stat-t">0</b></div>
+  </div>
+
+  <div class="hud toggles interactive">
+    <button class="toggle" id="tog-constellation" title="constellation mode">◇</button>
+    <button class="toggle" id="tog-trails" title="connection trails">≈</button>
+    <button class="toggle" id="tog-pulse" title="pulse mode">✺</button>
+  </div>
+
+  <div class="hud dial interactive">
+    <div class="label"><span>time dial</span><b id="dial-val">now</b></div>
+    <input type="range" id="dial" min="-120" max="240" value="0" />
+  </div>
+
+  <div class="hud legend">
+    <div><span class="swatch a"></span>cluster · amber</div>
+    <div><span class="swatch r"></span>cluster · rose</div>
+    <div><span class="swatch t"></span>cluster · teal</div>
+  </div>
+
+  <div class="hud controls interactive">
+    <div class="row">
+      <input id="probe" type="text" placeholder="encode a memory · or query the cosmos" autocomplete="off" />
+      <button class="pill amber" id="btn-add">encode</button>
+      <button class="pill" id="btn-query">query</button>
+    </div>
+    <div class="help">
+      <b>enter</b> → query · <b>shift+enter</b> → encode · <b>drag</b> → orbit · <b>dial</b> → time
+    </div>
+  </div>
+
+  <div class="toast" id="toast">memory stored</div>
+
+<script type="module">
+"use strict";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HDC core (browser port of kohaku's pure-Python LCG path).
+   DIMS=1024 here for performance; semantics match kohaku/_pure.py exactly:
+   bipolar ±1, sign(LCG state >> 63), seed XOR with 0xDEAD_BEEF_CAFE_BABE.
+   ──────────────────────────────────────────────────────────────────────── */
+const DIMS = 1024;
+const MUL  = 6364136223846793005n;
+const ADD  = 1442695040888963407n;
+const MASK = 0xFFFFFFFFFFFFFFFFn;
+const SEED_XOR = 0xDEADBEEFCAFEBABEn;
+
+function lcgBipolar(seed64) {
+  let s = (seed64 ^ SEED_XOR) & MASK;
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) {
+    s = (s * MUL + ADD) & MASK;
+    out[i] = (s >> 63n) === 0n ? 1 : -1;
+  }
+  return out;
+}
+function hashToken(tok) {
+  let h = 0n;
+  for (let i = 0; i < tok.length; i++) h = (h * 31n + BigInt(tok.charCodeAt(i))) & MASK;
+  return h;
+}
+function encodeText(text) {
+  const tokens = (text || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return lcgBipolar(0n);
+  const acc = new Float32Array(DIMS);
+  for (const tok of tokens) {
+    const v = lcgBipolar(hashToken(tok));
+    for (let i = 0; i < DIMS; i++) acc[i] += v[i];
+  }
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) out[i] = acc[i] >= 0 ? 1 : -1;
+  return out;
+}
+function cosine(a, b) {
+  let dot = 0;
+  for (let i = 0; i < DIMS; i++) dot += a[i] * b[i];
+  return dot / DIMS;
+}
+function bundleAll(vecs) {
+  const acc = new Float32Array(DIMS);
+  for (const v of vecs) for (let i = 0; i < DIMS; i++) acc[i] += v[i];
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) out[i] = acc[i] >= 0 ? 1 : -1;
+  return out;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Cosmos state. Each star is a real HDC episodic entry (HV + label +
+   timestamp). Cluster colour is derived from cosine to three centroids.
+   ──────────────────────────────────────────────────────────────────────── */
+const COLORS = [
+  { r: 255, g: 184, b: 108 }, // amber
+  { r: 255, g: 126, b: 138 }, // rose
+  { r: 111, g: 210, b: 192 }, // teal
+];
+const HALF_LIFE = 90; // ticks before a star fades to 50% brightness
+const SIM_LINK  = 0.32; // cosine threshold for a connection (text HVs are not as orthogonal as random ones)
+const SIM_FLARE = 0.55; // top-k flare visibility threshold
+
+const stars = [];        // {id, x, y, vx, vy, hv, label, ts, accesses, cluster, born, birthAt}
+const links = [];        // {a, b, sim} — recomputed after every add
+const probes = [];       // transient query probes {x, y, hv, born, lifetime, hits[]}
+const flares = [];       // ephemeral particle bursts
+
+let nextId = 1;
+let tick = 0;             // discrete memory clock (advances on every store)
+let nowOffset = 0;        // time-dial offset (in ticks) added to current tick for decay
+let constellationOn = false;
+let trailsOn = true;
+let pulseOn = false;
+
+const SEED_SET = [
+  ["amber light",        "amber"],
+  ["forgetting curve",   "amber"],
+  ["bipolar vector",     "amber"],
+  ["binding operation",  "amber"],
+  ["episodic memory",    "rose"],
+  ["sleep consolidation","rose"],
+  ["the hippocampus",    "rose"],
+  ["dreaming brain",     "rose"],
+  ["semantic prototype", "teal"],
+  ["online learning",    "teal"],
+  ["associative recall", "teal"],
+  ["hopfield network",   "teal"],
+];
+
+const canvas = document.getElementById("sky");
+const ctx = canvas.getContext("2d");
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+let W = 0, H = 0;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ── cluster centroids — bundle of seed examples per colour ────────────── */
+const centroids = COLORS.map(() => null);
+function computeCentroids() {
+  for (let c = 0; c < 3; c++) {
+    const members = stars.filter(s => s.cluster === c).slice(-12);
+    if (members.length === 0) continue;
+    centroids[c] = bundleAll(members.map(m => m.hv));
+  }
+}
+function clusterOf(hv) {
+  let best = 0, bestSim = -2;
+  for (let c = 0; c < 3; c++) {
+    if (!centroids[c]) continue;
+    const s = cosine(hv, centroids[c]);
+    if (s > bestSim) { bestSim = s; best = c; }
+  }
+  return best;
+}
+
+/* ── store / query ─────────────────────────────────────────────────────── */
+function spawnStar(label, opts = {}) {
+  const hv = encodeText(label);
+  const cluster = opts.cluster ?? (centroids.some(c => c) ? clusterOf(hv) : (stars.length % 3));
+  const angle = Math.random() * Math.PI * 2;
+  const radius = Math.min(W, H) * (0.18 + Math.random() * 0.32);
+  const x = W / 2 + Math.cos(angle) * radius;
+  const y = H / 2 + Math.sin(angle) * radius;
+  const star = {
+    id: nextId++, x, y,
+    vx: (Math.random() - 0.5) * 0.04,
+    vy: (Math.random() - 0.5) * 0.04,
+    hv, label,
+    ts: ++tick,
+    accesses: 0,
+    cluster,
+    born: performance.now(),
+    birthAt: performance.now(),
+  };
+  stars.push(star);
+  if (stars.length % 4 === 0) computeCentroids();
+  rebuildLinks();
+  triggerBirth(star);
+  flashToast(`stored · ${label}`);
+  return star;
+}
+
+function rebuildLinks() {
+  links.length = 0;
+  for (let i = 0; i < stars.length; i++) {
+    for (let j = i + 1; j < stars.length; j++) {
+      const sim = cosine(stars[i].hv, stars[j].hv);
+      if (sim > SIM_LINK) links.push({ a: i, b: j, sim });
+    }
+  }
+}
+
+function queryCosmos(text, k = 5) {
+  if (stars.length === 0) return null;
+  const hv = encodeText(text);
+  const scored = stars.map(s => ({ s, sim: cosine(s.hv, hv) }));
+  scored.sort((u, v) => v.sim - u.sim);
+  const top = scored.slice(0, k);
+  for (const t of top) t.s.accesses += 1;
+  // probe sits at canvas centre — a "thought" entering from outside
+  const probe = {
+    x: W / 2, y: H / 2,
+    hv, label: text,
+    born: performance.now(),
+    lifetime: 4200,
+    hits: top.map((t, i) => ({ idx: stars.indexOf(t.s), sim: t.sim, rank: i })),
+  };
+  probes.push(probe);
+  flashToast(`top-${top.length} · best ${top[0].sim.toFixed(2)} · ${top[0].s.label}`);
+  return probe;
+}
+
+/* ── star birth animation: pixels converge from edges to position ─────── */
+function triggerBirth(star) {
+  const N = 14;
+  for (let i = 0; i < N; i++) {
+    const angle = (i / N) * Math.PI * 2 + Math.random() * 0.4;
+    const dist = Math.max(W, H) * 0.7;
+    flares.push({
+      x: star.x + Math.cos(angle) * dist,
+      y: star.y + Math.sin(angle) * dist,
+      tx: star.x, ty: star.y,
+      born: performance.now(),
+      lifetime: 900 + Math.random() * 300,
+      cluster: star.cluster,
+      mode: "converge",
+    });
+  }
+}
+
+/* ── decay / brightness ────────────────────────────────────────────────── */
+function decayWeight(age) {
+  if (age <= 0) return 1.0;
+  return Math.pow(0.5, age / HALF_LIFE);
+}
+function brightness(star, displayTick) {
+  const age = Math.max(0, displayTick - star.ts);
+  const w = decayWeight(age);
+  // accesses re-strengthen a memory (recall-induced reconsolidation)
+  const reinforce = Math.min(1.0, w + 0.04 * Math.log1p(star.accesses));
+  return Math.max(0.06, reinforce);
+}
+function colorOf(cluster, alpha) {
+  const c = COLORS[cluster % 3];
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${alpha})`;
+}
+function colorRGB(cluster) { const c = COLORS[cluster % 3]; return [c.r, c.g, c.b]; }
+
+/* ── physics: gravity toward similar neighbours ────────────────────────── */
+function step(dt) {
+  // gravitational drift along links
+  for (const link of links) {
+    const a = stars[link.a], b = stars[link.b];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d  = Math.hypot(dx, dy) + 1e-3;
+    const target = 90 + (1 - link.sim) * 220;        // similar → closer
+    const f = (d - target) * 0.000015 * link.sim;    // sim-weighted spring
+    const fx = f * (dx / d), fy = f * (dy / d);
+    a.vx += fx * dt; a.vy += fy * dt;
+    b.vx -= fx * dt; b.vy -= fy * dt;
+  }
+  // mild centring + damping + bounds
+  const cx = W / 2, cy = H / 2;
+  for (const s of stars) {
+    s.vx += (cx - s.x) * 0.0000018 * dt;
+    s.vy += (cy - s.y) * 0.0000018 * dt;
+    s.vx *= 0.992; s.vy *= 0.992;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    if (s.x < 30) { s.x = 30; s.vx = Math.abs(s.vx) * 0.4; }
+    if (s.x > W - 30) { s.x = W - 30; s.vx = -Math.abs(s.vx) * 0.4; }
+    if (s.y < 30) { s.y = 30; s.vy = Math.abs(s.vy) * 0.4; }
+    if (s.y > H - 30) { s.y = H - 30; s.vy = -Math.abs(s.vy) * 0.4; }
+  }
+}
+
+/* ── render ────────────────────────────────────────────────────────────── */
+function render(now) {
+  // background — slow exposure trail (low-alpha black wash)
+  ctx.fillStyle = "rgba(0,0,0,0.34)";
+  ctx.fillRect(0, 0, W, H);
+
+  const displayTick = tick + nowOffset;
+
+  // connections
+  if (trailsOn) {
+    for (const link of links) {
+      const a = stars[link.a], b = stars[link.b];
+      const ba = brightness(a, displayTick);
+      const bb = brightness(b, displayTick);
+      const linkBright = Math.min(ba, bb) * (link.sim - SIM_LINK) / (1 - SIM_LINK);
+      if (linkBright < 0.05) continue;
+      ctx.strokeStyle = `rgba(255, 235, 200, ${0.05 + linkBright * 0.18})`;
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      // travelling light dot — phase by link index for variety
+      const t = ((now * 0.00012) + (link.a * 0.07 + link.b * 0.13)) % 1;
+      const tx = a.x + (b.x - a.x) * t;
+      const ty = a.y + (b.y - a.y) * t;
+      const [r, g, bl] = colorRGB(a.cluster);
+      ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${0.55 * linkBright})`;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // constellation overlay — only inter-cluster faint borders
+  if (constellationOn) {
+    for (let c = 0; c < 3; c++) {
+      const members = stars.filter(s => s.cluster === c);
+      if (members.length < 3) continue;
+      // convex-hull-ish: connect each member to its 2 nearest in same cluster
+      ctx.strokeStyle = colorOf(c, 0.10);
+      ctx.lineWidth = 0.5;
+      for (const m of members) {
+        const others = members
+          .filter(o => o !== m)
+          .map(o => ({ o, d: Math.hypot(o.x - m.x, o.y - m.y) }))
+          .sort((u, v) => u.d - v.d)
+          .slice(0, 2);
+        for (const { o } of others) {
+          ctx.beginPath();
+          ctx.moveTo(m.x, m.y);
+          ctx.lineTo(o.x, o.y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // particle flares (star birth, query shockwaves)
+  for (let i = flares.length - 1; i >= 0; i--) {
+    const f = flares[i];
+    const age = now - f.born;
+    if (age > f.lifetime) { flares.splice(i, 1); continue; }
+    const t = age / f.lifetime;
+    if (f.mode === "converge") {
+      const x = f.x + (f.tx - f.x) * (1 - Math.pow(1 - t, 3));
+      const y = f.y + (f.ty - f.y) * (1 - Math.pow(1 - t, 3));
+      const [r, g, b] = colorRGB(f.cluster);
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.85 * (1 - t)})`;
+      ctx.beginPath(); ctx.arc(x, y, 1.6 * (1 - t * 0.6), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // probes — shockwave + lines to top-k
+  for (let i = probes.length - 1; i >= 0; i--) {
+    const p = probes[i];
+    const age = now - p.born;
+    if (age > p.lifetime) { probes.splice(i, 1); continue; }
+    const t = age / p.lifetime;
+
+    // expanding ring
+    const ringR = 8 + t * Math.min(W, H) * 0.55;
+    ctx.strokeStyle = `rgba(255, 235, 200, ${0.55 * (1 - t)})`;
+    ctx.lineWidth = 1.2 * (1 - t * 0.8);
+    ctx.beginPath(); ctx.arc(p.x, p.y, ringR, 0, Math.PI * 2); ctx.stroke();
+
+    // probe star core
+    const core = 4 + Math.sin(now * 0.012) * 1.0;
+    ctx.shadowBlur = 24; ctx.shadowColor = "rgba(255,235,200,0.8)";
+    ctx.fillStyle = `rgba(255, 235, 200, ${0.9 * (1 - t * 0.55)})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, core, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // animated lines to hits
+    for (const hit of p.hits) {
+      const s = stars[hit.idx];
+      if (!s) continue;
+      const dx = s.x - p.x, dy = s.y - p.y;
+      const reach = Math.min(1, t * 2.4);
+      const ex = p.x + dx * reach, ey = p.y + dy * reach;
+      const [r, g, b] = colorRGB(s.cluster);
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.85 * (1 - t * 0.7)})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      if (reach >= 1) {
+        // flare the hit star itself
+        ctx.shadowBlur = 22; ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.9 * (1 - t)})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 6 + (1 - t) * 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+  }
+
+  // stars
+  for (const s of stars) {
+    const b = brightness(s, displayTick);
+    const size = 1.6 + Math.log1p(s.accesses) * 1.4 + b * 1.4;
+    const twinkle = pulseOn
+      ? 0.85 + 0.15 * Math.sin(now * 0.003 + s.id * 1.13)
+      : 0.96 + 0.04 * Math.sin(now * 0.0025 + s.id * 0.71);
+    const [r, g, bl] = colorRGB(s.cluster);
+    const a = b * twinkle;
+
+    // halo
+    ctx.shadowBlur = 18 * b;
+    ctx.shadowColor = `rgba(${r}, ${g}, ${bl}, ${0.85 * b})`;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${0.85 * a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, size, 0, Math.PI * 2); ctx.fill();
+
+    // bright core
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(255, 245, 220, ${0.85 * a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, size * 0.42, 0, Math.PI * 2); ctx.fill();
+
+    // label fades in at high brightness only — keep cosmos clean
+    if (b > 0.7) {
+      ctx.fillStyle = `rgba(255, 235, 200, ${(b - 0.7) * 0.7})`;
+      ctx.font = "10px 'SF Pro Display', system-ui, sans-serif";
+      ctx.fillText(s.label, s.x + size + 4, s.y + 3);
+    }
+  }
+}
+
+/* ── main loop ─────────────────────────────────────────────────────────── */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(40, now - last);
+  last = now;
+  step(dt);
+  render(now);
+  document.getElementById("stat-n").textContent = stars.length;
+  document.getElementById("stat-l").textContent = links.length;
+  document.getElementById("stat-t").textContent = (tick + nowOffset);
+  requestAnimationFrame(loop);
+}
+
+/* ── HUD wiring ────────────────────────────────────────────────────────── */
+const probeInput = document.getElementById("probe");
+document.getElementById("btn-add").addEventListener("click", () => {
+  const v = probeInput.value.trim(); if (!v) return;
+  spawnStar(v); probeInput.value = ""; probeInput.focus();
+});
+document.getElementById("btn-query").addEventListener("click", () => {
+  const v = probeInput.value.trim(); if (!v) return;
+  queryCosmos(v); probeInput.focus();
+});
+probeInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const v = probeInput.value.trim(); if (!v) return;
+  if (e.shiftKey) spawnStar(v); else queryCosmos(v);
+  probeInput.value = "";
+});
+
+const dial = document.getElementById("dial");
+const dialVal = document.getElementById("dial-val");
+dial.addEventListener("input", () => {
+  nowOffset = parseInt(dial.value, 10);
+  dialVal.textContent = nowOffset === 0 ? "now" : (nowOffset > 0 ? `+${nowOffset}` : `${nowOffset}`);
+});
+
+function bindToggle(id, getter, setter) {
+  const el = document.getElementById(id);
+  if (getter()) el.classList.add("active");
+  el.addEventListener("click", () => {
+    setter(!getter());
+    el.classList.toggle("active", getter());
+  });
+}
+bindToggle("tog-constellation", () => constellationOn, v => constellationOn = v);
+bindToggle("tog-trails",        () => trailsOn,        v => trailsOn = v);
+bindToggle("tog-pulse",         () => pulseOn,         v => pulseOn = v);
+
+let toastTimer = null;
+function flashToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+/* ── drag to nudge a star (orbit) ──────────────────────────────────────── */
+let dragging = null, dragOffset = { x: 0, y: 0 };
+canvas.addEventListener("pointerdown", (e) => {
+  const x = e.clientX, y = e.clientY;
+  let nearest = null, nd = 24;
+  for (const s of stars) {
+    const d = Math.hypot(s.x - x, s.y - y);
+    if (d < nd) { nd = d; nearest = s; }
+  }
+  if (nearest) { dragging = nearest; dragOffset = { x: x - nearest.x, y: y - nearest.y }; nearest.vx = nearest.vy = 0; }
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  dragging.x = e.clientX - dragOffset.x;
+  dragging.y = e.clientY - dragOffset.y;
+});
+canvas.addEventListener("pointerup",     () => { dragging = null; });
+canvas.addEventListener("pointercancel", () => { dragging = null; });
+
+/* ── seed and go ───────────────────────────────────────────────────────── */
+(function seed() {
+  // bootstrap clusters: write the seed examples first so cluster() has
+  // centroids ready for any user-added star.
+  for (let i = 0; i < SEED_SET.length; i++) {
+    const [label, kind] = SEED_SET[i];
+    const cluster = kind === "amber" ? 0 : kind === "rose" ? 1 : 2;
+    spawnStar(label, { cluster });
+  }
+  computeCentroids();
+})();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

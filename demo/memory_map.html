@@ -1,739 +1,1667 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>kohaku · memory cosmos</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kohaku · Memory Map · 琥珀</title>
 <style>
+  /* ───────────────────────────────────────────────────────────────────────
+     Cosmic palette — amber preserved in time, on a deep-space dark.
+     ─────────────────────────────────────────────────────────────────────── */
   :root {
-    --bg: #000000;
-    --ink: #f5ead8;
-    --dim: #6b6258;
-    --line: rgba(255, 235, 200, 0.06);
-    --glass: rgba(10, 8, 6, 0.55);
-    --border: rgba(255, 235, 200, 0.10);
+    --bg-0: #05060a;
+    --bg-1: #0a0c12;
+    --bg-2: #131722;
+    --fg-0: #f0e6d2;
+    --fg-1: #b8b0a0;
+    --fg-2: #6a6258;
     --amber: #ffb86c;
-    --rose:  #ff7e8a;
-    --teal:  #6fd2c0;
+    --amber-2: #ffd49a;
+    --gold:  #ffd700;
+    --cyan:  #6cdcff;
+    --cyan-2:#a8eaff;
+    --green: #78e68c;
+    --magenta:#ff79c6;
+    --border: rgba(255,184,108,0.12);
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
   html, body {
-    height: 100%;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
+    background: var(--bg-0);
+    color: var(--fg-0);
+    font-family: 'SF Pro Display', -apple-system, 'Inter', system-ui, sans-serif;
     overflow: hidden;
-    overscroll-behavior: none;
+    height: 100vh; width: 100vw;
+    cursor: crosshair;
   }
   body { position: relative; }
+
+  /* ───────────────── Canvas — full bleed ───────────────── */
   canvas#sky {
     position: fixed; inset: 0;
     width: 100vw; height: 100vh;
     display: block;
-    cursor: crosshair;
+    will-change: transform;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,184,108,0.04), transparent 60%),
+      radial-gradient(circle at 75% 80%, rgba(108,220,255,0.03), transparent 60%),
+      radial-gradient(ellipse at center,  rgba(20,15,30,0.4),    rgba(0,0,0,0.95) 80%),
+      var(--bg-0);
   }
 
-  /* ── HUD layers ───────────────────────────────────────────────────────── */
-  .hud {
-    position: fixed; z-index: 10;
-    color: var(--ink);
-    user-select: none;
+  /* Subtle film grain overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
     pointer-events: none;
-  }
-  .hud.interactive { pointer-events: auto; }
-
-  .brand { top: 22px; left: 26px; }
-  .brand .title {
-    font-size: 13px; letter-spacing: 4px; text-transform: uppercase;
-    color: var(--ink); opacity: 0.92;
-  }
-  .brand .sub {
-    font-size: 11px; letter-spacing: 2px; color: var(--dim); margin-top: 4px;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.008) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+    opacity: 0.35;
+    z-index: 1;
   }
 
-  .stats {
-    top: 22px; right: 26px; text-align: right;
-    font-feature-settings: "tnum";
-  }
-  .stats .row {
-    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
-    color: var(--dim); margin-bottom: 3px;
-  }
-  .stats .row b {
-    color: var(--ink); font-weight: 500; margin-left: 8px;
-    font-variant-numeric: tabular-nums;
-  }
+  /* ───────────────── UI overlays ───────────────── */
+  .ui { position: fixed; z-index: 10; pointer-events: none; }
+  .ui > * { pointer-events: auto; }
 
-  .controls {
-    bottom: 24px; left: 50%; transform: translateX(-50%);
-    width: min(720px, calc(100vw - 32px));
-    background: var(--glass);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 14px 16px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,235,200,0.04);
-  }
-  .controls .row { display: flex; gap: 10px; align-items: center; }
-  .controls input[type="text"] {
-    flex: 1; min-width: 0;
-    background: transparent;
-    border: none; outline: none;
-    color: var(--ink);
-    font: 400 16px/1.4 inherit;
-    letter-spacing: 0.2px;
-    padding: 6px 4px;
-  }
-  .controls input::placeholder { color: var(--dim); }
-  .controls .pill {
-    flex: 0 0 auto;
-    border: 1px solid var(--border);
-    background: rgba(255, 184, 108, 0.05);
-    color: var(--ink);
-    padding: 7px 14px;
-    border-radius: 999px;
-    font-size: 12px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-  }
-  .controls .pill:hover { background: rgba(255,184,108,0.12); border-color: rgba(255,184,108,0.40); }
-  .controls .pill.amber { color: var(--amber); border-color: rgba(255,184,108,0.30); }
-  .controls .help {
-    margin-top: 10px;
-    font-size: 11px; color: var(--dim);
-    letter-spacing: 1px; text-transform: uppercase;
-    text-align: center;
-  }
-  .controls .help b { color: var(--ink); font-weight: 500; }
+  .top-left  { top: 22px; left: 26px; }
+  .top-right { top: 22px; right: 26px; }
+  .bottom-left { bottom: 22px; left: 26px; }
+  .bottom-center { bottom: 22px; left: 50%; transform: translateX(-50%); }
 
-  .dial {
-    bottom: 24px; right: 26px;
-    width: 220px;
-    background: var(--glass);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 12px 14px;
-    box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  .brand h1 {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--amber-2) 0%, var(--gold) 50%, var(--amber) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+    text-shadow: 0 0 22px rgba(255,184,108,0.25);
   }
-  .dial .label {
-    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
-    color: var(--dim); margin-bottom: 6px;
-    display: flex; justify-content: space-between;
+  .brand .tag {
+    font-size: 12.5px; color: var(--fg-1); letter-spacing: 1.2px;
+    font-family: 'SF Mono', monospace;
   }
-  .dial .label b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
-  .dial input[type="range"] {
-    -webkit-appearance: none; appearance: none;
-    width: 100%; height: 18px; background: transparent; cursor: pointer;
+  .brand .tag .amber { color: var(--amber); }
+  .brand .pill {
+    display: inline-block; margin-top: 8px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-family: 'SF Mono', monospace; letter-spacing: 1px;
+    text-transform: uppercase; font-weight: 700;
+    color: #1a0e08; background: var(--gold);
+    box-shadow: 0 0 18px rgba(255,215,0,0.3);
   }
-  .dial input[type="range"]::-webkit-slider-runnable-track {
-    height: 2px; background: linear-gradient(to right, var(--amber), rgba(255,184,108,0.15));
-    border-radius: 1px;
-  }
-  .dial input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 14px; height: 14px; border-radius: 50%;
-    background: var(--ink);
-    margin-top: -6px;
-    box-shadow: 0 0 12px rgba(255,184,108,0.65);
-  }
-  .dial input[type="range"]::-moz-range-track {
-    height: 2px; background: linear-gradient(to right, var(--amber), rgba(255,184,108,0.15));
-  }
-  .dial input[type="range"]::-moz-range-thumb {
-    width: 14px; height: 14px; border-radius: 50%; background: var(--ink); border: none;
-    box-shadow: 0 0 12px rgba(255,184,108,0.65);
-  }
-
-  .toggles {
-    top: 50%; right: 26px; transform: translateY(-50%);
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  .toggle {
-    width: 44px; height: 44px;
-    background: var(--glass);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    color: var(--dim);
-    cursor: pointer;
-    display: grid; place-items: center;
-    font-size: 16px;
-    transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-  }
-  .toggle:hover { color: var(--ink); border-color: rgba(255,235,200,0.20); }
-  .toggle.active { color: var(--amber); border-color: rgba(255,184,108,0.45); background: rgba(255,184,108,0.08); }
-
-  .toast {
-    position: fixed; left: 50%; top: 80px; transform: translateX(-50%);
-    background: var(--glass);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
-    padding: 8px 16px; border-radius: 999px;
-    opacity: 0; transition: opacity 0.4s ease;
-    pointer-events: none; z-index: 11;
-  }
-  .toast.show { opacity: 1; }
+  .brand .pill.dim { background: var(--bg-2); color: var(--fg-2); box-shadow: none; border: 1px solid var(--border); }
 
   .legend {
-    bottom: 24px; left: 26px;
-    display: flex; flex-direction: column; gap: 6px;
-    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
-    color: var(--dim);
+    background: rgba(10,12,18,0.55);
+    backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12px;
+    font-family: 'SF Mono', monospace;
+    color: var(--fg-1);
+    max-width: 240px;
   }
+  .legend .row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .legend .row:last-child { margin-bottom: 0; }
   .legend .swatch {
-    display: inline-block; width: 8px; height: 8px;
-    border-radius: 50%; margin-right: 8px; vertical-align: middle;
+    width: 10px; height: 10px; border-radius: 999px;
     box-shadow: 0 0 10px currentColor;
   }
-  .legend .a { color: var(--amber); }
-  .legend .r { color: var(--rose);  }
-  .legend .t { color: var(--teal);  }
+  .legend .label { color: var(--fg-0); flex: 1; }
+  .legend .count { color: var(--fg-2); font-size: 11px; }
 
-  @media (max-width: 640px) {
-    .toggles { top: auto; bottom: 200px; transform: none; }
-    .dial { width: calc(100vw - 52px); }
-    .legend { display: none; }
+  .hint {
+    background: rgba(10,12,18,0.55);
+    backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12px; color: var(--fg-1);
+    font-family: 'SF Mono', monospace;
+    max-width: 360px;
+  }
+  .hint kbd {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 6px; font-size: 10.5px; color: var(--gold);
+    font-family: 'SF Mono', monospace;
+  }
+  .hint .row { margin-bottom: 4px; }
+  .hint .row:last-child { margin-bottom: 0; }
+
+  /* ───────────────── Time dial ───────────────── */
+  .dial {
+    background: rgba(10,12,18,0.65);
+    backdrop-filter: blur(16px) saturate(170%);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 14px 28px;
+    display: flex; align-items: center; gap: 18px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.04),
+      0 18px 50px rgba(0,0,0,0.55);
+  }
+  .dial .label {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--fg-2); font-family: 'SF Mono', monospace;
+  }
+  .dial .value {
+    font-family: 'SF Mono', monospace; font-size: 16px; color: var(--gold);
+    font-weight: 700; min-width: 96px; text-align: center;
+    text-shadow: 0 0 16px rgba(255,215,0,0.4);
+  }
+  .dial input[type="range"] {
+    width: 360px; accent-color: var(--amber);
+    height: 4px;
+  }
+  .dial .knob-readout {
+    font-family: 'SF Mono', monospace; font-size: 11px; color: var(--fg-2);
+  }
+  .dial .knob-readout .gold { color: var(--gold); }
+
+  /* ───────────────── Glass-morphism memory card ───────────────── */
+  #card {
+    position: fixed; z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.95);
+    transition:
+      opacity 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, opacity;
+  }
+  #card.show { opacity: 1; transform: scale(1); pointer-events: auto; }
+  #card .glass {
+    background: linear-gradient(135deg, rgba(20,16,8,0.55) 0%, rgba(8,10,18,0.55) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.08),
+      0 24px 80px rgba(0,0,0,0.55),
+      0 0 40px rgba(255,184,108,0.08);
+    padding: 18px 22px;
+    width: 320px;
+    color: var(--fg-0);
+    font-family: 'SF Pro Display', system-ui, sans-serif;
+  }
+  #card h3 {
+    font-size: 17px; font-weight: 700;
+    color: var(--amber-2); margin-bottom: 4px;
+    letter-spacing: -0.2px;
+  }
+  #card .sub {
+    font-family: 'SF Mono', monospace; font-size: 11px;
+    color: var(--fg-2); letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  #card .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 7px 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 12.5px;
+  }
+  #card .row:first-of-type { border-top: none; }
+  #card .row .k { color: var(--fg-1); font-family: 'SF Mono', monospace; }
+  #card .row .v { color: var(--gold); font-family: 'SF Mono', monospace; }
+  #card .matches {
+    margin-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 10px;
+  }
+  #card .matches .head {
+    font-size: 10.5px; color: var(--fg-2); letter-spacing: 1.2px;
+    text-transform: uppercase; margin-bottom: 6px;
+    font-family: 'SF Mono', monospace;
+  }
+  #card .matches .item {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-size: 12px; padding: 3px 0;
+    font-family: 'SF Mono', monospace;
+  }
+  #card .matches .item .lab { color: var(--fg-0); }
+  #card .matches .item .sim { color: var(--amber); }
+
+  /* ───────────────── Boot splash ───────────────── */
+  #boot {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-0);
+    transition: opacity 700ms ease;
+  }
+  #boot.hidden { opacity: 0; pointer-events: none; }
+  #boot .ribbon {
+    font-family: 'SF Mono', monospace;
+    color: var(--gold);
+    font-size: 14px; letter-spacing: 4px;
+    animation: pulse 1.6s ease-in-out infinite;
+    text-shadow: 0 0 18px rgba(255,215,0,0.5);
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  /* ─── Consolidate button ─── */
+  .consolidate-btn {
+    background: linear-gradient(180deg, rgba(108,220,255,0.22), rgba(108,220,255,0.10));
+    color: var(--cyan-2);
+    border: 1px solid rgba(108,220,255,0.32);
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-family: 'SF Mono', monospace;
+    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 24px rgba(108,220,255,0.18),
+                inset 0 0 0 1px rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px) saturate(160%);
+    transition: transform 200ms cubic-bezier(0.34,1.56,0.64,1),
+                box-shadow 200ms ease,
+                background 200ms ease;
+    will-change: transform;
+  }
+  .consolidate-btn:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 0 36px rgba(108,220,255,0.36),
+                inset 0 0 0 1px rgba(255,255,255,0.1);
+  }
+  .consolidate-btn:active { transform: translateY(0) scale(0.98); }
+  .consolidate-btn.flash {
+    animation: btnFlash 500ms ease;
+  }
+  @keyframes btnFlash {
+    0% { box-shadow: 0 0 24px rgba(255,121,108,0.6); background: rgba(255,121,108,0.25); }
+    100% { box-shadow: 0 0 24px rgba(108,220,255,0.18); background: rgba(108,220,255,0.18); }
+  }
+
+  /* ─── Memory-injection popover (glass morphism) ─── */
+  #injector {
+    position: fixed;
+    z-index: 60;
+    width: 240px;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.92) translateY(4px);
+    transition:
+      opacity 180ms cubic-bezier(0.34,1.56,0.64,1),
+      transform 180ms cubic-bezier(0.34,1.56,0.64,1);
+    will-change: transform, opacity;
+  }
+  #injector.show {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+  }
+  #injector .glass {
+    background: linear-gradient(135deg, rgba(20,16,8,0.55), rgba(8,10,18,0.55));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 14px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.08),
+      0 18px 50px rgba(0,0,0,0.55),
+      0 0 30px rgba(255,184,108,0.10);
+    padding: 12px 14px;
+  }
+  #injector .hint {
+    font-size: 10.5px; color: var(--fg-2);
+    letter-spacing: 1.2px; text-transform: uppercase;
+    margin-bottom: 8px; font-family: 'SF Mono', monospace;
+  }
+  #injector input {
+    width: 100%;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,184,108,0.18);
+    border-radius: 8px;
+    color: var(--fg-0);
+    padding: 8px 10px;
+    font-family: 'SF Pro Display', system-ui, sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  #injector input:focus {
+    border-color: rgba(255,184,108,0.55);
+    box-shadow: 0 0 12px rgba(255,184,108,0.25);
   }
 </style>
 </head>
 <body>
-  <canvas id="sky"></canvas>
 
-  <div class="hud brand">
-    <div class="title">kohaku</div>
-    <div class="sub">memory cosmos</div>
+<canvas id="sky"></canvas>
+
+<!-- ─── UI ─── -->
+<div class="ui top-left brand">
+  <h1>Kohaku · Memory Map</h1>
+  <div class="tag">琥珀 · <span class="amber">amber preserved in time</span></div>
+  <div class="pill" id="modePill">offline simulation</div>
+</div>
+
+<div class="ui top-right">
+  <div class="legend" id="legend">
+    <div class="row"><span class="swatch" style="color:#ffb86c; background:#ffb86c"></span>
+      <span class="label">Episodic</span><span class="count" id="ep-count">— stars</span></div>
+    <div class="row"><span class="swatch" style="color:#6cdcff; background:#6cdcff"></span>
+      <span class="label">Semantic</span><span class="count" id="se-count">— stars</span></div>
+    <div class="row"><span class="swatch" style="color:#78e68c; background:#78e68c"></span>
+      <span class="label">Consolidated</span><span class="count" id="co-count">— stars</span></div>
   </div>
+</div>
 
-  <div class="hud stats">
-    <div class="row">stars <b id="stat-n">0</b></div>
-    <div class="row">links <b id="stat-l">0</b></div>
-    <div class="row">tick <b id="stat-t">0</b></div>
+<div class="ui bottom-left">
+  <div class="hint">
+    <div class="row">Move the <kbd>time dial</kbd> ↓ to scrub through forgetting</div>
+    <div class="row">Hold <kbd>Shift</kbd> + hover to draw constellations</div>
+    <div class="row"><kbd>Hover</kbd> → resonance · <kbd>Click</kbd> → query nova</div>
   </div>
+</div>
 
-  <div class="hud toggles interactive">
-    <button class="toggle" id="tog-constellation" title="constellation mode">◇</button>
-    <button class="toggle" id="tog-trails" title="connection trails">≈</button>
-    <button class="toggle" id="tog-pulse" title="pulse mode">✺</button>
+<div class="ui bottom-center">
+  <div class="dial">
+    <span class="label">Days since learned</span>
+    <input id="dial" type="range" min="0" max="365" value="0" step="1" />
+    <span class="value" id="dialVal">0 d</span>
+    <span class="knob-readout">half-life <span class="gold" id="halfVal">30</span> d</span>
+    <button class="consolidate-btn" id="consolidateBtn" title="Gather nearby episodic stars into one semantic prototype">⌬ Consolidate</button>
   </div>
+</div>
 
-  <div class="hud dial interactive">
-    <div class="label"><span>time dial</span><b id="dial-val">now</b></div>
-    <input type="range" id="dial" min="-120" max="240" value="0" />
+<!-- ─── Memory-injection popover (glass morphism) — appears on dblclick ─── -->
+<div id="injector">
+  <div class="glass">
+    <div class="hint">tag this memory</div>
+    <input id="injectorInput" type="text" placeholder="a name for this memory…" maxlength="80" />
   </div>
+</div>
 
-  <div class="hud legend">
-    <div><span class="swatch a"></span>cluster · amber</div>
-    <div><span class="swatch r"></span>cluster · rose</div>
-    <div><span class="swatch t"></span>cluster · teal</div>
-  </div>
-
-  <div class="hud controls interactive">
-    <div class="row">
-      <input id="probe" type="text" placeholder="encode a memory · or query the cosmos" autocomplete="off" />
-      <button class="pill amber" id="btn-add">encode</button>
-      <button class="pill" id="btn-query">query</button>
+<!-- ─── Glass-morphism detail card ─── -->
+<div id="card">
+  <div class="glass">
+    <h3 id="cardTitle">—</h3>
+    <div class="sub" id="cardSub">memory · cluster</div>
+    <div class="row"><span class="k">strength</span><span class="v" id="cardStrength">—</span></div>
+    <div class="row"><span class="k">decay weight</span><span class="v" id="cardDecay">—</span></div>
+    <div class="row"><span class="k">depth</span><span class="v" id="cardDepth">—</span></div>
+    <div class="row"><span class="k">cluster</span><span class="v" id="cardCluster">—</span></div>
+    <div class="matches">
+      <div class="head">resonant neighbors</div>
+      <div id="cardMatches"></div>
     </div>
-    <div class="help">
-      <b>enter</b> → query · <b>shift+enter</b> → encode · <b>drag</b> → orbit · <b>dial</b> → time
-    </div>
   </div>
+</div>
 
-  <div class="toast" id="toast">memory stored</div>
+<!-- ─── Boot ribbon ─── -->
+<div id="boot"><div class="ribbon">ቆንጆ · 根性 · 康宙 · 건조 · কুঞ্জ</div></div>
 
-<script type="module">
+<script>
 "use strict";
 
-/* ──────────────────────────────────────────────────────────────────────────
-   HDC core (browser port of kohaku's pure-Python LCG path).
-   DIMS=1024 here for performance; semantics match kohaku/_pure.py exactly:
-   bipolar ±1, sign(LCG state >> 63), seed XOR with 0xDEAD_BEEF_CAFE_BABE.
-   ──────────────────────────────────────────────────────────────────────── */
-const DIMS = 1024;
-const MUL  = 6364136223846793005n;
-const ADD  = 1442695040888963407n;
-const MASK = 0xFFFFFFFFFFFFFFFFn;
-const SEED_XOR = 0xDEADBEEFCAFEBABEn;
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+const TAU = Math.PI * 2;
+const FOCAL = 700;          // perspective focal length
+const Z_NEAR = 60;
+const Z_FAR  = 1800;
+const CAMERA_DRIFT = 0.18;  // forward drift per frame (z decrement)
+const STAR_BASE_R = 2.4;    // base radius before perspective scaling
+const NEBULA_LAYERS = 4;
+const CONSTELLATION_RADIUS_PX = 110;
+const CONSTELLATION_FADE_S = 4.0;
+const NOVA_PARTICLES = 60;
+const NOVA_DURATION_MS = 800;
+const RESONANCE_SPEEDS = [30, 50, 70];   // px/s for the 3 rings
+const SPRING_K = 0.05;                     // pull factor toward hover
+const SPRING_DAMP = 0.78;
+const WARP_VELOCITY_THRESHOLD = 12;        // dial units / 100ms to trigger warp
+const HALF_LIFE_DAYS = 30;
+const GLYPHS = ["✦", "✧", "ᨒ", "᨞", "✺", "✸"];
 
-function lcgBipolar(seed64) {
-  let s = (seed64 ^ SEED_XOR) & MASK;
-  const out = new Int8Array(DIMS);
-  for (let i = 0; i < DIMS; i++) {
-    s = (s * MUL + ADD) & MASK;
-    out[i] = (s >> 63n) === 0n ? 1 : -1;
-  }
-  return out;
-}
-function hashToken(tok) {
-  let h = 0n;
-  for (let i = 0; i < tok.length; i++) h = (h * 31n + BigInt(tok.charCodeAt(i))) & MASK;
-  return h;
-}
-function encodeText(text) {
-  const tokens = (text || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return lcgBipolar(0n);
-  const acc = new Float32Array(DIMS);
-  for (const tok of tokens) {
-    const v = lcgBipolar(hashToken(tok));
-    for (let i = 0; i < DIMS; i++) acc[i] += v[i];
-  }
-  const out = new Int8Array(DIMS);
-  for (let i = 0; i < DIMS; i++) out[i] = acc[i] >= 0 ? 1 : -1;
-  return out;
-}
-function cosine(a, b) {
-  let dot = 0;
-  for (let i = 0; i < DIMS; i++) dot += a[i] * b[i];
-  return dot / DIMS;
-}
-function bundleAll(vecs) {
-  const acc = new Float32Array(DIMS);
-  for (const v of vecs) for (let i = 0; i < DIMS; i++) acc[i] += v[i];
-  const out = new Int8Array(DIMS);
-  for (let i = 0; i < DIMS; i++) out[i] = acc[i] >= 0 ? 1 : -1;
-  return out;
-}
+// One Lontara glyph per cluster (episodic / semantic / consolidated).
+// In Lontara the nasal is filled in by the reader — code should work the same way.
+const CLUSTER_GLYPHS = ["ᨒ", "ᨚ", "ᨄ"];
 
-/* ──────────────────────────────────────────────────────────────────────────
-   Cosmos state. Each star is a real HDC episodic entry (HV + label +
-   timestamp). Cluster colour is derived from cosine to three centroids.
-   ──────────────────────────────────────────────────────────────────────── */
-const COLORS = [
-  { r: 255, g: 184, b: 108 }, // amber
-  { r: 255, g: 126, b: 138 }, // rose
-  { r: 111, g: 210, b: 192 }, // teal
-];
-const HALF_LIFE = 90; // ticks before a star fades to 50% brightness
-const SIM_LINK  = 0.32; // cosine threshold for a connection (text HVs are not as orthogonal as random ones)
-const SIM_FLARE = 0.55; // top-k flare visibility threshold
+// New behaviors
+const AGE_DRIFT_FACTOR = 0.0001;             // multiplier per frame in world coords
+const FORGETTING_THRESHOLD = 0.18;            // decayWeight below this = "forgotten"
+const FORGETTING_CASCADE_VEL = 20;            // dial velocity above this triggers cascades
+const CASCADE_DURATION_MS = 1000;
+const HALO_BASE_R = 20;                       // px at full decay strength
+const HALO_ALPHA_K = 0.15;
+const TRAIL_FADE_ALPHA = 0.06;                // partial-clear alpha when scrubbing
+const RETRIEVAL_PATH_DURATION_MS = 1100;      // dot-travel time, top-1
+const RETRIEVAL_PATH_PERSIST_MS = 3000;       // golden-line afterglow
+const CONSOLIDATE_GATHER_MS = 1000;
+const CONSOLIDATE_SPIN_MS = 600;
+const DBLCLICK_MS = 320;                      // window for double-click detection
 
-const stars = [];        // {id, x, y, vx, vy, hv, label, ts, accesses, cluster, born, birthAt}
-const links = [];        // {a, b, sim} — recomputed after every add
-const probes = [];       // transient query probes {x, y, hv, born, lifetime, hits[]}
-const flares = [];       // ephemeral particle bursts
-
-let nextId = 1;
-let tick = 0;             // discrete memory clock (advances on every store)
-let nowOffset = 0;        // time-dial offset (in ticks) added to current tick for decay
-let constellationOn = false;
-let trailsOn = true;
-let pulseOn = false;
-
-const SEED_SET = [
-  ["amber light",        "amber"],
-  ["forgetting curve",   "amber"],
-  ["bipolar vector",     "amber"],
-  ["binding operation",  "amber"],
-  ["episodic memory",    "rose"],
-  ["sleep consolidation","rose"],
-  ["the hippocampus",    "rose"],
-  ["dreaming brain",     "rose"],
-  ["semantic prototype", "teal"],
-  ["online learning",    "teal"],
-  ["associative recall", "teal"],
-  ["hopfield network",   "teal"],
+// Cluster definitions ────────────────────────────────────────────────────
+const CLUSTERS = [
+  { id: "episodic",     name: "Episodic",     rgb: [255, 184, 108], center: [-260,  -40,  900],  spread: [180, 180, 380] },
+  { id: "semantic",     name: "Semantic",     rgb: [108, 220, 255], center: [ 240, -100, 1100],  spread: [180, 160, 380] },
+  { id: "consolidated", name: "Consolidated", rgb: [120, 230, 140], center: [   0,  140, 1300],  spread: [220, 140, 380] },
 ];
 
+// Sample memory phrases for star labels (non-real but plausible)
+const PHRASES = {
+  episodic: [
+    "coffee at 8:14 am", "kitten napping in sunbeam", "river bend at noon",
+    "rain on the kitchen window", "first ride on the new bike",
+    "tabby in the laundry basket", "bird outside the office",
+    "forgotten umbrella by the door", "grandmother's hand on mine",
+    "skype call missed twice", "thunderstorm last tuesday",
+    "blue scarf on the train", "espresso double shot",
+    "moss on the sidewalk crack", "first jasmine of spring",
+    "letter signed in green ink", "crow in the parking lot",
+    "snow on the driveway monday", "warm bread out of the oven",
+    "phone call from a friend",
+  ],
+  semantic: [
+    "cats are independent", "rivers flow downhill",
+    "coffee is warm and bitter", "rain comes from clouds",
+    "bicycles need balance", "felines purr when content",
+    "windows let light through", "umbrellas block water",
+    "sunlight is yellow-white", "thunder follows lightning",
+    "kindness is contagious", "memory fades with time",
+    "espresso is concentrated", "moss grows in shade",
+    "jasmine blooms in spring", "letters carry weight",
+    "snow is cold and quiet", "bread rises with yeast",
+    "friendship needs care", "names hold meaning",
+  ],
+  consolidated: [
+    "cat-on-mat archetype", "morning-coffee ritual",
+    "river-flow concept", "rain-on-window mood",
+    "feline-warmth memory", "espresso-bitter taste",
+    "blue-on-train moment", "spring-jasmine season",
+    "first-snow image", "warm-bread-home feeling",
+    "lost-umbrella story", "thunder-storm fear",
+    "letter-arrival joy", "morning-light pattern",
+    "crow-call sound", "moss-shade textures",
+    "phone-call-friend bond", "missed-call regret",
+    "kitten-purr soothing", "sunbeam-on-floor warmth",
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════════
 const canvas = document.getElementById("sky");
-const ctx = canvas.getContext("2d");
-let DPR = Math.min(window.devicePixelRatio || 1, 2);
-let W = 0, H = 0;
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width  = Math.floor(W * DPR);
-  canvas.height = Math.floor(H * DPR);
-  canvas.style.width = W + "px"; canvas.style.height = H + "px";
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-}
-window.addEventListener("resize", resize);
-resize();
+const ctx    = canvas.getContext("2d", { alpha: true });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W = 0, H = 0, CX = 0, CY = 0;
 
-/* ── cluster centroids — bundle of seed examples per colour ────────────── */
-const centroids = COLORS.map(() => null);
-function computeCentroids() {
-  for (let c = 0; c < 3; c++) {
-    const members = stars.filter(s => s.cluster === c).slice(-12);
-    if (members.length === 0) continue;
-    centroids[c] = bundleAll(members.map(m => m.hv));
+let camera = { z: 0 };          // global drift accumulator
+let lastTime = performance.now();
+
+let stars = [];                  // array of star objects
+let clusters = [];               // cluster centroid metadata for nebulae
+
+let mouseX = -9999, mouseY = -9999;
+let hoverIdx = -1;
+let selectedIdx = -1;
+let shiftHeld = false;
+
+// Effect collections
+let novas = [];                  // active nova explosions
+let resonances = [];             // active hover-rings
+let constellations = [];         // active constellation lines
+let glyphs = [];                 // floating constellation glyphs
+let cascades = [];               // forgetting cascade events
+let retrievalPaths = [];         // animated query→match paths
+let consolidations = [];         // in-progress consolidation animations
+let lastClickT = 0;              // for dblclick detection
+let lastClickX = 0, lastClickY = 0;
+let injectorOpen = false;
+
+// Time dial / decay
+let daysSince = 0;
+let prevDays = 0;
+let dialVelocity = 0;            // smoothed dial velocity (units/sec)
+let lastDialChangeT = performance.now();
+
+// Live mode
+let liveMode = false;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function rand(seed) {
+  // Mulberry32 — small deterministic PRNG
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = rand(0xc0ffee);
+
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function lerp(a, b, t)    { return a + (b - a) * t; }
+function easeOutExpo(t)   { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
+function easeOutBack(t)   { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+function easeOutCubic(t)  { return 1 - Math.pow(1 - t, 3); }
+function rgba(rgb, a)     { return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
+
+function decayWeight(days, halfLife) {
+  return Math.pow(0.5, days / Math.max(0.5, halfLife));
+}
+
+// Project (x,y,z) world → (sx, sy, scale, depthFactor)
+// depthFactor in [0,1]: 1 = closest, 0 = far away
+function project(x, y, z) {
+  const zEff = Math.max(Z_NEAR, z - camera.z);
+  const k = FOCAL / zEff;
+  const sx = CX + (x) * k;
+  const sy = CY + (y) * k;
+  const scale = k;
+  const depth = clamp(1 - (zEff - Z_NEAR) / (Z_FAR - Z_NEAR), 0, 1);
+  return { sx, sy, scale, depth, zEff };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  WORLD GEN
+// ═══════════════════════════════════════════════════════════════════════════
+function buildWorld() {
+  stars = [];
+  clusters = CLUSTERS.map(c => ({ ...c, count: 0, x: 0, y: 0, z: 0 }));
+  let id = 0;
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = CLUSTERS[ci];
+    const phrases = PHRASES[c.id];
+    const N = 22;          // ~66 stars total
+    for (let i = 0; i < N; i++) {
+      // gaussian-ish jitter around center
+      const r = () => (rng() + rng() + rng() + rng() - 2) / 2;
+      const x = c.center[0] + r() * c.spread[0];
+      const y = c.center[1] + r() * c.spread[1];
+      const z = c.center[2] + r() * c.spread[2];
+      stars.push({
+        id: id++,
+        cluster: ci,
+        clusterId: c.id,
+        rgb: c.rgb,
+        x, y, z,
+        // visual state
+        homeX: x, homeY: y, homeZ: z,   // for spring snap-back
+        sprX: 0, sprY: 0,                // current spring offset (screen-space)
+        sprVx: 0, sprVy: 0,
+        bornDay: Math.floor(rng() * 90),  // each star has its own learning age
+        labelText: phrases[i % phrases.length],
+        twinkle: rng() * TAU,
+        flash: 0,                          // 0..1, decays — used by nova source
+        accessCount: 1 + Math.floor(rng() * 5),  // recall count → mass anchor
+        prevDecayed: 1.0,                  // last frame's decay weight
+        forgetting: null,                  // active cascade ref, if any
+        haloFlare: 0,                      // 0..1, decays — recently-accessed flare
+      });
+      clusters[ci].count++;
+    }
   }
 }
-function clusterOf(hv) {
-  let best = 0, bestSim = -2;
-  for (let c = 0; c < 3; c++) {
-    if (!centroids[c]) continue;
-    const s = cosine(hv, centroids[c]);
-    if (s > bestSim) { bestSim = s; best = c; }
+
+function clusterCenterScreen(ci) {
+  // average projected position of all stars in cluster
+  let sx = 0, sy = 0, n = 0;
+  for (const s of stars) if (s.cluster === ci) {
+    const p = project(s.x, s.y, s.z);
+    sx += p.sx; sy += p.sy; n++;
+  }
+  return n ? { sx: sx / n, sy: sy / n } : { sx: CX, sy: CY };
+}
+
+// Cosine-similarity surrogate from world distance (deterministic from positions).
+// Real kohaku gives bipolar cosine ∈ [-1,1]; here we use a smooth function of 3D distance.
+function similarity(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+  const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  // same cluster → high; cross-cluster → falls off
+  const same = a.cluster === b.cluster ? 1.0 : 0.4;
+  // map distance 0..600 → 1..0
+  const n = clamp(1 - d / 700, 0, 1);
+  return same * n;
+}
+
+// Top-K neighbors of a star by similarity
+function neighborsOf(idx, k = 4) {
+  const a = stars[idx];
+  const out = [];
+  for (let j = 0; j < stars.length; j++) {
+    if (j === idx) continue;
+    out.push({ j, sim: similarity(a, stars[j]) });
+  }
+  out.sort((x, y) => y.sim - x.sim);
+  return out.slice(0, k);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER PIECES
+// ═══════════════════════════════════════════════════════════════════════════
+function renderNebulae() {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = CLUSTERS[ci];
+    const center = clusterCenterScreen(ci);
+    // base radius scales with screen size
+    const baseR = Math.min(W, H) * 0.32;
+    for (let layer = NEBULA_LAYERS; layer >= 1; layer--) {
+      const r = baseR * (layer / NEBULA_LAYERS) * 1.05;
+      const alpha = (0.16 / layer) * (0.85 + 0.15 * Math.sin(performance.now() * 0.0006 + ci));
+      const grad = ctx.createRadialGradient(
+        center.sx, center.sy, 0,
+        center.sx, center.sy, r
+      );
+      grad.addColorStop(0,   rgba(c.rgb, alpha));
+      grad.addColorStop(0.4, rgba(c.rgb, alpha * 0.5));
+      grad.addColorStop(1,   rgba(c.rgb, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(center.sx, center.sy, r, 0, TAU);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function inAnyNebula(sx, sy) {
+  // returns true if point is within the inner third of any cluster nebula
+  const r = Math.min(W, H) * 0.32 * 0.7;
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = clusterCenterScreen(ci);
+    const dx = sx - c.sx, dy = sy - c.sy;
+    if (dx*dx + dy*dy < r*r) return true;
+  }
+  return false;
+}
+
+function renderStars(dt) {
+  const warping = Math.abs(dialVelocity) > WARP_VELOCITY_THRESHOLD;
+  const maxV = 200;
+  const vNorm = clamp(Math.abs(dialVelocity) / maxV, 0, 1);
+
+  // Ages all stars by dialing forward in time
+  const fastScrub = Math.abs(dialVelocity) > FORGETTING_CASCADE_VEL;
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+    const age = daysSince + s.bornDay * 0.2;  // each star has slight age offset
+    const w = decayWeight(age, HALF_LIFE_DAYS);
+
+    // ── Forgetting cascade trigger ──
+    // Star crossing the brightness threshold downward, under fast scrub,
+    // emits a "forget event": ripple + desaturation pulse + afterimage ring.
+    if (
+      fastScrub &&
+      s.prevDecayed > FORGETTING_THRESHOLD &&
+      w <= FORGETTING_THRESHOLD &&
+      !s.forgetting
+    ) {
+      const p0 = project(s.x, s.y, s.z);
+      const cascade = {
+        starIdx: i,
+        x: p0.sx, y: p0.sy,
+        rgb: s.rgb,
+        born: performance.now(),
+        // afterimage ring grows from current radius to ~3x
+        baseR: STAR_BASE_R * (FOCAL / p0.zEff),
+      };
+      cascades.push(cascade);
+      s.forgetting = cascade;
+    }
+    s.prevDecayed = w;
+    s._decayWeight = w;
+
+    // ── Age drift ──
+    // Older / rarely-accessed memories drift outward (toward periphery)
+    // each frame. Very slow; barely perceptible.
+    const ageFactor = (1 - w) / Math.max(1, s.accessCount);
+    s.x += s.x * AGE_DRIFT_FACTOR * ageFactor;
+    s.y += s.y * AGE_DRIFT_FACTOR * ageFactor;
+
+    // ── Halo flare decay ──
+    if (s.haloFlare > 0) s.haloFlare = Math.max(0, s.haloFlare - dt * 0.9);
+
+    // spring physics — pull toward hovered star if it's a high-sim neighbor
+    let targetSprX = 0, targetSprY = 0;
+    if (hoverIdx >= 0 && hoverIdx !== i) {
+      const sim = similarity(s, stars[hoverIdx]);
+      if (sim > 0.55) {
+        const ph = project(stars[hoverIdx].x, stars[hoverIdx].y, stars[hoverIdx].z);
+        const pi = project(s.x, s.y, s.z);
+        const dx = ph.sx - pi.sx, dy = ph.sy - pi.sy;
+        const dlen = Math.sqrt(dx*dx + dy*dy) || 1;
+        const pull = 4 * (sim - 0.55) / 0.45;
+        targetSprX = (dx / dlen) * pull;
+        targetSprY = (dy / dlen) * pull;
+      }
+    }
+    // Spring update
+    s.sprVx += (targetSprX - s.sprX) * SPRING_K;
+    s.sprVy += (targetSprY - s.sprY) * SPRING_K;
+    s.sprVx *= SPRING_DAMP;
+    s.sprVy *= SPRING_DAMP;
+    s.sprX += s.sprVx;
+    s.sprY += s.sprVy;
+
+    // flash decay
+    if (s.flash > 0) s.flash = Math.max(0, s.flash - dt * 1.4);
+  }
+
+  // Sort by depth (far → near) so near stars render on top
+  const sorted = stars
+    .map((s, i) => ({ s, i, p: project(s.x, s.y, s.z) }))
+    .sort((a, b) => b.p.zEff - a.p.zEff);
+
+  ctx.save();
+  for (const { s, i, p } of sorted) {
+    const sx = p.sx + s.sprX;
+    const sy = p.sy + s.sprY;
+    const r = STAR_BASE_R * (FOCAL / p.zEff);
+    if (sx < -50 || sx > W + 50 || sy < -50 || sy > H + 50 || r < 0.2) continue;
+
+    const decay = s._decayWeight;
+    const inNeb = inAnyNebula(sx, sy);
+    const baseBright = (0.45 + 0.55 * p.depth) * (0.30 + 0.70 * decay);
+    const bright = clamp(baseBright * (inNeb ? 1.30 : 1.0), 0, 1.4);
+
+    const twinkle = 0.85 + 0.15 * Math.sin(performance.now() * 0.003 + s.twinkle);
+
+    if (warping && vNorm > 0.04) {
+      // ── WARP STREAK ──
+      const streakLen = vNorm * 70 * (FOCAL / p.zEff);  // deeper → shorter
+      const sign = Math.sign(dialVelocity) || 1;
+      const x2 = sx - sign * streakLen;
+      ctx.strokeStyle = `rgba(${s.rgb[0]},${s.rgb[1]},${s.rgb[2]},${0.55 * vNorm * bright})`;
+      ctx.lineWidth = Math.max(0.5, 2 * (FOCAL / p.zEff));
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(x2, sy);
+      ctx.stroke();
+    }
+
+    // ── Star core (with optional nova flash) ──
+    if (s.flash > 0) {
+      // nova white-hot pulse
+      const fr = r * (1 + s.flash * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.85 * s.flash})`;
+      ctx.shadowColor = rgba(s.rgb, 0.8);
+      ctx.shadowBlur = 30 * s.flash;
+      ctx.beginPath(); ctx.arc(sx, sy, fr, 0, TAU); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // ── Ebbinghaus decay halo ──
+    // Outer halo whose radius scales with decay strength; flares on recent access.
+    const decayStrength = clamp(decay + s.haloFlare * 0.8, 0, 1.2);
+    const haloR = HALO_BASE_R * decayStrength * (FOCAL / p.zEff);
+    const haloOuterA = decayStrength * HALO_ALPHA_K;
+    if (haloR > 1 && haloOuterA > 0.01) {
+      const grad = ctx.createRadialGradient(sx, sy, r * 0.6, sx, sy, haloR);
+      grad.addColorStop(0, rgba(s.rgb, haloOuterA * 1.2));
+      grad.addColorStop(1, rgba(s.rgb, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(sx, sy, haloR, 0, TAU); ctx.fill();
+    }
+
+    // halo
+    const haloA = 0.35 * bright * twinkle;
+    ctx.fillStyle = rgba(s.rgb, haloA);
+    ctx.beginPath(); ctx.arc(sx, sy, r * 2.4, 0, TAU); ctx.fill();
+
+    // ── Cascade ripple + desaturation (active forget event) ──
+    let rippleScale = 1.0;
+    let desaturate = 0.0;
+    if (s.forgetting) {
+      const ct = (performance.now() - s.forgetting.born) / CASCADE_DURATION_MS;
+      if (ct >= 1) {
+        s.forgetting = null;
+      } else {
+        // ripple: ×1.5 then ×0.5 then settle, via damped sine
+        rippleScale = 1 + 0.5 * Math.cos(ct * Math.PI * 3) * Math.exp(-ct * 3);
+        // desaturation pulse — peaks at t≈0.2, eased out
+        desaturate = ct < 0.4 ? (ct / 0.4) : Math.max(0, 1 - (ct - 0.4) / 0.6);
+        desaturate *= 0.85;
+      }
+    }
+
+    // core
+    const coreA = bright * twinkle;
+    // hue-blend toward grey by `desaturate`
+    const grey = 160;
+    const cR = Math.round(lerp(s.rgb[0] + 20, grey, desaturate));
+    const cG = Math.round(lerp(s.rgb[1] + 20, grey, desaturate));
+    const cB = Math.round(lerp(s.rgb[2] + 20, grey, desaturate));
+    if (i === selectedIdx) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, coreA + 0.3)})`;
+      ctx.shadowColor = rgba(s.rgb, 1);
+      ctx.shadowBlur = 18;
+    } else {
+      ctx.fillStyle = `rgba(${cR},${cG},${cB},${coreA})`;
+      ctx.shadowColor = rgba(s.rgb, 0.6 * (1 - desaturate * 0.6));
+      ctx.shadowBlur = 8;
+    }
+    ctx.beginPath(); ctx.arc(sx, sy, r * rippleScale, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // hover ring
+    if (i === hoverIdx) {
+      ctx.strokeStyle = rgba(s.rgb, 0.9);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 3.2, 0, TAU); ctx.stroke();
+    }
+
+    // label, only when close OR hovered/selected
+    const showLabel = (i === hoverIdx || i === selectedIdx) || p.depth > 0.78;
+    if (showLabel && r > 1.2) {
+      ctx.font = `${Math.round(11 + 2 * p.depth)}px 'SF Mono', monospace`;
+      ctx.fillStyle = `rgba(240,230,210,${0.55 + 0.4 * p.depth})`;
+      ctx.textBaseline = "middle";
+      ctx.fillText(s.labelText, sx + r * 2.4 + 6, sy);
+    }
+    s._sx = sx; s._sy = sy; s._sr = r; s._depth = p.depth;
+  }
+  ctx.restore();
+}
+
+function renderResonance(dt) {
+  // hovered star's resonance: 3 expanding rings
+  if (hoverIdx < 0) {
+    // tick down all
+    for (const r of resonances) r.life -= dt;
+  } else {
+    // spawn new rings periodically
+    const now = performance.now();
+    const last = resonances.length ? resonances[resonances.length - 1].born : 0;
+    if (now - last > 250) {
+      const s = stars[hoverIdx];
+      // hue from neighbor similarity
+      const ns = neighborsOf(hoverIdx, 5);
+      const avgSim = ns.reduce((a, b) => a + b.sim, 0) / Math.max(1, ns.length);
+      // warm (amber) for high sim, cool (cyan) for low
+      const rgb = avgSim > 0.5
+        ? [255, Math.round(184 - (avgSim - 0.5) * 200), Math.round(108 - (avgSim - 0.5) * 200)]
+        : [108 + (0.5 - avgSim) * 200, 220, Math.round(255 - (0.5 - avgSim) * 80)];
+      for (let k = 0; k < 3; k++) {
+        resonances.push({
+          x: s._sx ?? CX, y: s._sy ?? CY,
+          r: 0,
+          speed: RESONANCE_SPEEDS[k],
+          rgb,
+          life: 1.0,
+          born: now,
+        });
+      }
+    }
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const r of resonances) {
+    if (r.life <= 0) continue;
+    r.r += r.speed * dt;
+    r.life -= dt * 0.6;
+    const a = Math.max(0, r.life) * 0.55;
+    ctx.strokeStyle = rgba(r.rgb, a);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
+  }
+  ctx.save();
+  resonances = resonances.filter(r => r.life > 0 && r.r < Math.max(W, H));
+  ctx.restore();
+}
+
+// ─── Forgetting cascade — afterimage rings for stars that just dropped below threshold ───
+function renderCascades(dt) {
+  const now = performance.now();
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const c of cascades) {
+    const t = (now - c.born) / CASCADE_DURATION_MS;
+    if (t >= 1) { c._dead = true; continue; }
+    const e = easeOutCubic(t);
+    const r = c.baseR * (1 + e * 4);
+    const a = (1 - t) * 0.45;
+    ctx.strokeStyle = rgba(c.rgb, a);
+    ctx.lineWidth = 1.4 * (1 - t * 0.5);
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.stroke();
+    // inner desaturating ring
+    const grey = `rgba(170,170,170,${(1 - t) * 0.25})`;
+    ctx.strokeStyle = grey;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.55, 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+  cascades = cascades.filter(c => !c._dead);
+}
+
+// ─── Retrieval-path visualization — traveling-dot light from query → top-k ───
+function renderRetrievalPaths(dt) {
+  const now = performance.now();
+  ctx.save();
+  for (const p of retrievalPaths) {
+    const tt = (now - p.born) / p.duration;
+    if (tt > 1 + (RETRIEVAL_PATH_PERSIST_MS / p.duration)) { p._dead = true; continue; }
+    const target = stars[p.targetIdx];
+    if (!target || target._sx === undefined) continue;
+
+    // Quadratic bezier control point — bowed slightly perpendicular to the line
+    const mx = (p.x0 + target._sx) / 2;
+    const my = (p.y0 + target._sy) / 2;
+    const dx = target._sx - p.x0, dy = target._sy - p.y0;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const bow = 30 * (0.6 + 0.4 * p.rank);     // higher rank → more curved
+    const cx = mx + nx * bow, cy = my + ny * bow;
+
+    // Faint persistent line (golden afterglow)
+    if (tt > 0.4) {
+      const lineFade = clamp(1 - (now - p.born - p.duration * 0.4) / RETRIEVAL_PATH_PERSIST_MS, 0, 1);
+      ctx.strokeStyle = `rgba(255,215,0,${lineFade * 0.35 * (1 - p.rank * 0.25)})`;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = "#ffd700"; ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.moveTo(p.x0, p.y0);
+      ctx.quadraticCurveTo(cx, cy, target._sx, target._sy);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // Traveling-dot head
+    if (tt <= 1.0) {
+      const u = easeOutExpo(tt);
+      // quadratic bezier point at u
+      const bx = (1-u)*(1-u)*p.x0 + 2*(1-u)*u*cx + u*u*target._sx;
+      const by = (1-u)*(1-u)*p.y0 + 2*(1-u)*u*cy + u*u*target._sy;
+      const dotR = 4 - p.rank * 0.8;
+      ctx.fillStyle = `rgba(255,235,160,${1 - p.rank * 0.18})`;
+      ctx.shadowColor = "#ffd700"; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.arc(bx, by, dotR, 0, TAU); ctx.fill();
+      ctx.shadowBlur = 0;
+      // little tail behind the dot
+      for (let k = 1; k <= 4; k++) {
+        const uk = clamp(u - k * 0.04, 0, 1);
+        const tx = (1-uk)*(1-uk)*p.x0 + 2*(1-uk)*uk*cx + uk*uk*target._sx;
+        const ty = (1-uk)*(1-uk)*p.y0 + 2*(1-uk)*uk*cy + uk*uk*target._sy;
+        ctx.fillStyle = `rgba(255,235,160,${(1 - k * 0.2) * 0.4 * (1 - p.rank * 0.2)})`;
+        ctx.beginPath(); ctx.arc(tx, ty, dotR * (1 - k * 0.15), 0, TAU); ctx.fill();
+      }
+    } else if (target) {
+      // Mark arrival: brief flash on target
+      if (!p._arrived) {
+        target.flash = Math.max(target.flash, 0.85 - p.rank * 0.15);
+        target.haloFlare = 1.0;
+        target.accessCount = (target.accessCount || 0) + 1;
+        p._arrived = true;
+      }
+    }
+  }
+  ctx.restore();
+  retrievalPaths = retrievalPaths.filter(p => !p._dead);
+}
+
+// ─── Consolidation animation — episodic stars spring together, spin, merge into one semantic star ───
+function renderConsolidations(dt) {
+  const now = performance.now();
+  ctx.save();
+  for (const c of consolidations) {
+    const elapsed = now - c.born;
+    if (elapsed > c.totalDur) { applyConsolidationMerge(c); c._dead = true; continue; }
+
+    // Phase 1: gather (spring pull toward centroid). Phase 2: spin. Phase 3: merge flash.
+    const gatherT = clamp(elapsed / CONSOLIDATE_GATHER_MS, 0, 1);
+    const spinStart = CONSOLIDATE_GATHER_MS;
+    const spinT = clamp((elapsed - spinStart) / CONSOLIDATE_SPIN_MS, 0, 1);
+    const eGather = easeOutCubic(gatherT);
+
+    // Pull each member toward centroid in screen space via spring offset
+    const cxw = c.centerWorld;
+    for (const idx of c.members) {
+      const s = stars[idx];
+      if (!s) continue;
+      // Animate world position toward centroid
+      const tx = lerp(s.startX, cxw.x, eGather);
+      const ty = lerp(s.startY, cxw.y, eGather);
+      const tz = lerp(s.startZ, cxw.z, eGather);
+      // Spin around centroid during phase 2
+      let ox = 0, oy = 0;
+      if (spinT > 0) {
+        const angle = spinT * TAU * 1.5 + (idx / c.members.length) * TAU;
+        const rad = lerp(40, 5, spinT);
+        ox = Math.cos(angle) * rad;
+        oy = Math.sin(angle) * rad;
+      }
+      s.x = tx + ox;
+      s.y = ty + oy;
+      s.z = tz;
+    }
+
+    // Draw a glowing converging halo
+    const p = project(cxw.x, cxw.y, cxw.z);
+    const haloR = lerp(80, 18, eGather) + (spinT > 0 ? Math.sin(spinT * Math.PI * 6) * 4 : 0);
+    const grad = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, haloR);
+    grad.addColorStop(0, `rgba(108,220,255,${0.55 * (gatherT + spinT * 0.5)})`);
+    grad.addColorStop(1, "rgba(108,220,255,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, haloR, 0, TAU); ctx.fill();
+
+    // Final flash: 80ms before merge
+    const flashStart = c.totalDur - 120;
+    if (elapsed > flashStart) {
+      const ft = (elapsed - flashStart) / 120;
+      ctx.fillStyle = `rgba(255,255,255,${(1 - ft) * 0.85})`;
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, lerp(8, 60, ft), 0, TAU); ctx.fill();
+    }
+  }
+  ctx.restore();
+  consolidations = consolidations.filter(c => !c._dead);
+}
+
+function applyConsolidationMerge(c) {
+  // Remove member stars, replace with one semantic star at centroid
+  const cw = c.centerWorld;
+  const totalAccess = c.members.reduce((sum, idx) => sum + ((stars[idx] && stars[idx].accessCount) || 1), 0);
+  const semantic = CLUSTERS[1];
+  // Build a new star
+  const newStar = {
+    id: 9000 + Math.floor(rng() * 1000),
+    cluster: 1, clusterId: semantic.id, rgb: semantic.rgb,
+    x: cw.x, y: cw.y, z: cw.z,
+    homeX: cw.x, homeY: cw.y, homeZ: cw.z,
+    sprX: 0, sprY: 0, sprVx: 0, sprVy: 0,
+    bornDay: 0,
+    labelText: c.label || "consolidated memory",
+    twinkle: rng() * TAU,
+    flash: 1.0,
+    accessCount: totalAccess,
+    prevDecayed: 1.0,
+    forgetting: null,
+    haloFlare: 1.0,
+    _isMerged: true,
+  };
+  // Filter out merged stars then add the new one
+  const dropSet = new Set(c.members);
+  stars = stars.filter((_, i) => !dropSet.has(i));
+  stars.push(newStar);
+}
+
+// ─── Cluster glyphs — Lontara character floating at each cluster centroid ───
+function renderClusterGlyphs(dt) {
+  const now = performance.now();
+  ctx.save();
+  for (let ci = 0; ci < CLUSTERS.length; ci++) {
+    const c = CLUSTERS[ci];
+    // total decay strength for this cluster (drives scale + pulse)
+    let total = 0, n = 0;
+    for (const s of stars) {
+      if (s.cluster === ci) { total += (s._decayWeight || 1); n++; }
+    }
+    if (n === 0) continue;
+    const strength = total / n;     // 0..1 average
+    const center = clusterCenterScreen(ci);
+    // breathing pulse synced to nebula breathing rate (period ~10.5s)
+    const breathe = 0.85 + 0.15 * Math.sin(now * 0.0006 + ci);
+    // slow rotation (30s cycle)
+    const angle = (now / 30000) * TAU + ci * (TAU / 3);
+    const baseSize = 28 + strength * 64;
+    const size = baseSize * breathe;
+
+    ctx.save();
+    ctx.translate(center.sx, center.sy);
+    ctx.rotate(angle);
+    ctx.font = `${Math.round(size)}px 'SF Pro Display', serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    // glow
+    ctx.shadowColor = rgba(c.rgb, 0.6 * strength);
+    ctx.shadowBlur = 24 * strength;
+    ctx.fillStyle = `rgba(${c.rgb[0]},${c.rgb[1]},${c.rgb[2]},${0.18 + 0.22 * strength})`;
+    ctx.fillText(CLUSTER_GLYPHS[ci] || "✦", 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function renderNovas(dt) {
+  // For each active nova, advance particles + draw
+  ctx.save();
+  for (const n of novas) {
+    const t = (performance.now() - n.start) / NOVA_DURATION_MS;
+    if (t >= 1) { n.dead = true; continue; }
+    const e = easeOutCubic(t);
+    for (const p of n.particles) {
+      const px = n.x + p.vx * e * 1.6;
+      const py = n.y + p.vy * e * 1.6;
+      ctx.shadowColor = rgba(n.rgb, 0.9);
+      ctx.shadowBlur = 40 * (1 - e);
+      ctx.fillStyle = `rgba(${n.rgb[0]+30},${n.rgb[1]+30},${n.rgb[2]+30},${(1 - e) * 0.95})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.6 + (1 - e) * 2.2, 0, TAU);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    // shockwave ring
+    ctx.strokeStyle = rgba(n.rgb, (1 - e) * 0.6);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 30 + e * 220, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+  novas = novas.filter(n => !n.dead);
+}
+
+function renderConstellations(dt) {
+  // age out old constellations
+  const now = performance.now();
+  for (const c of constellations) {
+    c.age = (now - c.born) / 1000;
+  }
+  constellations = constellations.filter(c => c.age < CONSTELLATION_FADE_S + 0.5);
+  glyphs = glyphs.filter(g => (now - g.born) / 1000 < CONSTELLATION_FADE_S + 1.0);
+
+  ctx.save();
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = "#ffd700";
+  for (const c of constellations) {
+    const t = c.age / CONSTELLATION_FADE_S;
+    // draw-in 0..0.25 then fade 0.25..1
+    let drawT = clamp(t / 0.25, 0, 1);
+    let fade = t > 0.25 ? Math.max(0, 1 - (t - 0.25) / 0.75) : 1.0;
+    drawT = easeOutCubic(drawT);
+    const a = stars[c.i], b = stars[c.j];
+    if (a._sx === undefined || b._sx === undefined) continue;
+    const x1 = a._sx, y1 = a._sy;
+    const x2 = lerp(a._sx, b._sx, drawT);
+    const y2 = lerp(a._sy, b._sy, drawT);
+    ctx.strokeStyle = `rgba(255,215,0,${0.55 * fade})`;
+    ctx.lineWidth = 1.0;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  for (const g of glyphs) {
+    const t = (now - g.born) / 1000;
+    const fade = t > 0.4 ? Math.max(0, 1 - (t - 0.4) / 1.2) : easeOutCubic(t / 0.4);
+    ctx.fillStyle = `rgba(255,215,0,${0.85 * fade})`;
+    ctx.font = `${22}px 'SF Pro Display', serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(g.glyph, g.x, g.y);
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INTERACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function findStarUnder(mx, my) {
+  // pick smallest (closest by depth) star whose center is within hit radius
+  let best = -1, bestDist = 30 * 30;
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+    if (s._sx === undefined) continue;
+    const dx = mx - s._sx, dy = my - s._sy;
+    const d2 = dx*dx + dy*dy;
+    const hit = Math.max(8, s._sr * 3.5);
+    if (d2 < hit * hit && d2 < bestDist) {
+      bestDist = d2; best = i;
+    }
   }
   return best;
 }
 
-/* ── store / query ─────────────────────────────────────────────────────── */
-function spawnStar(label, opts = {}) {
-  const hv = encodeText(label);
-  const cluster = opts.cluster ?? (centroids.some(c => c) ? clusterOf(hv) : (stars.length % 3));
-  const angle = Math.random() * Math.PI * 2;
-  const radius = Math.min(W, H) * (0.18 + Math.random() * 0.32);
-  const x = W / 2 + Math.cos(angle) * radius;
-  const y = H / 2 + Math.sin(angle) * radius;
-  const star = {
-    id: nextId++, x, y,
-    vx: (Math.random() - 0.5) * 0.04,
-    vy: (Math.random() - 0.5) * 0.04,
-    hv, label,
-    ts: ++tick,
-    accesses: 0,
-    cluster,
-    born: performance.now(),
-    birthAt: performance.now(),
-  };
-  stars.push(star);
-  if (stars.length % 4 === 0) computeCentroids();
-  rebuildLinks();
-  triggerBirth(star);
-  flashToast(`stored · ${label}`);
-  return star;
+function spawnNova(idx) {
+  const s = stars[idx];
+  if (!s) return;
+  const particles = [];
+  const speed = 110;
+  for (let i = 0; i < NOVA_PARTICLES; i++) {
+    const a = (i / NOVA_PARTICLES) * TAU + rng() * 0.05;
+    const sp = speed * (0.6 + rng() * 0.6);
+    particles.push({ vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+  }
+  novas.push({
+    x: s._sx, y: s._sy, rgb: s.rgb,
+    particles, start: performance.now(), dead: false,
+  });
+  s.flash = 1.0;
 }
 
-function rebuildLinks() {
-  links.length = 0;
-  for (let i = 0; i < stars.length; i++) {
-    for (let j = i + 1; j < stars.length; j++) {
-      const sim = cosine(stars[i].hv, stars[j].hv);
-      if (sim > SIM_LINK) links.push({ a: i, b: j, sim });
+function spawnConstellations() {
+  if (!shiftHeld || hoverIdx < 0) return;
+  const now = performance.now();
+  // cap rate: only fire if last constellation > 200ms ago
+  if (constellations.length && (now - constellations[constellations.length-1].born) < 180) return;
+
+  const a = stars[hoverIdx];
+  if (a._sx === undefined) return;
+  const partners = [];
+  for (let j = 0; j < stars.length; j++) {
+    if (j === hoverIdx) continue;
+    const b = stars[j];
+    if (b._sx === undefined) continue;
+    const dx = b._sx - a._sx, dy = b._sy - a._sy;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < CONSTELLATION_RADIUS_PX * CONSTELLATION_RADIUS_PX) {
+      partners.push({ j, d2 });
     }
   }
-}
-
-function queryCosmos(text, k = 5) {
-  if (stars.length === 0) return null;
-  const hv = encodeText(text);
-  const scored = stars.map(s => ({ s, sim: cosine(s.hv, hv) }));
-  scored.sort((u, v) => v.sim - u.sim);
-  const top = scored.slice(0, k);
-  for (const t of top) t.s.accesses += 1;
-  // probe sits at canvas centre — a "thought" entering from outside
-  const probe = {
-    x: W / 2, y: H / 2,
-    hv, label: text,
-    born: performance.now(),
-    lifetime: 4200,
-    hits: top.map((t, i) => ({ idx: stars.indexOf(t.s), sim: t.sim, rank: i })),
-  };
-  probes.push(probe);
-  flashToast(`top-${top.length} · best ${top[0].sim.toFixed(2)} · ${top[0].s.label}`);
-  return probe;
-}
-
-/* ── star birth animation: pixels converge from edges to position ─────── */
-function triggerBirth(star) {
-  const N = 14;
-  for (let i = 0; i < N; i++) {
-    const angle = (i / N) * Math.PI * 2 + Math.random() * 0.4;
-    const dist = Math.max(W, H) * 0.7;
-    flares.push({
-      x: star.x + Math.cos(angle) * dist,
-      y: star.y + Math.sin(angle) * dist,
-      tx: star.x, ty: star.y,
-      born: performance.now(),
-      lifetime: 900 + Math.random() * 300,
-      cluster: star.cluster,
-      mode: "converge",
+  partners.sort((x, y) => x.d2 - y.d2);
+  partners.slice(0, 3).forEach(p => {
+    constellations.push({ i: hoverIdx, j: p.j, born: now, age: 0 });
+  });
+  // glyph at centroid of formed constellation
+  if (partners.length > 0) {
+    let cx = a._sx, cy = a._sy, c = 1;
+    partners.slice(0, 3).forEach(p => {
+      cx += stars[p.j]._sx; cy += stars[p.j]._sy; c++;
+    });
+    glyphs.push({
+      x: cx / c, y: cy / c,
+      glyph: GLYPHS[Math.floor(rng() * GLYPHS.length)],
+      born: now,
     });
   }
 }
 
-/* ── decay / brightness ────────────────────────────────────────────────── */
-function decayWeight(age) {
-  if (age <= 0) return 1.0;
-  return Math.pow(0.5, age / HALF_LIFE);
+// ─── Interactive memory injection — dblclick anywhere spawns a new star ───
+function handleDoubleClick(mx, my) {
+  // Un-project screen → world at a plausible depth (mid-field)
+  const targetZ = 1100;
+  const k = FOCAL / Math.max(Z_NEAR, targetZ - camera.z);
+  const wx = (mx - CX) / k;
+  const wy = (my - CY) / k;
+  const newIdx = injectMemoryAt(wx, wy, targetZ, mx, my);
+  openInjectorPopover(mx, my, newIdx);
 }
-function brightness(star, displayTick) {
-  const age = Math.max(0, displayTick - star.ts);
-  const w = decayWeight(age);
-  // accesses re-strengthen a memory (recall-induced reconsolidation)
-  const reinforce = Math.min(1.0, w + 0.04 * Math.log1p(star.accesses));
-  return Math.max(0.06, reinforce);
-}
-function colorOf(cluster, alpha) {
-  const c = COLORS[cluster % 3];
-  return `rgba(${c.r}, ${c.g}, ${c.b}, ${alpha})`;
-}
-function colorRGB(cluster) { const c = COLORS[cluster % 3]; return [c.r, c.g, c.b]; }
 
-/* ── physics: gravity toward similar neighbours ────────────────────────── */
-function step(dt) {
-  // gravitational drift along links
-  for (const link of links) {
-    const a = stars[link.a], b = stars[link.b];
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const d  = Math.hypot(dx, dy) + 1e-3;
-    const target = 90 + (1 - link.sim) * 220;        // similar → closer
-    const f = (d - target) * 0.000015 * link.sim;    // sim-weighted spring
-    const fx = f * (dx / d), fy = f * (dy / d);
-    a.vx += fx * dt; a.vy += fy * dt;
-    b.vx -= fx * dt; b.vy -= fy * dt;
+function injectMemoryAt(wx, wy, wz, sx, sy) {
+  const ci = 0;  // injected memories land as episodic first
+  const c = CLUSTERS[ci];
+  const star = {
+    id: 8000 + Math.floor(rng() * 1000),
+    cluster: ci, clusterId: c.id, rgb: c.rgb,
+    x: wx, y: wy, z: wz,
+    homeX: wx, homeY: wy, homeZ: wz,
+    sprX: 0, sprY: 0, sprVx: 0, sprVy: 0,
+    bornDay: 0,
+    labelText: "new memory",
+    twinkle: rng() * TAU,
+    flash: 1.0,
+    accessCount: 8,            // fresh memories are highly anchored at first
+    prevDecayed: 1.0,
+    forgetting: null,
+    haloFlare: 1.0,
+    _justInjected: true,
+  };
+  stars.push(star);
+  const idx = stars.length - 1;
+  // Nova birth at the screen position
+  const particles = [];
+  const speed = 130;
+  for (let i = 0; i < NOVA_PARTICLES; i++) {
+    const a = (i / NOVA_PARTICLES) * TAU + rng() * 0.05;
+    const sp = speed * (0.6 + rng() * 0.6);
+    particles.push({ vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
   }
-  // mild centring + damping + bounds
-  const cx = W / 2, cy = H / 2;
+  novas.push({
+    x: sx, y: sy, rgb: c.rgb,
+    particles, start: performance.now(), dead: false,
+  });
+  return idx;
+}
+
+function openInjectorPopover(sx, sy, idx) {
+  const pop = document.getElementById("injector");
+  const input = document.getElementById("injectorInput");
+  if (!pop || !input) return;
+  injectorOpen = true;
+  // anchor near the click, clamped to viewport
+  const w = 240, h = 64, m = 20;
+  let x = sx + 16, y = sy - 12;
+  if (x + w + m > W) x = sx - w - 16;
+  y = clamp(y, m, H - h - m);
+  pop.style.left = `${x}px`;
+  pop.style.top  = `${y}px`;
+  pop.classList.add("show");
+  pop.dataset.idx = String(idx);
+  input.value = "";
+  setTimeout(() => input.focus(), 60);
+}
+
+function closeInjectorPopover() {
+  const pop = document.getElementById("injector");
+  if (!pop) return;
+  injectorOpen = false;
+  pop.classList.remove("show");
+}
+
+// ─── Memory consolidation — gather nearby episodic stars, spin, merge into one semantic ───
+function triggerConsolidation() {
+  // Find an episodic cluster of stars within ~280px on screen
+  const epIdx = stars
+    .map((s, i) => ({ s, i, p: s._sx !== undefined ? { sx: s._sx, sy: s._sy } : null }))
+    .filter(o => o.s.cluster === 0 && o.p)
+    .filter(o => o.p.sx > 0 && o.p.sx < W && o.p.sy > 0 && o.p.sy < H);
+
+  if (epIdx.length < 3) {
+    // not enough on-screen episodic stars; flash the button instead
+    const btn = document.getElementById("consolidateBtn");
+    if (btn) { btn.classList.add("flash"); setTimeout(() => btn.classList.remove("flash"), 500); }
+    return;
+  }
+
+  // pick the densest 4–6 cluster: random seed star, take its 5 nearest screen neighbors
+  const seed = epIdx[Math.floor(rng() * epIdx.length)];
+  const ranked = epIdx
+    .filter(o => o.i !== seed.i)
+    .map(o => ({
+      ...o,
+      d2: (o.p.sx - seed.p.sx) ** 2 + (o.p.sy - seed.p.sy) ** 2,
+    }))
+    .sort((a, b) => a.d2 - b.d2)
+    .slice(0, 5);
+
+  const members = [seed.i, ...ranked.map(o => o.i)];
+  // compute world centroid
+  let cxw = 0, cyw = 0, czw = 0;
+  for (const i of members) {
+    const s = stars[i];
+    s.startX = s.x; s.startY = s.y; s.startZ = s.z;
+    cxw += s.x; cyw += s.y; czw += s.z;
+  }
+  cxw /= members.length; cyw /= members.length; czw /= members.length;
+
+  consolidations.push({
+    members,
+    centerWorld: { x: cxw, y: cyw, z: czw },
+    born: performance.now(),
+    totalDur: CONSOLIDATE_GATHER_MS + CONSOLIDATE_SPIN_MS + 200,
+    label: seed.s.labelText + " (consolidated)",
+  });
+}
+
+function showCard(idx) {
+  if (idx < 0) { hideCard(); return; }
+  const s = stars[idx];
+  const card = document.getElementById("card");
+  card.classList.add("show");
+  document.getElementById("cardTitle").textContent = s.labelText;
+  document.getElementById("cardSub").textContent = `${CLUSTERS[s.cluster].name.toLowerCase()} memory · #${s.id}`;
+  const decay = decayWeight(daysSince + s.bornDay * 0.2, HALF_LIFE_DAYS);
+  const strength = decay * 100;
+  document.getElementById("cardStrength").textContent = `${strength.toFixed(1)}%`;
+  document.getElementById("cardDecay").textContent = decay.toFixed(3);
+  document.getElementById("cardDepth").textContent = `${s._depth?.toFixed(2) ?? "—"}`;
+  document.getElementById("cardCluster").textContent = CLUSTERS[s.cluster].name;
+  // neighbors
+  const neighbors = neighborsOf(idx, 4);
+  const html = neighbors.map(n =>
+    `<div class="item"><span class="lab">${stars[n.j].labelText}</span><span class="sim">${(n.sim * 100).toFixed(0)}%</span></div>`
+  ).join("");
+  document.getElementById("cardMatches").innerHTML = html;
+  // Position card near the star, but clamped to screen
+  positionCard(s._sx, s._sy);
+}
+
+function positionCard(sx, sy) {
+  const card = document.getElementById("card");
+  const w = 320, h = 260;
+  const margin = 22;
+  let x = sx + 32, y = sy - h / 2;
+  if (x + w + margin > W) x = sx - w - 32;
+  y = clamp(y, margin, H - h - margin);
+  card.style.left = `${x}px`;
+  card.style.top  = `${y}px`;
+}
+
+function hideCard() {
+  document.getElementById("card").classList.remove("show");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════════════════════════
+function tick(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+
+  // camera drift forward; z-wrap stars when they get too close
+  camera.z += CAMERA_DRIFT;
   for (const s of stars) {
-    s.vx += (cx - s.x) * 0.0000018 * dt;
-    s.vy += (cy - s.y) * 0.0000018 * dt;
-    s.vx *= 0.992; s.vy *= 0.992;
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    if (s.x < 30) { s.x = 30; s.vx = Math.abs(s.vx) * 0.4; }
-    if (s.x > W - 30) { s.x = W - 30; s.vx = -Math.abs(s.vx) * 0.4; }
-    if (s.y < 30) { s.y = 30; s.vy = Math.abs(s.vy) * 0.4; }
-    if (s.y > H - 30) { s.y = H - 30; s.vy = -Math.abs(s.vy) * 0.4; }
+    const zEff = s.z - camera.z;
+    if (zEff < Z_NEAR) {
+      // wrap to far
+      s.z += (Z_FAR - Z_NEAR);
+    }
+    if (zEff > Z_FAR + 200) {
+      s.z -= (Z_FAR - Z_NEAR);
+    }
   }
+
+  // dial velocity smoothing (decay)
+  dialVelocity *= 0.85;
+
+  // ── Time-lapse trail: partial-clear when scrubbing fast so stars leave comet trails ──
+  const vNormClear = clamp(Math.abs(dialVelocity) / 200, 0, 1);
+  if (vNormClear > 0.05) {
+    // Persist trails by drawing a low-alpha cover instead of clearing entirely.
+    ctx.save();
+    ctx.fillStyle = `rgba(6,6,15,${TRAIL_FADE_ALPHA + (1 - vNormClear) * 0.35})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  } else {
+    ctx.clearRect(0, 0, W, H);
+  }
+
+  // 1. Nebulae (screen-blend behind everything)
+  renderNebulae();
+
+  // 2. Cluster glyphs floating at each cluster centroid (rotating Lontara chars)
+  renderClusterGlyphs(dt);
+
+  // 3. Stars (with warp streaks, age drift, halos, cascade ripples)
+  renderStars(dt);
+
+  // 4. Forgetting cascades — afterimage rings of stars that just dropped below threshold
+  renderCascades(dt);
+
+  // 5. Constellation lines (Shift+hover)
+  if (shiftHeld) spawnConstellations();
+  renderConstellations(dt);
+
+  // 6. Resonance rings (hover)
+  renderResonance(dt);
+
+  // 7. Consolidation gather-spin-merge animations
+  renderConsolidations(dt);
+
+  // 8. Retrieval paths (query → top-k traveling dots + persistent golden afterglow)
+  renderRetrievalPaths(dt);
+
+  // 9. Nova explosions (clicks + double-clicks)
+  renderNovas(dt);
+
+  // Update card position if a star is selected
+  if (selectedIdx >= 0) {
+    const s = stars[selectedIdx];
+    if (s && s._sx !== undefined) positionCard(s._sx, s._sy);
+  }
+
+  requestAnimationFrame(tick);
 }
 
-/* ── render ────────────────────────────────────────────────────────────── */
-function render(now) {
-  // background — slow exposure trail (low-alpha black wash)
-  ctx.fillStyle = "rgba(0,0,0,0.34)";
-  ctx.fillRect(0, 0, W, H);
-
-  const displayTick = tick + nowOffset;
-
-  // connections
-  if (trailsOn) {
-    for (const link of links) {
-      const a = stars[link.a], b = stars[link.b];
-      const ba = brightness(a, displayTick);
-      const bb = brightness(b, displayTick);
-      const linkBright = Math.min(ba, bb) * (link.sim - SIM_LINK) / (1 - SIM_LINK);
-      if (linkBright < 0.05) continue;
-      ctx.strokeStyle = `rgba(255, 235, 200, ${0.05 + linkBright * 0.18})`;
-      ctx.lineWidth = 0.6;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      // travelling light dot — phase by link index for variety
-      const t = ((now * 0.00012) + (link.a * 0.07 + link.b * 0.13)) % 1;
-      const tx = a.x + (b.x - a.x) * t;
-      const ty = a.y + (b.y - a.y) * t;
-      const [r, g, bl] = colorRGB(a.cluster);
-      ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${0.55 * linkBright})`;
-      ctx.beginPath();
-      ctx.arc(tx, ty, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  // constellation overlay — only inter-cluster faint borders
-  if (constellationOn) {
-    for (let c = 0; c < 3; c++) {
-      const members = stars.filter(s => s.cluster === c);
-      if (members.length < 3) continue;
-      // convex-hull-ish: connect each member to its 2 nearest in same cluster
-      ctx.strokeStyle = colorOf(c, 0.10);
-      ctx.lineWidth = 0.5;
-      for (const m of members) {
-        const others = members
-          .filter(o => o !== m)
-          .map(o => ({ o, d: Math.hypot(o.x - m.x, o.y - m.y) }))
-          .sort((u, v) => u.d - v.d)
-          .slice(0, 2);
-        for (const { o } of others) {
-          ctx.beginPath();
-          ctx.moveTo(m.x, m.y);
-          ctx.lineTo(o.x, o.y);
-          ctx.stroke();
-        }
-      }
-    }
-  }
-
-  // particle flares (star birth, query shockwaves)
-  for (let i = flares.length - 1; i >= 0; i--) {
-    const f = flares[i];
-    const age = now - f.born;
-    if (age > f.lifetime) { flares.splice(i, 1); continue; }
-    const t = age / f.lifetime;
-    if (f.mode === "converge") {
-      const x = f.x + (f.tx - f.x) * (1 - Math.pow(1 - t, 3));
-      const y = f.y + (f.ty - f.y) * (1 - Math.pow(1 - t, 3));
-      const [r, g, b] = colorRGB(f.cluster);
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.85 * (1 - t)})`;
-      ctx.beginPath(); ctx.arc(x, y, 1.6 * (1 - t * 0.6), 0, Math.PI * 2); ctx.fill();
-    }
-  }
-
-  // probes — shockwave + lines to top-k
-  for (let i = probes.length - 1; i >= 0; i--) {
-    const p = probes[i];
-    const age = now - p.born;
-    if (age > p.lifetime) { probes.splice(i, 1); continue; }
-    const t = age / p.lifetime;
-
-    // expanding ring
-    const ringR = 8 + t * Math.min(W, H) * 0.55;
-    ctx.strokeStyle = `rgba(255, 235, 200, ${0.55 * (1 - t)})`;
-    ctx.lineWidth = 1.2 * (1 - t * 0.8);
-    ctx.beginPath(); ctx.arc(p.x, p.y, ringR, 0, Math.PI * 2); ctx.stroke();
-
-    // probe star core
-    const core = 4 + Math.sin(now * 0.012) * 1.0;
-    ctx.shadowBlur = 24; ctx.shadowColor = "rgba(255,235,200,0.8)";
-    ctx.fillStyle = `rgba(255, 235, 200, ${0.9 * (1 - t * 0.55)})`;
-    ctx.beginPath(); ctx.arc(p.x, p.y, core, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // animated lines to hits
-    for (const hit of p.hits) {
-      const s = stars[hit.idx];
-      if (!s) continue;
-      const dx = s.x - p.x, dy = s.y - p.y;
-      const reach = Math.min(1, t * 2.4);
-      const ex = p.x + dx * reach, ey = p.y + dy * reach;
-      const [r, g, b] = colorRGB(s.cluster);
-      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.85 * (1 - t * 0.7)})`;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-      if (reach >= 1) {
-        // flare the hit star itself
-        ctx.shadowBlur = 22; ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.9 * (1 - t)})`;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, 6 + (1 - t) * 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    }
-  }
-
-  // stars
-  for (const s of stars) {
-    const b = brightness(s, displayTick);
-    const size = 1.6 + Math.log1p(s.accesses) * 1.4 + b * 1.4;
-    const twinkle = pulseOn
-      ? 0.85 + 0.15 * Math.sin(now * 0.003 + s.id * 1.13)
-      : 0.96 + 0.04 * Math.sin(now * 0.0025 + s.id * 0.71);
-    const [r, g, bl] = colorRGB(s.cluster);
-    const a = b * twinkle;
-
-    // halo
-    ctx.shadowBlur = 18 * b;
-    ctx.shadowColor = `rgba(${r}, ${g}, ${bl}, ${0.85 * b})`;
-    ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${0.85 * a})`;
-    ctx.beginPath(); ctx.arc(s.x, s.y, size, 0, Math.PI * 2); ctx.fill();
-
-    // bright core
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgba(255, 245, 220, ${0.85 * a})`;
-    ctx.beginPath(); ctx.arc(s.x, s.y, size * 0.42, 0, Math.PI * 2); ctx.fill();
-
-    // label fades in at high brightness only — keep cosmos clean
-    if (b > 0.7) {
-      ctx.fillStyle = `rgba(255, 235, 200, ${(b - 0.7) * 0.7})`;
-      ctx.font = "10px 'SF Pro Display', system-ui, sans-serif";
-      ctx.fillText(s.label, s.x + size + 4, s.y + 3);
-    }
-  }
+// ═══════════════════════════════════════════════════════════════════════════
+//  EVENT WIRING
+// ═══════════════════════════════════════════════════════════════════════════
+function resize() {
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  CX = W / 2;
+  CY = H / 2;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width  = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
+window.addEventListener("resize", resize);
 
-/* ── main loop ─────────────────────────────────────────────────────────── */
-let last = performance.now();
-function loop(now) {
-  const dt = Math.min(40, now - last);
-  last = now;
-  step(dt);
-  render(now);
-  document.getElementById("stat-n").textContent = stars.length;
-  document.getElementById("stat-l").textContent = links.length;
-  document.getElementById("stat-t").textContent = (tick + nowOffset);
-  requestAnimationFrame(loop);
-}
-
-/* ── HUD wiring ────────────────────────────────────────────────────────── */
-const probeInput = document.getElementById("probe");
-document.getElementById("btn-add").addEventListener("click", () => {
-  const v = probeInput.value.trim(); if (!v) return;
-  spawnStar(v); probeInput.value = ""; probeInput.focus();
+canvas.addEventListener("mousemove", (e) => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  const idx = findStarUnder(mouseX, mouseY);
+  if (idx !== hoverIdx) {
+    hoverIdx = idx;
+    canvas.style.cursor = idx >= 0 ? "pointer" : "crosshair";
+  }
 });
-document.getElementById("btn-query").addEventListener("click", () => {
-  const v = probeInput.value.trim(); if (!v) return;
-  queryCosmos(v); probeInput.focus();
+canvas.addEventListener("mouseleave", () => { hoverIdx = -1; });
+
+canvas.addEventListener("click", (e) => {
+  // Double-click detection (before doing single-click work)
+  const now = performance.now();
+  if (now - lastClickT < DBLCLICK_MS &&
+      Math.hypot(e.clientX - lastClickX, e.clientY - lastClickY) < 14) {
+    lastClickT = 0;       // consume — don't fire single-click again
+    handleDoubleClick(e.clientX, e.clientY);
+    return;
+  }
+  lastClickT = now;
+  lastClickX = e.clientX; lastClickY = e.clientY;
+
+  const idx = findStarUnder(e.clientX, e.clientY);
+  if (idx >= 0) {
+    selectedIdx = idx;
+    spawnNova(idx);
+    // Spawn retrieval paths from clicked star to its top-3 neighbors
+    const ns = neighborsOf(idx, 3);
+    const src = stars[idx];
+    ns.forEach((n, rank) => {
+      stars[n.j].flash = Math.max(stars[n.j].flash, 0.5 * n.sim);
+      retrievalPaths.push({
+        x0: src._sx, y0: src._sy,
+        sourceIdx: idx, targetIdx: n.j,
+        rank,
+        born: performance.now() + rank * 130,    // staggered launch
+        duration: RETRIEVAL_PATH_DURATION_MS + rank * 220,
+      });
+    });
+    showCard(idx);
+  } else {
+    selectedIdx = -1;
+    hideCard();
+  }
 });
-probeInput.addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  const v = probeInput.value.trim(); if (!v) return;
-  if (e.shiftKey) spawnStar(v); else queryCosmos(v);
-  probeInput.value = "";
+
+canvas.addEventListener("dblclick", (e) => {
+  // Native dblclick (more reliable than synthesized one). Coalesces with above.
+  lastClickT = 0;
+  handleDoubleClick(e.clientX, e.clientY);
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Shift") shiftHeld = true;
+  if (e.key === "Escape") { selectedIdx = -1; hideCard(); }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.key === "Shift") shiftHeld = false;
 });
 
 const dial = document.getElementById("dial");
-const dialVal = document.getElementById("dial-val");
+const dialVal = document.getElementById("dialVal");
+const halfVal = document.getElementById("halfVal");
+halfVal.textContent = HALF_LIFE_DAYS;
+
 dial.addEventListener("input", () => {
-  nowOffset = parseInt(dial.value, 10);
-  dialVal.textContent = nowOffset === 0 ? "now" : (nowOffset > 0 ? `+${nowOffset}` : `${nowOffset}`);
+  const now = performance.now();
+  const dt = Math.max(0.001, (now - lastDialChangeT) / 1000);
+  const v = +dial.value;
+  // velocity (units per second)
+  const inst = (v - prevDays) / dt;
+  // exponential moving average
+  dialVelocity = dialVelocity * 0.6 + inst * 0.4;
+  prevDays = v;
+  daysSince = v;
+  lastDialChangeT = now;
+  dialVal.textContent = `${v} d`;
+  if (selectedIdx >= 0) showCard(selectedIdx);  // refresh strength
 });
 
-function bindToggle(id, getter, setter) {
-  const el = document.getElementById(id);
-  if (getter()) el.classList.add("active");
-  el.addEventListener("click", () => {
-    setter(!getter());
-    el.classList.toggle("active", getter());
+// ─── Consolidate button ───────────────────────────────────────────────────
+const consolidateBtn = document.getElementById("consolidateBtn");
+if (consolidateBtn) {
+  consolidateBtn.addEventListener("click", triggerConsolidation);
+}
+
+// ─── Memory-injection popover input handlers ─────────────────────────────
+const injectorInput = document.getElementById("injectorInput");
+if (injectorInput) {
+  injectorInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const pop = document.getElementById("injector");
+      const idx = pop ? parseInt(pop.dataset.idx || "-1", 10) : -1;
+      const v = injectorInput.value.trim();
+      if (idx >= 0 && idx < stars.length) {
+        stars[idx].labelText = v || "new memory";
+        stars[idx].flash = 0.9;
+        stars[idx].haloFlare = 1.0;
+      }
+      closeInjectorPopover();
+    } else if (e.key === "Escape") {
+      closeInjectorPopover();
+    }
+    // Clicking outside is handled by the canvas click handler below
   });
 }
-bindToggle("tog-constellation", () => constellationOn, v => constellationOn = v);
-bindToggle("tog-trails",        () => trailsOn,        v => trailsOn = v);
-bindToggle("tog-pulse",         () => pulseOn,         v => pulseOn = v);
+// Click outside injector to dismiss
+document.addEventListener("mousedown", (e) => {
+  if (!injectorOpen) return;
+  const pop = document.getElementById("injector");
+  if (pop && !pop.contains(e.target)) closeInjectorPopover();
+}, true);
 
-let toastTimer = null;
-function flashToast(msg) {
-  const t = document.getElementById("toast");
-  t.textContent = msg; t.classList.add("show");
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 1600);
+// ═══════════════════════════════════════════════════════════════════════════
+//  LIVE-MODE PROBE (optional — works fine without a server)
+// ═══════════════════════════════════════════════════════════════════════════
+async function probeLive() {
+  try {
+    const r = await fetch("/api/health", { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    const h = await r.json();
+    if (!h.real_kohaku) throw new Error();
+    liveMode = true;
+    const pill = document.getElementById("modePill");
+    pill.textContent = `live · kohaku v${h.version}`;
+    pill.classList.remove("dim");
+  } catch {
+    const pill = document.getElementById("modePill");
+    pill.textContent = "offline simulation";
+    pill.classList.add("dim");
+  }
 }
 
-/* ── drag to nudge a star (orbit) ──────────────────────────────────────── */
-let dragging = null, dragOffset = { x: 0, y: 0 };
-canvas.addEventListener("pointerdown", (e) => {
-  const x = e.clientX, y = e.clientY;
-  let nearest = null, nd = 24;
-  for (const s of stars) {
-    const d = Math.hypot(s.x - x, s.y - y);
-    if (d < nd) { nd = d; nearest = s; }
-  }
-  if (nearest) { dragging = nearest; dragOffset = { x: x - nearest.x, y: y - nearest.y }; nearest.vx = nearest.vy = 0; }
-});
-canvas.addEventListener("pointermove", (e) => {
-  if (!dragging) return;
-  dragging.x = e.clientX - dragOffset.x;
-  dragging.y = e.clientY - dragOffset.y;
-});
-canvas.addEventListener("pointerup",     () => { dragging = null; });
-canvas.addEventListener("pointercancel", () => { dragging = null; });
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+function boot() {
+  resize();
+  buildWorld();
 
-/* ── seed and go ───────────────────────────────────────────────────────── */
-(function seed() {
-  // bootstrap clusters: write the seed examples first so cluster() has
-  // centroids ready for any user-added star.
-  for (let i = 0; i < SEED_SET.length; i++) {
-    const [label, kind] = SEED_SET[i];
-    const cluster = kind === "amber" ? 0 : kind === "rose" ? 1 : 2;
-    spawnStar(label, { cluster });
-  }
-  computeCentroids();
-})();
-requestAnimationFrame(loop);
+  // legend counts
+  document.getElementById("ep-count").textContent = `${clusters[0].count} stars`;
+  document.getElementById("se-count").textContent = `${clusters[1].count} stars`;
+  document.getElementById("co-count").textContent = `${clusters[2].count} stars`;
+
+  // hide boot ribbon
+  setTimeout(() => document.getElementById("boot").classList.add("hidden"), 1100);
+
+  probeLive();
+  requestAnimationFrame(tick);
+}
+boot();
 </script>
 </body>
 </html>
