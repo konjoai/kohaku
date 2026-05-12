@@ -1,75 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "@konjoai/ui/styles";
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
-/* Konjo Design System — Global Color Tokens                                  */
-/* ═══════════════════════════════════════════════════════════════════════════ */
+@source "../node_modules/@konjoai/ui/src";
 
-:root {
-  /* Surface */
-  --color-konjo-bg: #0a0c12;
-  --color-konjo-surface: #11141c;
-  --color-konjo-line: #232838;
-
-  /* Foreground */
-  --color-konjo-fg: #e7ecf4;
-  --color-konjo-fg-muted: #8a93a8;
-  --color-konjo-fg-faint: #4a5063;
-
-  /* Brand spectrum */
-  --color-konjo-accent: #7ad7ff;
-  --color-konjo-violet: #b794ff;
-  --color-konjo-warm: #f6c177;
-  --color-konjo-good: #6ee7a3;
+/* Kohaku amber accent — episodic memory palette */
+@theme {
+  --color-kohaku-amber: #ffb86c;
+  --color-kohaku-gold:  #f5c542;
+  --color-kohaku-rose:  #ff7e8a;
 }
 
-html,
-body {
+html, body, #root {
+  height: 100%;
   margin: 0;
-  padding: 0;
-  background: var(--color-konjo-bg);
-  color: var(--color-konjo-fg);
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-#root {
-  width: 100%;
-  min-height: 100vh;
-  background: var(--color-konjo-bg);
-}
-
-/* Utility classes mapped from Tailwind with Konjo tokens */
-.text-konjo-fg { color: var(--color-konjo-fg); }
-.text-konjo-fg-muted { color: var(--color-konjo-fg-muted); }
-.text-konjo-fg-faint { color: var(--color-konjo-fg-faint); }
-.text-konjo-accent { color: var(--color-konjo-accent); }
-.text-konjo-warm { color: var(--color-konjo-warm); }
-.text-konjo-good { color: var(--color-konjo-good); }
-.text-konjo-violet { color: var(--color-konjo-violet); }
-
-.bg-konjo-bg { background-color: var(--color-konjo-bg); }
-.bg-konjo-surface { background-color: var(--color-konjo-surface); }
-.bg-konjo-good { background-color: var(--color-konjo-good); }
-.bg-konjo-accent { background-color: var(--color-konjo-accent); }
-
-.border-konjo-line { border-color: var(--color-konjo-line); }
-
-.rounded-konjo { border-radius: 10px; }
-.rounded-konjo-lg { border-radius: 12px; }
-
-.glass-konjo {
-  background: rgba(17, 20, 28, 0.4);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(35, 40, 56, 0.4);
-  border-radius: 10px;
-}
-
-.text-konjo-mono {
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
-}
-
-.text-konjo-display {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-weight: 600;
 }

@@ -5,12 +5,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
+    alias: { '@konjoai/ui': '/Users/wesleyscholl/ui/packages/ui/src/index.ts' },
     dedupe: ['react', 'react-dom', 'motion', 'motion/react'],
   },
   server: {
     port: 5180,
     proxy: {
-      '/api': { target: 'http://localhost:8000', changeOrigin: true },
+      '/api': { target: 'http://localhost:8002', changeOrigin: true },
     },
   },
   test: {

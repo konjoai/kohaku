@@ -79,7 +79,8 @@ export function MemoryGraph({
           width="100%"
           height="400"
           viewBox="0 0 500 400"
-          className="bg-konjo-surface/40 rounded border border-konjo-line/60"
+          className="rounded border border-konjo-line"
+          style={{ backgroundColor: "var(--color-konjo-line-soft)" }}
         >
           {/* Edges */}
           {graph.nodes.map((_node: any, i: number) =>
@@ -167,7 +168,7 @@ export function MemoryGraph({
 
         {/* Node list */}
         {hoveredNode && (
-          <div className="bg-konjo-surface/60 rounded p-3 space-y-2">
+          <div className="rounded-konjo p-3 space-y-2 bg-konjo-surface-2">
             <div className="text-konjo-mono uppercase tracking-[0.16em] text-[10px] text-konjo-fg-muted">
               Node Details
             </div>

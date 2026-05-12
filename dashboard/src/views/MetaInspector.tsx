@@ -58,7 +58,7 @@ function StatBlock({
   accent?: string;
 }) {
   return (
-    <div className="flex flex-col gap-0.5 px-3 py-2 rounded-konjo bg-konjo-surface/60 border border-konjo-line/60">
+    <div className="flex flex-col gap-0.5 px-3 py-2 rounded-konjo border border-konjo-line bg-konjo-surface-2">
       <div className="text-konjo-mono uppercase tracking-[0.18em] text-[9px] text-konjo-fg-muted">
         {label}
       </div>

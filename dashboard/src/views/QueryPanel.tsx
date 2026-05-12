@@ -57,14 +57,14 @@ export function QueryPanel({
               if (e.key === "Enter") handleQuery();
             }}
             placeholder="e.g., 'find concepts related to…'"
-            className="w-full px-3 py-2 rounded-konjo bg-konjo-surface/40 border border-konjo-line text-konjo-fg placeholder-konjo-fg-muted text-[13px] focus:outline-none focus:ring-2 focus:ring-konjo-accent mb-3"
+            className="w-full px-3 py-2 rounded-konjo bg-konjo-surface border border-konjo-line text-konjo-fg placeholder:text-konjo-fg-muted text-[13px] focus:outline-none focus:ring-2 focus:ring-konjo-accent mb-3"
           />
           <div className="flex flex-wrap gap-1">
             {sampleQueries.map((sq) => (
               <button
                 key={sq}
                 onClick={() => setQuery(sq)}
-                className="text-[11px] px-2 py-1 rounded bg-konjo-line/40 text-konjo-fg-muted hover:text-konjo-fg transition-colors"
+                className="text-[11px] px-2 py-1 rounded text-konjo-fg-muted hover:text-konjo-fg transition-colors bg-konjo-line/30"
               >
                 {sq}
               </button>
@@ -77,10 +77,10 @@ export function QueryPanel({
           onClick={handleQuery}
           disabled={!query.trim() || loading}
           className={[
-            "w-full px-3 py-2 rounded-konjo text-[12px] font-mono uppercase transition-colors",
+            "w-full px-3 py-2 rounded-konjo text-[12px] font-konjo-mono uppercase transition-colors",
             !query.trim() || loading
-              ? "bg-konjo-surface/40 text-konjo-fg-muted cursor-not-allowed"
-              : "bg-konjo-accent text-konjo-bg hover:bg-konjo-accent/90",
+              ? "bg-konjo-line text-konjo-fg-muted cursor-not-allowed opacity-50"
+              : "bg-konjo-accent text-konjo-bg hover:brightness-110",
           ].join(" ")}
         >
           {loading ? "Searching…" : "Search"}
@@ -97,19 +97,13 @@ export function QueryPanel({
               {result.matches.map((match: any) => (
                 <div
                   key={match.rank}
-                  className="bg-konjo-surface/60 rounded p-3"
+                  className="rounded-konjo p-3 bg-konjo-surface-2"
                 >
                   <div className="flex items-baseline justify-between gap-2 mb-1">
                     <div className="text-konjo-fg font-medium text-[13px]">
                       {match.rank}. {match.concept}
                     </div>
-                    <div
-                      className="text-konjo-accent font-mono text-[11px]"
-                      style={{
-                        width: `${match.composite_score * 100}px`,
-                        display: "inline-block",
-                      }}
-                    >
+                    <div className="text-konjo-accent text-konjo-mono text-[11px] shrink-0">
                       {(match.composite_score * 100).toFixed(0)}%
                     </div>
                   </div>
@@ -123,7 +117,7 @@ export function QueryPanel({
                   </div>
 
                   {/* Score bar */}
-                  <div className="mt-2 h-1.5 bg-konjo-line/30 rounded overflow-hidden">
+                  <div className="mt-2 h-1.5 rounded overflow-hidden bg-konjo-line/50">
                     <div
                       className="h-full bg-konjo-accent"
                       style={{ width: `${match.composite_score * 100}%` }}

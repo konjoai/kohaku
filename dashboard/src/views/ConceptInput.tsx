@@ -65,7 +65,7 @@ export function ConceptInput({
               if (e.key === "Enter" && !encoded) handleEncode();
             }}
             placeholder="e.g., 'neural networks'"
-            className="w-full px-3 py-2 rounded-konjo bg-konjo-surface/40 border border-konjo-line text-konjo-fg placeholder-konjo-fg-muted text-[13px] focus:outline-none focus:ring-2 focus:ring-konjo-accent"
+            className="w-full px-3 py-2 rounded-konjo bg-konjo-surface border border-konjo-line text-konjo-fg placeholder:text-konjo-fg-muted text-[13px] focus:outline-none focus:ring-2 focus:ring-konjo-accent"
           />
         </div>
 
@@ -74,10 +74,10 @@ export function ConceptInput({
             onClick={handleEncode}
             disabled={!input.trim() || loading || !!encoded}
             className={[
-              "px-3 py-2 rounded-konjo text-[12px] font-mono uppercase transition-colors",
+              "px-3 py-2 rounded-konjo text-[12px] font-konjo-mono uppercase transition-colors",
               !input.trim() || loading || !!encoded
-                ? "bg-konjo-surface/40 text-konjo-fg-muted cursor-not-allowed"
-                : "bg-konjo-accent text-konjo-bg hover:bg-konjo-accent/90",
+                ? "bg-konjo-line text-konjo-fg-muted cursor-not-allowed opacity-50"
+                : "bg-konjo-accent text-konjo-bg hover:brightness-110",
             ].join(" ")}
           >
             {loading ? "Encoding…" : "Encode"}
@@ -88,10 +88,10 @@ export function ConceptInput({
               onClick={handleAdd}
               disabled={loading || added}
               className={[
-                "px-3 py-2 rounded-konjo text-[12px] font-mono uppercase transition-colors",
+                "px-3 py-2 rounded-konjo text-[12px] font-konjo-mono uppercase transition-colors",
                 loading || added
-                  ? "bg-konjo-surface/40 text-konjo-fg-muted cursor-not-allowed"
-                  : "bg-konjo-good text-konjo-bg hover:bg-konjo-good/90",
+                  ? "bg-konjo-line text-konjo-fg-muted cursor-not-allowed opacity-50"
+                  : "bg-konjo-good text-konjo-bg hover:brightness-110",
               ].join(" ")}
             >
               {added ? "Added ✓" : "Add to Graph"}
@@ -100,7 +100,7 @@ export function ConceptInput({
         </div>
 
         {encoded && (
-          <div className="bg-konjo-surface/60 rounded p-3 space-y-2">
+          <div className="rounded-konjo p-3 space-y-2 bg-konjo-surface-2">
             <div className="text-konjo-mono uppercase tracking-[0.16em] text-[10px] text-konjo-fg-muted">
               Vector Preview
             </div>

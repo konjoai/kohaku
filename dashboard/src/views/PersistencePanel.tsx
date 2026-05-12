@@ -71,10 +71,10 @@ export function PersistencePanel({
             onClick={handleSave}
             disabled={saving}
             className={[
-              "px-3 py-2 rounded-konjo text-[12px] font-mono uppercase transition-colors",
+              "px-3 py-2 rounded-konjo text-[12px] font-konjo-mono uppercase transition-colors",
               saving
-                ? "bg-konjo-surface/40 text-konjo-fg-muted cursor-not-allowed"
-                : "bg-konjo-accent text-konjo-bg hover:bg-konjo-accent/90",
+                ? "bg-konjo-line text-konjo-fg-muted cursor-not-allowed opacity-50"
+                : "bg-konjo-accent text-konjo-bg hover:brightness-110",
             ].join(" ")}
           >
             {saving ? "Saving…" : "Save Graph"}
@@ -84,10 +84,10 @@ export function PersistencePanel({
             onClick={handleLoad}
             disabled={loading}
             className={[
-              "px-3 py-2 rounded-konjo text-[12px] font-mono uppercase transition-colors",
+              "px-3 py-2 rounded-konjo text-[12px] font-konjo-mono uppercase transition-colors",
               loading
-                ? "bg-konjo-surface/40 text-konjo-fg-muted cursor-not-allowed"
-                : "border border-konjo-line text-konjo-fg hover:bg-konjo-line/20",
+                ? "border border-konjo-line text-konjo-fg-muted cursor-not-allowed opacity-50"
+                : "border border-konjo-line text-konjo-fg hover:bg-konjo-line hover:bg-opacity-30",
             ].join(" ")}
           >
             {loading ? "Loading…" : "Load Graph"}
@@ -97,10 +97,10 @@ export function PersistencePanel({
             onClick={handleReset}
             disabled={resetting}
             className={[
-              "px-3 py-2 rounded-konjo text-[12px] font-mono uppercase transition-colors",
+              "px-3 py-2 rounded-konjo text-[12px] font-konjo-mono uppercase transition-colors",
               resetting
-                ? "bg-konjo-surface/40 text-konjo-fg-muted cursor-not-allowed"
-                : "border border-konjo-line/60 text-konjo-fg-muted hover:border-konjo-warm hover:text-konjo-warm",
+                ? "border border-konjo-line text-konjo-fg-muted cursor-not-allowed opacity-50"
+                : "border border-konjo-line text-konjo-fg-muted hover:border-konjo-warm hover:text-konjo-warm",
             ].join(" ")}
           >
             {resetting ? "Resetting…" : "Reset"}
@@ -109,7 +109,7 @@ export function PersistencePanel({
 
         {/* Last save info */}
         {lastSave && (
-          <div className="bg-konjo-surface/60 rounded p-3 space-y-2">
+          <div className="rounded-konjo p-3 space-y-2 bg-konjo-surface-2">
             <div className="text-konjo-mono uppercase tracking-[0.16em] text-[10px] text-konjo-fg-muted">
               Last Save
             </div>

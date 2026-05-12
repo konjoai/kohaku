@@ -80,3 +80,11 @@
 - [x] `demo/memory_map.html` — full cosmos visualization. Stars = memories (brightness = Ebbinghaus decay, size = access count, colour = cluster), gravity drift along high-similarity links, traveling light dots on connections, query shockwaves with line-arc to top-k, time-dial scrub, constellation/trails/pulse toggles, drag-to-orbit, particle-converge birth animation. Browser HDC engine (DIMS=1024) ports the kohaku LCG path bit-exactly.
 - [x] `demo/index.html` — full rebuild: black-sky landing with floating glass search; query blooms a probe star, top-5 lines, and cluster-coloured chips.
 - [x] 182 tests total (22 new + 160 prior).
+
+## Phase 7b: Standalone REST Server Module ✅
+- [x] `python/kohaku/server.py` — standalone FastAPI app (separate from `api/main.py`) for embedding in other processes. `create_app(capacity, dim)` factory + `serve(host, port, capacity, dim)`. Endpoints: `POST /memory/store`, `POST /memory/query`, `DELETE /memory/clear`, `GET /memory/stats`, `GET /health`. Env-var overrides: `KOHAKU_CAPACITY`, `KOHAKU_DIM`.
+- [x] `python/kohaku/cli.py` — `kohaku serve` subcommand (--host, --port, --capacity, --dim).
+- [x] `pyproject.toml` optional `[api]` group: fastapi>=0.100.0, uvicorn[standard]>=0.22.0. `[project.scripts]` entry for `kohaku` CLI.
+- [x] `__init__.py` exports `create_app`, `serve` guarded with try/except ImportError.
+- [x] 20 new tests in `python/tests/test_server.py` using `fastapi.testclient.TestClient`.
+- [x] 202 tests total (20 new + 182 prior).

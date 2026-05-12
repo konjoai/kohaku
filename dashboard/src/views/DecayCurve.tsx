@@ -68,7 +68,8 @@ export function DecayCurve({
             <svg
               width={svgWidth}
               height={svgHeight}
-              className="bg-konjo-surface/40 rounded border border-konjo-line/60"
+              className="rounded border border-konjo-line"
+              style={{ backgroundColor: "var(--color-konjo-line-soft)" }}
             >
               {/* Grid lines */}
               <line
@@ -173,7 +174,7 @@ export function DecayCurve({
               </div>
             </div>
 
-            <div className="bg-konjo-surface/60 rounded p-3 space-y-1">
+            <div className="rounded-konjo p-3 space-y-1 bg-konjo-surface-2">
               <div className="text-konjo-mono uppercase tracking-[0.16em] text-[10px] text-konjo-fg-muted">
                 Formula
               </div>

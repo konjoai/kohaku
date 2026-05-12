@@ -33,6 +33,12 @@ from kohaku.compaction import find_duplicates, deduplicate, compact
 from kohaku.tenant import TenantMemoryStore
 from kohaku.kyro_bridge import HDCRetriever, RetrievedChunk
 
+try:
+    from kohaku.server import create_app, serve
+    _SERVER_AVAILABLE = True
+except ImportError:
+    _SERVER_AVAILABLE = False
+
 __all__ = [
     "HyperVector",
     "EpisodicMemory",
@@ -71,4 +77,6 @@ __all__ = [
     "TenantMemoryStore",
     "HDCRetriever",
     "RetrievedChunk",
+    "create_app",
+    "serve",
 ]
