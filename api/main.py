@@ -42,15 +42,17 @@ if str(PY_PKG) not in sys.path:
     sys.path.insert(0, str(PY_PKG))
 
 from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, model_validator
 
 from kohaku import (  # noqa: E402
     DecayConfig,
     EpisodicMemory,
+    GraphExportConfig,
     HDCRetriever,
     HyperVector,
     ItemMemory,
+    MemoryGraphExporter,
     _BACKEND,
     decay_weight,
     encode_text,
@@ -664,6 +666,35 @@ def create_app(
             total_chunks=total,
             decay_applied=req.half_life is not None,
         )
+
+    # ── Memory graph export ──────────────────────────────────────────────
+    @app.get("/export/graph")
+    def export_graph(
+        format: str = Query("json", description="Output format hint (json or gexf)"),
+        threshold: float = Query(0.3, ge=-1.0, le=1.0),
+    ) -> Dict[str, Any]:
+        """Export the live episodic + semantic memory as a graph (JSON).
+
+        Always returns JSON over HTTP. Use /export/graph/gexf for XML output.
+        """
+        rest: RestState = app.state.rest
+        with rest.lock:
+            cfg = GraphExportConfig(similarity_threshold=threshold)
+            exporter = MemoryGraphExporter(cfg)
+            graph = exporter.export(rest.episodic, semantic=rest.semantic)
+        return graph.to_dict()
+
+    @app.get("/export/graph/gexf")
+    def export_graph_gexf(
+        threshold: float = Query(0.3, ge=-1.0, le=1.0),
+    ) -> Response:
+        """Export the live episodic + semantic memory as GEXF 1.3 XML."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            cfg = GraphExportConfig(similarity_threshold=threshold)
+            exporter = MemoryGraphExporter(cfg)
+            graph = exporter.export(rest.episodic, semantic=rest.semantic)
+        return Response(content=graph.to_gexf(), media_type="application/xml")
 
     return app
 

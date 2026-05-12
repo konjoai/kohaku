@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.8.0
+## Current Version: v0.9.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -88,3 +88,12 @@
 - [x] `__init__.py` exports `create_app`, `serve` guarded with try/except ImportError.
 - [x] 20 new tests in `python/tests/test_server.py` using `fastapi.testclient.TestClient`.
 - [x] 202 tests total (20 new + 182 prior).
+
+## Phase 10: Memory Graph Export (v0.9.0) ✅
+- [x] `python/kohaku/graph_export.py` — `GraphExportConfig`, `MemoryNode`, `MemoryEdge`, `MemoryGraph`, `MemoryGraphExporter`. Exports episodic + semantic memory as a graph (nodes = memory entries, edges = cosine similarity >= threshold). Cosine computed in FP32 via `np.einsum`. Pairwise O(N²) with `max_nodes` safety cap. Atomic writes via `.tmp` + `os.replace`.
+- [x] `MemoryGraph.to_json()` — JSON serialisation. `MemoryGraph.to_gexf()` — GEXF 1.3 XML with node attribute declarations (source, timestamp, decay_weight, cluster_id).
+- [x] `MemoryGraphExporter.save_json()` / `save_gexf()` / `save()` — dispatch by file extension (.json, .gexf). Raises `ValueError` on unknown extension.
+- [x] `api/main.py` — `GET /export/graph?threshold=0.3` (JSON) and `GET /export/graph/gexf?threshold=0.3` (application/xml) over the live REST state.
+- [x] `python/kohaku/cli.py` — `kohaku export --format json|gexf --threshold 0.3 --out graph.json --from FILE` subcommand.
+- [x] `__init__.py` exports `GraphExportConfig`, `MemoryGraphExporter`, `MemoryGraph`, `MemoryNode`, `MemoryEdge`. Version bumped to `0.9.0`.
+- [x] 20 new tests in `python/tests/test_graph_export.py`; 197 tests total (python/tests/).
