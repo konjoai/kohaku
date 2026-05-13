@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Kohaku · Living Memory Dashboard</title>
+<style>
+  /* ──────────────────────── Konjo palette ───────────────────────── */
+  :root {
+    --bg-0: #06060f;
+    --bg-1: #0a0a18;
+    --bg-2: #11111f;
+    --bg-3: #17172a;
+    --fg-0: #e8e6f3;
+    --fg-1: #9c9ab2;
+    --fg-2: #585670;
+    --accent: #7c3aed;
+    --accent-2: #a76cff;
+    --accent-3: #c7a4ff;
+    --border: rgba(124, 58, 237, 0.16);
+    --border-2: rgba(124, 58, 237, 0.32);
+    --grad-glow: radial-gradient(circle at 50% 50%, rgba(124,58,237,0.20), transparent 70%);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; width: 100%;
+    background: var(--bg-0);
+    color: var(--fg-0);
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    font-size: 13.5px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ──────────────────────── Layout ───────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr 380px;
+    grid-template-rows: 64px 1fr 80px;
+    grid-template-areas:
+      "header header header"
+      "sidebar canvas rightbar"
+      "timeline timeline timeline";
+    height: 100vh; width: 100vw;
+  }
+  header.topbar     { grid-area: header; }
+  aside.sidebar     { grid-area: sidebar; }
+  main.canvas-wrap  { grid-area: canvas; }
+  aside.rightbar    { grid-area: rightbar; }
+  footer.timeline   { grid-area: timeline; }
+
+  @media (max-width: 1100px) {
+    .layout {
+      grid-template-columns: 260px 1fr 320px;
+    }
+  }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: 56px 220px 1fr 320px 80px;
+      grid-template-areas: "header" "sidebar" "canvas" "rightbar" "timeline";
+    }
+  }
+
+  /* ──────────────────────── Header ───────────────────────── */
+  header.topbar {
+    background: linear-gradient(180deg, rgba(10,10,24,0.92), rgba(6,6,15,0.78));
+    backdrop-filter: blur(14px) saturate(160%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 24px;
+    z-index: 50;
+  }
+  header.topbar .brand {
+    font-size: 14px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase;
+    background: linear-gradient(135deg, #fff, var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header.topbar .ribbon {
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+    font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase;
+    color: var(--fg-2);
+  }
+  header.topbar .ribbon .accent { color: var(--accent-2); }
+  header.topbar .spacer { flex: 1; }
+  header.topbar .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--border);
+    font-family: 'SF Mono', monospace;
+    font-size: 11px; letter-spacing: 1px;
+    color: var(--fg-1);
+    background: rgba(124,58,237,0.04);
+  }
+  header.topbar .pill .dot {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--fg-2);
+    box-shadow: 0 0 6px currentColor;
+  }
+  header.topbar .pill.live { color: var(--accent-3); border-color: var(--border-2); }
+  header.topbar .pill.live .dot { background: var(--accent-2); animation: livepulse 1.6s ease-in-out infinite; }
+  @keyframes livepulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(1.4); }
+  }
+
+  button.consolidate {
+    appearance: none;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    color: #fff;
+    border: none; border-radius: 999px;
+    padding: 9px 22px;
+    font-family: 'SF Mono', monospace;
+    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(124,58,237,0.35),
+                inset 0 0 0 1px rgba(255,255,255,0.10);
+    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 200ms ease;
+    will-change: transform;
+  }
+  button.consolidate:hover {
+    transform: translateY(-1px) scale(1.03);
+    box-shadow: 0 14px 36px rgba(124,58,237,0.55),
+                inset 0 0 0 1px rgba(255,255,255,0.18);
+  }
+  button.consolidate:active { transform: translateY(0) scale(0.97); }
+  button.consolidate[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+  /* ─────────────────────── Sidebar (memory cards) ─────────────────────── */
+  aside.sidebar {
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  .sidebar-head {
+    padding: 14px 20px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .sidebar-head .title {
+    font-size: 11px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--fg-1);
+  }
+  .sidebar-head .count {
+    font-family: 'SF Mono', monospace;
+    color: var(--accent-2); font-size: 11px;
+  }
+  .sort-toggle {
+    display: flex; gap: 2px;
+    padding: 4px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sort-toggle button {
+    appearance: none; background: transparent; border: none;
+    color: var(--fg-2);
+    font-family: 'SF Mono', monospace;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 150ms ease, background 150ms ease;
+  }
+  .sort-toggle button.active { color: var(--accent-2); background: rgba(124,58,237,0.10); }
+  .sort-toggle button:hover { color: var(--fg-0); }
+
+  .cards {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 12px 14px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+  }
+  .cards::-webkit-scrollbar { width: 5px; }
+  .cards::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 99px; }
+
+  .card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(30px);
+    transition:
+      transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 550ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms ease,
+      background 180ms ease,
+      box-shadow 180ms ease;
+    will-change: transform;
+  }
+  .card.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .card:hover {
+    border-color: var(--border-2);
+    background: linear-gradient(180deg, var(--bg-3) 0%, var(--bg-2) 100%);
+    box-shadow: 0 4px 24px rgba(124,58,237,0.16);
+  }
+  .card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 4px 28px rgba(124,58,237,0.30);
+  }
+  .card.expired { opacity: 0.45; }
+  .card .row1 {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px;
+  }
+  .card .label {
+    flex: 1; color: var(--fg-0); font-weight: 600; font-size: 13.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card .src {
+    font-family: 'SF Mono', monospace;
+    font-size: 9.5px; letter-spacing: 1px;
+    padding: 2px 6px; border-radius: 4px;
+    background: rgba(124,58,237,0.12);
+    color: var(--accent-3);
+  }
+  .card .row2 {
+    display: flex; gap: 14px;
+    font-family: 'SF Mono', monospace;
+    font-size: 10.5px; color: var(--fg-2);
+  }
+  .card .row2 .k { color: var(--fg-1); }
+  .card .salience-bar {
+    margin-top: 8px;
+    height: 3px; border-radius: 99px;
+    background: var(--bg-3);
+    overflow: hidden;
+  }
+  .card .salience-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-3));
+    transition: width 300ms ease;
+  }
+  .card.near-expiry .src { background: rgba(245,158,11,0.15); color: #fbbf24; }
+
+  /* ─────────────────────── Canvas (star field) ─────────────────────── */
+  main.canvas-wrap {
+    position: relative;
+    background: var(--bg-0);
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+  canvas#sky {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    will-change: transform;
+  }
+  main.canvas-wrap::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(800px circle at 30% 25%, rgba(124,58,237,0.08), transparent 60%),
+      radial-gradient(700px circle at 70% 75%, rgba(124,58,237,0.05), transparent 65%);
+    pointer-events: none;
+  }
+  .canvas-overlay {
+    position: absolute; top: 16px; left: 18px;
+    pointer-events: none;
+    font-family: 'SF Mono', monospace;
+    font-size: 10.5px;
+    color: var(--fg-2);
+    letter-spacing: 1.5px;
+    z-index: 5;
+  }
+  .canvas-overlay .line { margin-bottom: 4px; }
+  .canvas-overlay .accent { color: var(--accent-2); }
+  .canvas-overlay strong { color: var(--fg-0); font-weight: 600; }
+
+  /* ─────────────────────── Right bar (subplots) ─────────────────────── */
+  aside.rightbar {
+    background: var(--bg-1);
+    display: flex; flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+  }
+  aside.rightbar::-webkit-scrollbar { width: 5px; }
+  aside.rightbar::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 99px; }
+
+  .panel {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    opacity: 0;
+    transform: translateY(30px);
+    transition:
+      transform 550ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 550ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+  .panel.in { opacity: 1; transform: translateY(0); }
+  .panel h3 {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--fg-1);
+    margin-bottom: 14px;
+  }
+  .panel h3 .sub {
+    color: var(--fg-2); font-weight: 400; letter-spacing: 1.5px;
+    margin-left: 8px;
+  }
+
+  /* Radar */
+  svg#radar { width: 100%; height: 220px; display: block; }
+  svg#radar .axis { stroke: var(--border-2); stroke-width: 0.8; }
+  svg#radar .ring { stroke: var(--border); stroke-width: 0.6; fill: none; }
+  svg#radar .axis-label {
+    fill: var(--fg-1); font-family: 'SF Mono', monospace;
+    font-size: 9.5px; letter-spacing: 1px;
+  }
+  svg#radar .axis-value {
+    fill: var(--accent-2); font-family: 'SF Mono', monospace;
+    font-size: 9px; font-weight: 700;
+  }
+  svg#radar .area {
+    fill: var(--accent);
+    fill-opacity: 0.22;
+    stroke: var(--accent-2);
+    stroke-width: 1.4;
+    transform-origin: center;
+    transform-box: fill-box;
+    will-change: transform;
+    animation: radarBreathe 3.2s ease-in-out infinite;
+  }
+  svg#radar .dot { fill: var(--accent-3); }
+  @keyframes radarBreathe {
+    0%, 100% { transform: scale(1.0); }
+    50%      { transform: scale(1.02); }
+  }
+
+  /* Decay subplot */
+  canvas#decay { width: 100%; height: 150px; display: block; }
+  .decay-cap {
+    display: flex; gap: 10px;
+    margin-top: 8px;
+    font-family: 'SF Mono', monospace;
+    font-size: 10px; color: var(--fg-2);
+  }
+  .decay-cap .v { color: var(--accent-2); }
+
+  /* ─────────────────────── Timeline footer ─────────────────────── */
+  footer.timeline {
+    background: var(--bg-1);
+    border-top: 1px solid var(--border);
+    position: relative;
+    padding: 12px 20px;
+    overflow: hidden;
+  }
+  footer.timeline .timeline-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 6px;
+  }
+  footer.timeline .title {
+    font-size: 10px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--fg-1);
+  }
+  footer.timeline .legend {
+    font-family: 'SF Mono', monospace;
+    font-size: 10px; color: var(--fg-2); letter-spacing: 1px;
+  }
+  footer.timeline .legend .now { color: var(--accent-2); }
+  canvas#timeline { width: 100%; height: 36px; display: block; }
+
+  /* Tooltips, etc */
+  .star-tip {
+    position: fixed;
+    pointer-events: none;
+    z-index: 100;
+    background: rgba(6,6,15,0.92);
+    backdrop-filter: blur(14px) saturate(180%);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    padding: 10px 13px;
+    color: var(--fg-0);
+    font-size: 12px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.55),
+                0 0 24px rgba(124,58,237,0.15),
+                inset 0 0 0 1px rgba(255,255,255,0.05);
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 180ms ease, transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 260px;
+  }
+  .star-tip.show { opacity: 1; transform: scale(1); }
+  .star-tip .label { font-weight: 700; margin-bottom: 4px; }
+  .star-tip .row {
+    display: flex; justify-content: space-between; gap: 14px;
+    font-family: 'SF Mono', monospace;
+    font-size: 10.5px;
+    color: var(--fg-2);
+  }
+  .star-tip .row .v { color: var(--accent-2); }
+
+  /* Toast (consolidation result) */
+  .toast {
+    position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(167,108,255,0.92));
+    color: #fff;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-family: 'SF Mono', monospace;
+    font-size: 12px; letter-spacing: 1px;
+    box-shadow: 0 18px 50px rgba(124,58,237,0.45);
+    opacity: 0;
+    transition: opacity 280ms ease, transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 200;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ─── Header ─── -->
+  <header class="topbar">
+    <div class="brand">kohaku</div>
+    <div class="ribbon">living memory · <span class="accent">v0.10.0</span></div>
+    <div class="spacer"></div>
+    <div class="pill" id="apiPill">
+      <span class="dot"></span><span id="apiPillText">connecting…</span>
+    </div>
+    <div class="pill" id="statsPill">
+      <span class="dot"></span><span id="statsPillText">0 memories</span>
+    </div>
+    <button class="consolidate" id="consolidateBtn">⌬ Consolidate</button>
+  </header>
+
+  <!-- ─── Sidebar: memory cards ─── -->
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <span class="title">Memories</span>
+      <span class="count" id="cardCount">0 / 0</span>
+    </div>
+    <div class="sort-toggle">
+      <button data-sort="salience" class="active">salience</button>
+      <button data-sort="recency">recency</button>
+      <button data-sort="similarity">similarity</button>
+    </div>
+    <div class="cards" id="memList"></div>
+  </aside>
+
+  <!-- ─── Center canvas ─── -->
+  <main class="canvas-wrap">
+    <canvas id="sky"></canvas>
+    <div class="canvas-overlay">
+      <div class="line"><strong>memory constellation</strong></div>
+      <div class="line">hover · <span class="accent">gravity well</span></div>
+      <div class="line">click · pin halo</div>
+    </div>
+  </main>
+
+  <!-- ─── Right: subplots ─── -->
+  <aside class="rightbar">
+    <section class="panel" id="panelRadar">
+      <h3>Trust Weights <span class="sub">SOURCE_TRUST_WEIGHTS</span></h3>
+      <svg id="radar" viewBox="0 0 280 220"></svg>
+    </section>
+    <section class="panel" id="panelDecay">
+      <h3>Ebbinghaus Decay <span class="sub" id="decaySub">hover a star</span></h3>
+      <canvas id="decay"></canvas>
+      <div class="decay-cap">
+        <div>half_life <span class="v" id="hlVal">30 d</span></div>
+        <div>now → <span class="v" id="nowVal">·</span></div>
+        <div>salience <span class="v" id="salNow">·</span></div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ─── Timeline footer ─── -->
+  <footer class="timeline">
+    <div class="timeline-head">
+      <span class="title">Validity Timeline</span>
+      <span class="legend">expired ← <span class="now">now</span> → upcoming</span>
+    </div>
+    <canvas id="timeline"></canvas>
+  </footer>
+
+</div>
+
+<!-- Floating tooltip -->
+<div class="star-tip" id="starTip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════════════════════════════════
+const TAU = Math.PI * 2;
+const FOCAL = 720;
+const Z_NEAR = 70;
+const Z_FAR = 2200;
+const CAMERA_ADVANCE = 0.0002;     // z-advance per frame (parallax forward drift)
+const PARALLAX_AMOUNT = 12;        // px sway with mouse
+const SALIENCE_PULSE_S = 3.0;      // top-5 pulse cycle
+const PULSE_STAGGER_S = 0.4;       // between top-5
+const NEBULA_LAYERS = 3;
+const TRUST_AXES = ["user_input", "tool_result", "web_search", "agent_inference"];
+const TRUST_SHORT = { user_input: "user", tool_result: "tool", web_search: "web", agent_inference: "agent" };
+const NOVA_PARTICLES_PER_MERGE = 16;
+const NOVA_DURATION_MS = 600;
+const HOVER_GRAVITY_LERP = 0.06;
+const CARD_REPEL_PX = 16;
+const CARD_REPEL_LERP = 0.10;
+const HALF_LIFE_DAYS = 30;
+const SCROLL_STAGGER_MS = 90;
+const SOURCE_COLORS = {
+  user_input:      "#a76cff",
+  tool_result:     "#7c3aed",
+  web_search:      "#c7a4ff",
+  agent_inference: "#5f25c0",
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════════════════
+const canvas   = document.getElementById("sky");
+const ctx      = canvas.getContext("2d", { alpha: true });
+const decayCv  = document.getElementById("decay");
+const decayCtx = decayCv.getContext("2d");
+const tlCv     = document.getElementById("timeline");
+const tlCtx    = tlCv.getContext("2d");
+const radarSvg = document.getElementById("radar");
+
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W = 0, H = 0, CX = 0, CY = 0;
+let cameraZ = 0;
+let lastTime = performance.now();
+
+let memories = [];           // array of memory objects (live state)
+let stars = [];              // 1:1 with memories — visual state
+let particles = [];          // active consolidation particles
+let mergeRipples = [];       // expanding rings from merges
+
+let mouseX = -9999, mouseY = -9999;
+let parallaxX = 0, parallaxY = 0;
+let hoverIdx = -1, selectedIdx = -1;
+let trustWeights = { user_input: 1.0, tool_result: 0.9, web_search: 0.8, agent_inference: 0.5 };
+let liveMode = false;
+let currentSort = "salience";
+let consolidations = 0;       // running count of merges
+let totalFreed = 0;
+
+// ════════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+function rand(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = rand(0x7c3aed);
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function lerp(a, b, t)    { return a + (b - a) * t; }
+function easeOutQuint(t)  { return 1 - Math.pow(1 - t, 5); }
+function easeOutCubic(t)  { return 1 - Math.pow(1 - t, 3); }
+function nowIso() { return new Date().toISOString(); }
+function daysAgo(d) {
+  if (!d) return 0;
+  return Math.max(0, (Date.now() - new Date(d).getTime()) / 86400000);
+}
+function project(x, y, z) {
+  const zEff = Math.max(Z_NEAR, z - cameraZ);
+  const k = FOCAL / zEff;
+  return {
+    sx: CX + x * k + parallaxX * (1 - k * 0.4),
+    sy: CY + y * k + parallaxY * (1 - k * 0.4),
+    scale: k,
+    depth: clamp(1 - (zEff - Z_NEAR) / (Z_FAR - Z_NEAR), 0, 1),
+    zEff,
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  WORLD GEN — seeded memories for offline mode
+// ════════════════════════════════════════════════════════════════════════════
+const SEED_PHRASES = [
+  ["coffee at 8:14am",                 "user_input",      0.7],
+  ["meeting moved to thursday",        "user_input",      0.85],
+  ["python list comprehensions",        "web_search",      0.45],
+  ["weather forecast for monday",       "tool_result",     0.30],
+  ["a kitten in the laundry basket",   "user_input",      0.65],
+  ["espresso brewing at 92°C",         "tool_result",     0.40],
+  ["forgotten umbrella by the door",    "agent_inference", 0.30],
+  ["snow on the driveway",             "user_input",      0.70],
+  ["letter signed in green ink",        "user_input",      0.50],
+  ["river bend at noon",               "web_search",      0.35],
+  ["ocean waves under moonlight",       "agent_inference", 0.40],
+  ["bird outside the office",           "tool_result",     0.25],
+  ["warm bread out of the oven",        "user_input",      0.75],
+  ["jasmine of spring",                "web_search",      0.40],
+  ["moss on the sidewalk crack",        "user_input",      0.35],
+  ["phone call from a friend",          "user_input",      0.80],
+  ["thunderstorm last tuesday",         "user_input",      0.55],
+  ["the cat sat on the mat",           "user_input",      0.60],
+  ["a tabby kitten napping",            "agent_inference", 0.55],
+  ["iced coffee in the afternoon",      "tool_result",     0.50],
+  ["sunlight on the kitchen floor",     "user_input",      0.45],
+  ["bicycles need balance",             "web_search",      0.40],
+  ["names hold meaning",                "agent_inference", 0.35],
+  ["memory fades with time",            "web_search",      0.50],
+  ["first ride on the new bike",        "user_input",      0.65],
+  ["thunder follows lightning",         "web_search",      0.30],
+  ["the river flowing to the ocean",    "agent_inference", 0.45],
+  ["letters carry weight",              "agent_inference", 0.30],
+];
+
+function seedMemories() {
+  const now = Date.now();
+  return SEED_PHRASES.map((row, i) => {
+    const [label, source, importance] = row;
+    const ageDays = rng() * 70;
+    const reinforce = Math.floor(rng() * 8);
+    // ~20% of entries get a valid_until
+    let valid_until = null;
+    if (rng() < 0.2) {
+      const sign = rng() < 0.5 ? -1 : 1;
+      valid_until = new Date(now + sign * (1 + rng() * 30) * 86400000).toISOString();
+    }
+    const created = new Date(now - ageDays * 86400000).toISOString();
+    return {
+      entry_id: i + 1,
+      label,
+      source,
+      importance,
+      reinforcement_count: reinforce,
+      valid_from: created,
+      valid_until,
+      created_at: created,
+      // computed
+      _ageDays: ageDays,
+    };
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  STAR INIT — translate each memory into world coords + visual state
+// ════════════════════════════════════════════════════════════════════════════
+function buildStarsFromMemories(mems) {
+  stars = [];
+  for (let i = 0; i < mems.length; i++) {
+    const m = mems[i];
+    const ageDays = m._ageDays ?? daysAgo(m.valid_from);
+    // angle around camera axis — distribute by entry_id for stability
+    const angle = (i * 0.618033 * TAU) % TAU;
+    const radius = 220 + rng() * 380;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius * 0.65;
+    // z encodes age — older → deeper
+    const z = lerp(Z_NEAR + 180, Z_FAR - 200, clamp(ageDays / 80, 0, 1));
+    stars.push({
+      memIdx: i,
+      x, y, z,
+      homeX: x, homeY: y, homeZ: z,
+      offX: 0, offY: 0,            // hover-gravity offset (screen-space)
+      offVx: 0, offVy: 0,
+      twinkle: rng() * TAU,
+      pulsePhase: rng() * TAU,
+      flash: 0,                    // 0..1, ephemeral burst
+      pinHalo: 0,                  // 0..1, persists after click
+      alive: true,
+    });
+  }
+}
+
+function _saliencePreview(m) {
+  // Compute a salience preview client-side that mirrors the server formula.
+  const ageDays = m._ageDays ?? daysAgo(m.valid_from);
+  const recency = Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+  const reinforce = 1 + (m.reinforcement_count || 0) * 0.1;
+  const trust = trustWeights[m.source] ?? 0.5;
+  return (m.importance ?? 0.5) * recency * reinforce * trust;
+}
+
+function _isValid(m) {
+  const now = Date.now();
+  if (m.valid_until == null) return true;
+  return new Date(m.valid_until).getTime() > now;
+}
+
+function _isNearExpiry(m) {
+  if (m.valid_until == null) return false;
+  const t = new Date(m.valid_until).getTime() - Date.now();
+  return t > 0 && t < 7 * 86400000;
+}
+
+// Find the top-N salient indices
+function topSalient(n) {
+  return memories
+    .map((m, i) => ({ i, s: _saliencePreview(m) }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, n)
+    .map(o => o.i);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  RENDER — main canvas
+// ════════════════════════════════════════════════════════════════════════════
+function resize() {
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  const r = canvas.getBoundingClientRect();
+  W = r.width; H = r.height; CX = W / 2; CY = H / 2;
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  resizeDecay();
+  resizeTimeline();
+}
+
+function resizeDecay() {
+  const r = decayCv.getBoundingClientRect();
+  decayCv.width = Math.floor(r.width * DPR);
+  decayCv.height = Math.floor(r.height * DPR);
+  decayCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+function resizeTimeline() {
+  const r = tlCv.getBoundingClientRect();
+  tlCv.width = Math.floor(r.width * DPR);
+  tlCv.height = Math.floor(r.height * DPR);
+  tlCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+// Cluster arcs — for each source, render a thin arc through all member stars
+function renderClusterArcs() {
+  const bySource = {};
+  for (let i = 0; i < stars.length; i++) {
+    const m = memories[stars[i].memIdx];
+    if (!m) continue;
+    const key = m.source || "unknown";
+    if (!bySource[key]) bySource[key] = [];
+    bySource[key].push(i);
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const src of Object.keys(bySource)) {
+    const idxs = bySource[src].filter(i => stars[i].alive);
+    if (idxs.length < 2) continue;
+    // Project all to screen, sort by sx so the arc flows left→right
+    const pts = idxs.map(i => {
+      const s = stars[i];
+      const p = project(s.x, s.y, s.z);
+      return { x: p.sx + s.offX, y: p.sy + s.offY, depth: p.depth };
+    }).sort((a, b) => a.x - b.x);
+
+    const color = SOURCE_COLORS[src] || "#7c3aed";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.7;
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    // Smooth catmull-rom-style curves between points
+    for (let k = 1; k < pts.length; k++) {
+      const p0 = pts[k - 1], p1 = pts[k];
+      const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2 - 18;
+      ctx.quadraticCurveTo(mx, my, p1.x, p1.y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function renderNebulaGlow() {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, Math.max(W, H) * 0.6);
+  g.addColorStop(0, "rgba(124,58,237,0.10)");
+  g.addColorStop(0.6, "rgba(124,58,237,0.04)");
+  g.addColorStop(1, "rgba(124,58,237,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+function renderStars(dt, t) {
+  const top5 = new Set(topSalient(5));
+
+  // Project + hover-gravity spring
+  const proj = [];
+  for (let i = 0; i < stars.length; i++) {
+    if (!stars[i].alive) { proj.push(null); continue; }
+    proj.push(project(stars[i].x, stars[i].y, stars[i].z));
+  }
+
+  // Hover gravity well — pull 3 nearest stars toward hovered (by screen distance)
+  if (hoverIdx >= 0 && stars[hoverIdx] && stars[hoverIdx].alive) {
+    const hp = proj[hoverIdx];
+    if (hp) {
+      const dists = [];
+      for (let j = 0; j < stars.length; j++) {
+        if (j === hoverIdx || !stars[j].alive || !proj[j]) continue;
+        const dx = proj[j].sx - hp.sx;
+        const dy = proj[j].sy - hp.sy;
+        dists.push({ j, d2: dx*dx + dy*dy, dx, dy });
+      }
+      dists.sort((a, b) => a.d2 - b.d2);
+      const top3 = new Set(dists.slice(0, 3).map(d => d.j));
+      for (let j = 0; j < stars.length; j++) {
+        const s = stars[j];
+        if (!s.alive) continue;
+        let tx = 0, ty = 0;
+        if (top3.has(j)) {
+          const d = dists.find(o => o.j === j);
+          // Pull a fraction of the way toward the hovered star
+          const pull = 0.55;
+          tx = -d.dx * pull;
+          ty = -d.dy * pull;
+        }
+        s.offX = lerp(s.offX, tx, HOVER_GRAVITY_LERP);
+        s.offY = lerp(s.offY, ty, HOVER_GRAVITY_LERP);
+      }
+    }
+  } else {
+    // Spring-return when not hovering
+    for (const s of stars) {
+      if (!s.alive) continue;
+      s.offX = lerp(s.offX, 0, HOVER_GRAVITY_LERP);
+      s.offY = lerp(s.offY, 0, HOVER_GRAVITY_LERP);
+    }
+  }
+
+  // Sort far→near for proper layering
+  const sorted = stars
+    .map((s, i) => ({ s, i, p: proj[i] }))
+    .filter(o => o.s.alive && o.p)
+    .sort((a, b) => b.p.zEff - a.p.zEff);
+
+  ctx.save();
+  for (const { s, i, p } of sorted) {
+    const m = memories[s.memIdx];
+    if (!m) continue;
+    const sx = p.sx + s.offX;
+    const sy = p.sy + s.offY;
+    const sal = _saliencePreview(m);
+    const isValid = _isValid(m);
+    if (!isValid) {
+      // Expired memories ghosted
+      ctx.globalAlpha = 0.15;
+    } else {
+      ctx.globalAlpha = 1.0;
+    }
+    // Base size scales with salience and depth
+    let r = (2.4 + sal * 7) * (FOCAL / p.zEff);
+
+    // High-salience pulse for top-5
+    if (top5.has(s.memIdx) && isValid) {
+      const phase = (t / 1000 / SALIENCE_PULSE_S + s.pulsePhase) % 1.0;
+      // staggered: each top-5 member offset by PULSE_STAGGER_S
+      const localPhase = (phase * SALIENCE_PULSE_S - i * PULSE_STAGGER_S) / SALIENCE_PULSE_S;
+      const pp = (localPhase % 1 + 1) % 1;
+      // smooth sine pulse between 1.0 and 1.2
+      const k = 1 + 0.20 * Math.sin(pp * TAU) * Math.exp(-pp * 0.4);
+      r *= k;
+    }
+
+    if (r < 0.3) continue;
+    const color = SOURCE_COLORS[m.source] || "#7c3aed";
+    const bright = clamp(0.45 + sal * 0.6 + p.depth * 0.4, 0.2, 1.4);
+    const twinkle = 0.88 + 0.12 * Math.sin(t * 0.003 + s.twinkle);
+
+    // Halo
+    ctx.fillStyle = hexToRgba(color, 0.18 * bright);
+    ctx.beginPath(); ctx.arc(sx, sy, r * 2.8, 0, TAU); ctx.fill();
+
+    // Soft outer glow when in top-5
+    if (top5.has(s.memIdx) && isValid) {
+      const g = ctx.createRadialGradient(sx, sy, r, sx, sy, r * 4.5);
+      g.addColorStop(0, hexToRgba(color, 0.25));
+      g.addColorStop(1, hexToRgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 4.5, 0, TAU); ctx.fill();
+    }
+
+    // Pin halo (persists for selected star)
+    if (s.pinHalo > 0) {
+      ctx.strokeStyle = hexToRgba("#a76cff", 0.85);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 3.4, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = hexToRgba("#a76cff", 0.35);
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 4.6, 0, TAU); ctx.stroke();
+    }
+
+    // Hover ring
+    if (i === hoverIdx) {
+      ctx.strokeStyle = "#fff";
+      ctx.globalAlpha = ctx.globalAlpha * 0.65;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(sx, sy, r * 2.1, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = isValid ? 1.0 : 0.15;
+    }
+
+    // Core
+    ctx.fillStyle = hexToRgba(color, bright * twinkle);
+    ctx.shadowColor = color; ctx.shadowBlur = 12 * bright;
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Flash (briefly white after merge or pin)
+    if (s.flash > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${0.85 * s.flash})`;
+      ctx.beginPath(); ctx.arc(sx, sy, r * (1 + s.flash * 1.5), 0, TAU); ctx.fill();
+      s.flash = Math.max(0, s.flash - dt * 1.6);
+    }
+
+    s._sx = sx; s._sy = sy; s._sr = r;
+  }
+  ctx.globalAlpha = 1.0;
+  ctx.restore();
+}
+
+function renderParticles(dt) {
+  // Consolidation merge particles
+  ctx.save();
+  for (const p of particles) {
+    const tt = (performance.now() - p.born) / NOVA_DURATION_MS;
+    if (tt >= 1) { p._dead = true; continue; }
+    const e = easeOutCubic(tt);
+    const px = p.x + p.vx * e * 1.6;
+    const py = p.y + p.vy * e * 1.6;
+    const a = (1 - e) * 0.95;
+    ctx.fillStyle = `rgba(167,108,255,${a})`;
+    ctx.shadowColor = "#7c3aed"; ctx.shadowBlur = 28 * (1 - e);
+    ctx.beginPath(); ctx.arc(px, py, 1.6 + (1 - e) * 2.4, 0, TAU); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  for (const r of mergeRipples) {
+    const tt = (performance.now() - r.born) / NOVA_DURATION_MS;
+    if (tt >= 1) { r._dead = true; continue; }
+    const e = easeOutCubic(tt);
+    ctx.strokeStyle = `rgba(167,108,255,${(1 - e) * 0.7})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 14 + e * 110, 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+  particles = particles.filter(p => !p._dead);
+  mergeRipples = mergeRipples.filter(r => !r._dead);
+}
+
+function hexToRgba(hex, a) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CONSOLIDATION ANIMATION — merge near-duplicate stars
+// ════════════════════════════════════════════════════════════════════════════
+let consolidationActive = null;
+
+function startConsolidationAnimation(groups) {
+  // groups: array of {survivorIdx, victimIndices: [int]}
+  consolidationActive = {
+    groups: groups.map(g => ({ ...g, t0: performance.now(), drifting: true })),
+    born: performance.now(),
+  };
+}
+
+function tickConsolidation(dt) {
+  if (!consolidationActive) return;
+  const now = performance.now();
+  let allDone = true;
+  for (const g of consolidationActive.groups) {
+    if (!g.drifting) continue;
+    const survivor = stars[g.survivorIdx];
+    if (!survivor || !survivor.alive) { g.drifting = false; continue; }
+    let movingCount = 0;
+    for (const vi of g.victimIndices) {
+      const victim = stars[vi];
+      if (!victim || !victim.alive) continue;
+      // Pull victim toward survivor — velocity ∝ 1 / distance² in screen-space
+      const sp = project(survivor.x, survivor.y, survivor.z);
+      const vp = project(victim.x, victim.y, victim.z);
+      const dx = sp.sx - vp.sx;
+      const dy = sp.sy - vp.sy;
+      const d2 = dx*dx + dy*dy;
+      const screenDist = Math.sqrt(d2);
+      if (screenDist < 14) {
+        // Collide — emit particles + ripple, then mark victim dead
+        emitMergeParticles(vp.sx, vp.sy);
+        victim.alive = false;
+        survivor.flash = 1.0;
+        survivor.pinHalo = Math.max(survivor.pinHalo, 0.6);
+        consolidations++;
+        totalFreed++;
+        // Bump survivor "importance" so it pulses brighter
+        const sm = memories[survivor.memIdx];
+        if (sm) {
+          sm.importance = clamp((sm.importance || 0.5) + 0.08, 0, 1);
+          sm.reinforcement_count = (sm.reinforcement_count || 0) +
+            ((memories[victim.memIdx] || {}).reinforcement_count || 0) + 1;
+        }
+        continue;
+      }
+      // Velocity proportional to 1/d (gentler than 1/d² for visual pacing)
+      const inv = 200 / Math.max(20, screenDist);
+      const pullX = (dx / screenDist) * inv;
+      const pullY = (dy / screenDist) * inv;
+      // Translate the screen-space pull back into world coords
+      victim.x += pullX * 0.5;
+      victim.y += pullY * 0.5;
+      // Modest z-merge as well
+      victim.z = lerp(victim.z, survivor.z, 0.05);
+      movingCount++;
+    }
+    if (movingCount === 0) g.drifting = false;
+    else allDone = false;
+  }
+  if (allDone) {
+    consolidationActive = null;
+    refreshSidebar();        // re-render cards with merged state
+    updateStats();
+  }
+}
+
+function emitMergeParticles(x, y) {
+  const born = performance.now();
+  for (let i = 0; i < NOVA_PARTICLES_PER_MERGE; i++) {
+    const a = (i / NOVA_PARTICLES_PER_MERGE) * TAU + rng() * 0.1;
+    const sp = 70 + rng() * 70;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      born, _dead: false,
+    });
+  }
+  mergeRipples.push({ x, y, born, _dead: false });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  DECAY SUBPLOT — Ebbinghaus curve for the hovered memory
+// ════════════════════════════════════════════════════════════════════════════
+function renderDecaySubplot() {
+  const r = decayCv.getBoundingClientRect();
+  const w = r.width, h = r.height;
+  decayCtx.clearRect(0, 0, w, h);
+
+  // Grid
+  decayCtx.strokeStyle = "rgba(124,58,237,0.10)";
+  decayCtx.lineWidth = 0.6;
+  for (let i = 0; i <= 4; i++) {
+    const y = (h - 18) * (i / 4) + 6;
+    decayCtx.beginPath(); decayCtx.moveTo(36, y); decayCtx.lineTo(w - 8, y); decayCtx.stroke();
+  }
+
+  // Axis labels
+  decayCtx.fillStyle = "#585670";
+  decayCtx.font = "9px 'SF Mono', monospace";
+  decayCtx.fillText("1.0", 6, 12);
+  decayCtx.fillText("0.5", 6, (h - 18) / 2 + 10);
+  decayCtx.fillText("0.0", 6, h - 18);
+  decayCtx.fillText("now", 36, h - 4);
+  decayCtx.fillText("90d", w - 22, h - 4);
+
+  // Pick memory to plot — hovered or top-salience
+  let memIdx = -1;
+  if (hoverIdx >= 0 && stars[hoverIdx]) memIdx = stars[hoverIdx].memIdx;
+  else if (selectedIdx >= 0 && stars[selectedIdx]) memIdx = stars[selectedIdx].memIdx;
+  else {
+    const tops = topSalient(1);
+    if (tops.length) memIdx = tops[0];
+  }
+  if (memIdx < 0) return;
+  const m = memories[memIdx];
+  if (!m) return;
+
+  document.getElementById("decaySub").textContent = m.label.slice(0, 36);
+
+  // Smooth bezier — sample 80 points across 0..90 days
+  const N = 80;
+  const xPad = 36, xEnd = w - 8;
+  const yTop = 6, yBot = h - 18;
+  const trust = trustWeights[m.source] ?? 0.5;
+  const reinforce = 1 + (m.reinforcement_count || 0) * 0.1;
+  const importance = m.importance ?? 0.5;
+  const points = [];
+  for (let i = 0; i <= N; i++) {
+    const day = (i / N) * 90;
+    const recency = Math.pow(0.5, day / HALF_LIFE_DAYS);
+    const sal = importance * recency * reinforce * trust;
+    const px = lerp(xPad, xEnd, i / N);
+    const py = lerp(yTop, yBot, 1 - clamp(sal, 0, 1));
+    points.push({ px, py, day, sal });
+  }
+
+  // Fill area beneath
+  const grad = decayCtx.createLinearGradient(0, yTop, 0, yBot);
+  grad.addColorStop(0, "rgba(124,58,237,0.40)");
+  grad.addColorStop(1, "rgba(124,58,237,0)");
+  decayCtx.fillStyle = grad;
+  decayCtx.beginPath();
+  decayCtx.moveTo(points[0].px, yBot);
+  decayCtx.lineTo(points[0].px, points[0].py);
+  for (let i = 1; i < points.length; i++) {
+    const p0 = points[i - 1], p1 = points[i];
+    const mx = (p0.px + p1.px) / 2;
+    decayCtx.bezierCurveTo(mx, p0.py, mx, p1.py, p1.px, p1.py);
+  }
+  decayCtx.lineTo(points[points.length - 1].px, yBot);
+  decayCtx.closePath();
+  decayCtx.fill();
+
+  // Smooth bezier curve stroke
+  decayCtx.strokeStyle = "#a76cff";
+  decayCtx.lineWidth = 1.4;
+  decayCtx.beginPath();
+  decayCtx.moveTo(points[0].px, points[0].py);
+  for (let i = 1; i < points.length; i++) {
+    const p0 = points[i - 1], p1 = points[i];
+    const mx = (p0.px + p1.px) / 2;
+    decayCtx.bezierCurveTo(mx, p0.py, mx, p1.py, p1.px, p1.py);
+  }
+  decayCtx.stroke();
+
+  // Half-life inflection: y at HALF_LIFE_DAYS
+  const halfX = lerp(xPad, xEnd, HALF_LIFE_DAYS / 90);
+  const halfY = lerp(yTop, yBot, 1 - 0.5 * importance * reinforce * trust);
+  decayCtx.fillStyle = "#7c3aed";
+  decayCtx.shadowColor = "#7c3aed"; decayCtx.shadowBlur = 14;
+  decayCtx.beginPath(); decayCtx.arc(halfX, halfY, 4, 0, TAU); decayCtx.fill();
+  decayCtx.shadowBlur = 0;
+  decayCtx.strokeStyle = "rgba(124,58,237,0.30)";
+  decayCtx.setLineDash([3, 3]);
+  decayCtx.lineWidth = 0.8;
+  decayCtx.beginPath(); decayCtx.moveTo(halfX, halfY); decayCtx.lineTo(halfX, yBot); decayCtx.stroke();
+  decayCtx.setLineDash([]);
+
+  // Now-position dot — driven by m's actual age
+  const ageDays = m._ageDays ?? daysAgo(m.valid_from);
+  const nx = lerp(xPad, xEnd, clamp(ageDays / 90, 0, 1));
+  const ny = lerp(yTop, yBot, 1 - clamp(_saliencePreview(m), 0, 1));
+  decayCtx.fillStyle = "#fff";
+  decayCtx.shadowColor = "#a76cff"; decayCtx.shadowBlur = 18;
+  decayCtx.beginPath(); decayCtx.arc(nx, ny, 4, 0, TAU); decayCtx.fill();
+  decayCtx.shadowBlur = 0;
+
+  // Caption update
+  document.getElementById("hlVal").textContent = `${HALF_LIFE_DAYS} d`;
+  document.getElementById("nowVal").textContent = `${ageDays.toFixed(1)} d`;
+  document.getElementById("salNow").textContent = _saliencePreview(m).toFixed(3);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  TIMELINE — horizontal strip with cursor, expired→left, upcoming→right
+// ════════════════════════════════════════════════════════════════════════════
+function renderTimeline() {
+  const r = tlCv.getBoundingClientRect();
+  const w = r.width, h = r.height;
+  tlCtx.clearRect(0, 0, w, h);
+
+  // Background ribbon
+  const grad = tlCtx.createLinearGradient(0, 0, w, 0);
+  grad.addColorStop(0,   "rgba(124,58,237,0.0)");
+  grad.addColorStop(0.5, "rgba(124,58,237,0.10)");
+  grad.addColorStop(1,   "rgba(124,58,237,0.0)");
+  tlCtx.fillStyle = grad;
+  tlCtx.fillRect(0, h / 2 - 1, w, 2);
+
+  const now = Date.now();
+  const SPAN_DAYS = 90;  // ±45 days on each side
+  const HALF = SPAN_DAYS / 2 * 86400000;
+  const cursorX = w / 2;
+  // Slowly creep the cursor — but anchored to "now" by reapplying each frame
+  // Visual sense of motion comes from memories' offsets drifting.
+
+  // Draw memories with valid_until
+  for (const m of memories) {
+    if (!m.valid_until) continue;
+    const t = new Date(m.valid_until).getTime();
+    const dx = (t - now) / HALF;     // [-1, +1] within visible window
+    if (Math.abs(dx) > 1.4) continue;  // out of frame
+    const x = cursorX + dx * (w / 2);
+    const expired = t < now;
+    const nearExpiry = !expired && (t - now) < 7 * 86400000;
+    const color = expired ? "rgba(120,120,140,0.45)"
+                : nearExpiry ? "#fbbf24"
+                : SOURCE_COLORS[m.source] || "#7c3aed";
+    tlCtx.fillStyle = color;
+    if (nearExpiry) {
+      // pulse
+      const k = 0.8 + 0.2 * Math.sin(performance.now() * 0.004);
+      tlCtx.globalAlpha = k;
+    } else {
+      tlCtx.globalAlpha = expired ? 0.5 : 1.0;
+    }
+    tlCtx.beginPath(); tlCtx.arc(x, h / 2, expired ? 2.4 : 4.5, 0, TAU); tlCtx.fill();
+    tlCtx.globalAlpha = 1.0;
+  }
+
+  // Cursor (now)
+  tlCtx.strokeStyle = "#a76cff";
+  tlCtx.lineWidth = 1.6;
+  tlCtx.beginPath(); tlCtx.moveTo(cursorX, 6); tlCtx.lineTo(cursorX, h - 4); tlCtx.stroke();
+  tlCtx.fillStyle = "rgba(167,108,255,0.85)";
+  tlCtx.shadowColor = "#a76cff"; tlCtx.shadowBlur = 12;
+  tlCtx.beginPath(); tlCtx.arc(cursorX, h / 2, 4, 0, TAU); tlCtx.fill();
+  tlCtx.shadowBlur = 0;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  TRUST RADAR — SVG, animated reveal on load
+// ════════════════════════════════════════════════════════════════════════════
+function renderRadar(firstRender = false) {
+  const W = 280, H = 220;
+  const CX = W / 2, CY = H / 2 + 8;
+  const RMAX = 72;
+  const n = TRUST_AXES.length;
+  radarSvg.innerHTML = "";
+  const ns = "http://www.w3.org/2000/svg";
+
+  // Concentric rings
+  for (let k = 1; k <= 4; k++) {
+    const r = (k / 4) * RMAX;
+    const ring = document.createElementNS(ns, "circle");
+    ring.setAttribute("cx", CX); ring.setAttribute("cy", CY); ring.setAttribute("r", r);
+    ring.setAttribute("class", "ring");
+    radarSvg.appendChild(ring);
+  }
+
+  // Axes + labels
+  const axisAngles = [];
+  for (let i = 0; i < n; i++) {
+    const ang = -Math.PI / 2 + (i / n) * TAU;
+    axisAngles.push(ang);
+    const x2 = CX + Math.cos(ang) * RMAX;
+    const y2 = CY + Math.sin(ang) * RMAX;
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", CX); line.setAttribute("y1", CY);
+    line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+    line.setAttribute("class", "axis");
+    radarSvg.appendChild(line);
+
+    // Label
+    const lx = CX + Math.cos(ang) * (RMAX + 22);
+    const ly = CY + Math.sin(ang) * (RMAX + 22);
+    const txt = document.createElementNS(ns, "text");
+    txt.setAttribute("x", lx); txt.setAttribute("y", ly);
+    txt.setAttribute("text-anchor", "middle");
+    txt.setAttribute("dominant-baseline", "middle");
+    txt.setAttribute("class", "axis-label");
+    txt.textContent = TRUST_SHORT[TRUST_AXES[i]] || TRUST_AXES[i];
+    radarSvg.appendChild(txt);
+
+    // Value chip near outer end
+    const vx = CX + Math.cos(ang) * (RMAX - 14);
+    const vy = CY + Math.sin(ang) * (RMAX - 14);
+    const v = document.createElementNS(ns, "text");
+    v.setAttribute("x", vx); v.setAttribute("y", vy);
+    v.setAttribute("text-anchor", "middle");
+    v.setAttribute("dominant-baseline", "middle");
+    v.setAttribute("class", "axis-value");
+    const tw = trustWeights[TRUST_AXES[i]] ?? 0.5;
+    v.textContent = tw.toFixed(2);
+    radarSvg.appendChild(v);
+  }
+
+  // Filled area
+  const pts = TRUST_AXES.map((axis, i) => {
+    const tw = trustWeights[axis] ?? 0.5;
+    const r = clamp(tw, 0, 1) * RMAX;
+    const ang = axisAngles[i];
+    return `${CX + Math.cos(ang) * r},${CY + Math.sin(ang) * r}`;
+  });
+  const poly = document.createElementNS(ns, "polygon");
+  poly.setAttribute("points", pts.join(" "));
+  poly.setAttribute("class", "area");
+  radarSvg.appendChild(poly);
+
+  // Dot per axis
+  TRUST_AXES.forEach((axis, i) => {
+    const tw = trustWeights[axis] ?? 0.5;
+    const r = clamp(tw, 0, 1) * RMAX;
+    const ang = axisAngles[i];
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", CX + Math.cos(ang) * r);
+    dot.setAttribute("cy", CY + Math.sin(ang) * r);
+    dot.setAttribute("r", 3.5);
+    dot.setAttribute("class", "dot");
+    if (firstRender) {
+      // animate from center outward, staggered 80ms
+      dot.setAttribute("cx", CX);
+      dot.setAttribute("cy", CY);
+      setTimeout(() => {
+        dot.setAttribute("cx", CX + Math.cos(ang) * r);
+        dot.setAttribute("cy", CY + Math.sin(ang) * r);
+        dot.style.transition = "cx 500ms cubic-bezier(0.22,1,0.36,1), cy 500ms cubic-bezier(0.22,1,0.36,1)";
+      }, i * 80);
+    }
+    radarSvg.appendChild(dot);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SIDEBAR — memory cards
+// ════════════════════════════════════════════════════════════════════════════
+function refreshSidebar() {
+  const container = document.getElementById("memList");
+  // Compute sort
+  const order = memories
+    .map((m, i) => ({ i, m, sal: _saliencePreview(m), age: m._ageDays ?? daysAgo(m.valid_from) }))
+    .filter(o => stars[o.i] && stars[o.i].alive);
+
+  if (currentSort === "salience") {
+    order.sort((a, b) => b.sal - a.sal);
+  } else if (currentSort === "recency") {
+    order.sort((a, b) => a.age - b.age);
+  } else {
+    // similarity — keep insertion order
+  }
+
+  container.innerHTML = "";
+  for (let k = 0; k < order.length; k++) {
+    const o = order[k];
+    const m = o.m;
+    const expired = !_isValid(m);
+    const nearExp = _isNearExpiry(m);
+    const card = document.createElement("div");
+    card.className = "card" + (expired ? " expired" : "") + (nearExp ? " near-expiry" : "");
+    card.dataset.idx = String(o.i);
+
+    card.innerHTML = `
+      <div class="row1">
+        <div class="label">${escapeHtml(m.label)}</div>
+        <div class="src">${TRUST_SHORT[m.source] || m.source}</div>
+      </div>
+      <div class="row2">
+        <div><span class="k">sal</span> ${o.sal.toFixed(3)}</div>
+        <div><span class="k">age</span> ${o.age.toFixed(0)}d</div>
+        <div><span class="k">×</span> ${(m.reinforcement_count || 0)}</div>
+      </div>
+      <div class="salience-bar"><div style="width:${clamp(o.sal * 100, 0, 100)}%"></div></div>
+    `;
+    container.appendChild(card);
+
+    // Click → pin
+    card.addEventListener("click", () => {
+      selectedIdx = o.i;
+      const s = stars[o.i];
+      if (s) s.pinHalo = 1.0;
+      Array.from(container.children).forEach(el => el.classList.remove("selected"));
+      card.classList.add("selected");
+    });
+    card.addEventListener("mouseenter", () => {
+      hoverIdx = o.i;
+      magnetCards(card);
+    });
+    card.addEventListener("mouseleave", () => {
+      hoverIdx = -1;
+      unmagnetCards();
+    });
+  }
+
+  // Scroll-entrance: IntersectionObserver
+  attachScrollEntrance(container);
+
+  // Update top stats
+  const ttl = memories.length;
+  const live = order.length;
+  document.getElementById("cardCount").textContent = `${live} / ${ttl}`;
+  updateStats();
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Magnetic card repulsion — adjacent cards push away from hovered one
+let _magnetTimer = null;
+let _magnetTarget = null;
+function magnetCards(target) {
+  _magnetTarget = target;
+  const container = document.getElementById("memList");
+  const children = Array.from(container.children);
+  const idx = children.indexOf(target);
+  if (idx < 0) return;
+  // Sibling at idx-1 pushed up; sibling at idx+1 pushed down
+  for (let i = 0; i < children.length; i++) {
+    if (i === idx) continue;
+    const dist = i - idx;
+    if (Math.abs(dist) > 2) continue;
+    const sign = dist > 0 ? 1 : -1;
+    const magnitude = CARD_REPEL_PX / Math.max(1, Math.abs(dist));
+    children[i].style.transform = `translateY(${sign * magnitude}px)`;
+    children[i].style.transition = `transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1)`;
+  }
+}
+function unmagnetCards() {
+  const container = document.getElementById("memList");
+  Array.from(container.children).forEach(c => {
+    if (!c.classList.contains("in")) return;
+    c.style.transform = "";
+  });
+}
+
+function attachScrollEntrance(container) {
+  if (!("IntersectionObserver" in window)) {
+    Array.from(container.children).forEach(c => c.classList.add("in"));
+    return;
+  }
+  const cards = Array.from(container.children);
+  const obs = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        const idx = cards.indexOf(e.target);
+        setTimeout(() => e.target.classList.add("in"), idx * SCROLL_STAGGER_MS);
+        obs.unobserve(e.target);
+      }
+    }
+  }, { root: container, threshold: 0.1 });
+  cards.forEach(c => obs.observe(c));
+}
+
+function attachPanelEntrances() {
+  const panels = document.querySelectorAll(".panel");
+  if (!("IntersectionObserver" in window)) {
+    panels.forEach(p => p.classList.add("in"));
+    return;
+  }
+  const obs = new IntersectionObserver((entries) => {
+    Array.from(entries).forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add("in"), i * SCROLL_STAGGER_MS);
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  panels.forEach(p => obs.observe(p));
+}
+
+function updateStats() {
+  const live = stars.filter(s => s.alive).length;
+  document.getElementById("statsPillText").textContent =
+    `${live} memories · ${consolidations} merged`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  TOOLTIP — floating star info
+// ════════════════════════════════════════════════════════════════════════════
+const starTip = document.getElementById("starTip");
+function showTip(idx, x, y) {
+  const s = stars[idx];
+  if (!s || !s.alive) { hideTip(); return; }
+  const m = memories[s.memIdx];
+  if (!m) return;
+  starTip.innerHTML = `
+    <div class="label">${escapeHtml(m.label)}</div>
+    <div class="row"><span>source</span><span class="v">${m.source}</span></div>
+    <div class="row"><span>importance</span><span class="v">${(m.importance ?? 0).toFixed(2)}</span></div>
+    <div class="row"><span>salience</span><span class="v">${_saliencePreview(m).toFixed(3)}</span></div>
+    <div class="row"><span>reinforce</span><span class="v">${m.reinforcement_count || 0}</span></div>
+    <div class="row"><span>age</span><span class="v">${(m._ageDays ?? daysAgo(m.valid_from)).toFixed(0)}d</span></div>
+    ${m.valid_until ? `<div class="row"><span>expires</span><span class="v">${new Date(m.valid_until).toLocaleDateString()}</span></div>` : ""}
+  `;
+  const offX = x + 18, offY = y - 12;
+  starTip.style.left = clamp(offX, 8, window.innerWidth - 280) + "px";
+  starTip.style.top  = clamp(offY, 8, window.innerHeight - 200) + "px";
+  starTip.classList.add("show");
+}
+function hideTip() { starTip.classList.remove("show"); }
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2400);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ════════════════════════════════════════════════════════════════════════════
+function tick(t) {
+  const dt = Math.min(0.05, (t - lastTime) / 1000);
+  lastTime = t;
+  cameraZ += CAMERA_ADVANCE * 60;     // ~0.012/sec @ 60fps
+
+  // Smooth parallax toward mouse
+  const targetPX = (mouseX - W / 2) * 0.020;
+  const targetPY = (mouseY - H / 2) * 0.020;
+  parallaxX = lerp(parallaxX, targetPX, 0.08);
+  parallaxY = lerp(parallaxY, targetPY, 0.08);
+
+  ctx.clearRect(0, 0, W, H);
+  renderNebulaGlow();
+  renderClusterArcs();
+  tickConsolidation(dt);
+  renderStars(dt, t);
+  renderParticles(dt);
+
+  // Pin halo decay
+  for (const s of stars) {
+    if (s.pinHalo > 0 && stars[selectedIdx] !== s) {
+      s.pinHalo = Math.max(0, s.pinHalo - dt * 0.08);
+    }
+  }
+
+  renderDecaySubplot();
+  renderTimeline();
+
+  requestAnimationFrame(tick);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  EVENTS
+// ════════════════════════════════════════════════════════════════════════════
+function findStarUnder(mx, my) {
+  let best = -1, bestD = 30 * 30;
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+    if (!s.alive || s._sx === undefined) continue;
+    const dx = mx - s._sx, dy = my - s._sy;
+    const d2 = dx * dx + dy * dy;
+    const hit = Math.max(10, (s._sr || 4) * 3.5);
+    if (d2 < hit * hit && d2 < bestD) { bestD = d2; best = i; }
+  }
+  return best;
+}
+
+canvas.addEventListener("mousemove", (e) => {
+  const r = canvas.getBoundingClientRect();
+  mouseX = e.clientX - r.left;
+  mouseY = e.clientY - r.top;
+  const idx = findStarUnder(mouseX, mouseY);
+  if (idx !== hoverIdx) {
+    hoverIdx = idx;
+    if (idx >= 0) showTip(idx, e.clientX, e.clientY);
+    else hideTip();
+    canvas.style.cursor = idx >= 0 ? "pointer" : "default";
+  } else if (idx >= 0) {
+    showTip(idx, e.clientX, e.clientY);
+  }
+});
+canvas.addEventListener("mouseleave", () => { hoverIdx = -1; hideTip(); });
+
+canvas.addEventListener("click", (e) => {
+  const r = canvas.getBoundingClientRect();
+  const idx = findStarUnder(e.clientX - r.left, e.clientY - r.top);
+  if (idx >= 0) {
+    selectedIdx = idx;
+    const s = stars[idx];
+    if (s) { s.pinHalo = 1.0; s.flash = 0.6; }
+    // Highlight matching card
+    const card = document.querySelector(`.card[data-idx="${idx}"]`);
+    if (card) {
+      document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  } else {
+    selectedIdx = -1;
+    document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
+  }
+});
+
+window.addEventListener("resize", () => resize());
+
+document.querySelectorAll(".sort-toggle button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".sort-toggle button").forEach(o => o.classList.remove("active"));
+    b.classList.add("active");
+    currentSort = b.dataset.sort;
+    refreshSidebar();
+  });
+});
+
+document.getElementById("consolidateBtn").addEventListener("click", async () => {
+  await runConsolidate();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CONSOLIDATE — group near-duplicate stars, animate merge
+// ════════════════════════════════════════════════════════════════════════════
+async function runConsolidate() {
+  const btn = document.getElementById("consolidateBtn");
+  btn.disabled = true;
+  let report = null;
+  if (liveMode) {
+    try {
+      const r = await fetch("/consolidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ similarity_threshold: 0.85 }),
+      });
+      if (r.ok) report = await r.json();
+    } catch { /* fall through to client-side animation */ }
+  }
+
+  // Group nearby live stars in screen space — closeness as proxy for similarity
+  const aliveIdx = stars.map((s, i) => ({ s, i })).filter(o => o.s.alive);
+  // Project each
+  const proj = aliveIdx.map(o => {
+    const p = project(o.s.x, o.s.y, o.s.z);
+    return { i: o.i, sx: p.sx, sy: p.sy, depth: p.depth };
+  });
+  // Greedy clustering — within ~140px
+  const used = new Set();
+  const groups = [];
+  for (let a = 0; a < proj.length; a++) {
+    if (used.has(proj[a].i)) continue;
+    const cluster = [proj[a].i];
+    for (let b = a + 1; b < proj.length; b++) {
+      if (used.has(proj[b].i)) continue;
+      const dx = proj[a].sx - proj[b].sx;
+      const dy = proj[a].sy - proj[b].sy;
+      if (dx * dx + dy * dy < 140 * 140) {
+        cluster.push(proj[b].i);
+      }
+    }
+    if (cluster.length >= 2) {
+      // make first the survivor
+      cluster.forEach(idx => used.add(idx));
+      groups.push({ survivorIdx: cluster[0], victimIndices: cluster.slice(1) });
+    }
+  }
+
+  if (groups.length === 0) {
+    showToast("no near-duplicates to merge");
+    btn.disabled = false;
+    return;
+  }
+  startConsolidationAnimation(groups);
+
+  const expectedFreed = groups.reduce((a, g) => a + g.victimIndices.length, 0);
+  const msg = report
+    ? `consolidated · ${report.prototypes_created} prototypes · ${report.memory_freed} freed`
+    : `consolidated · ${groups.length} prototypes · ${expectedFreed} freed`;
+  setTimeout(() => { showToast(msg); btn.disabled = false; }, 200);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LIVE API PROBE
+// ════════════════════════════════════════════════════════════════════════════
+async function probeLive() {
+  // Try the unified app's /health first (api/main.py); fall back to the
+  // standalone demo/server.py's /api/health. Either is fine.
+  async function _tryHealth(path) {
+    try {
+      const r = await fetch(path, { cache: "no-store" });
+      if (!r.ok) return null;
+      const h = await r.json();
+      // unified app returns {status:"ok", backend:...}; demo server returns
+      // {real_kohaku:true, ...}. Accept either shape.
+      if (h.real_kohaku === true || h.status === "ok") return h;
+      return null;
+    } catch { return null; }
+  }
+  const h = (await _tryHealth("/health")) || (await _tryHealth("/api/health"));
+  try {
+    if (!h) throw new Error("no api");
+    liveMode = true;
+    const pill = document.getElementById("apiPill");
+    pill.classList.add("live");
+    const tag = h.version ? `v${h.version}` : "kohaku api";
+    document.getElementById("apiPillText").textContent = `live · ${tag}`;
+    // Pull memories from /memories endpoint
+    try {
+      const m = await fetch("/memories?sort=salience&limit=100");
+      if (m.ok) {
+        const data = await m.json();
+        if (data.items && data.items.length) {
+          memories = data.items.map(it => ({
+            entry_id: it.entry_id, label: it.label,
+            source: it.source, importance: it.importance,
+            reinforcement_count: it.reinforcement_count,
+            valid_from: it.valid_from, valid_until: it.valid_until,
+            created_at: it.created_at,
+            _ageDays: daysAgo(it.created_at || it.valid_from),
+          }));
+        }
+      }
+    } catch { /* keep seeded */ }
+    // Trust weights
+    try {
+      const t = await fetch("/memories/trust-weights");
+      if (t.ok) {
+        const tw = await t.json();
+        if (typeof tw === "object" && tw) {
+          trustWeights = { ...trustWeights, ...tw };
+        }
+      }
+    } catch { /* keep defaults */ }
+  } catch {
+    document.getElementById("apiPillText").textContent = "offline · simulation";
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════════════════════════════
+async function boot() {
+  resize();
+  memories = seedMemories();
+  await probeLive();
+  buildStarsFromMemories(memories);
+  refreshSidebar();
+  renderRadar(/*firstRender=*/true);
+  attachPanelEntrances();
+  requestAnimationFrame(tick);
+}
+boot();
+</script>
+</body>
+</html>
