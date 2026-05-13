@@ -97,3 +97,38 @@
 - [x] `python/kohaku/cli.py` — `kohaku export --format json|gexf --threshold 0.3 --out graph.json --from FILE` subcommand.
 - [x] `__init__.py` exports `GraphExportConfig`, `MemoryGraphExporter`, `MemoryGraph`, `MemoryNode`, `MemoryEdge`. Version bumped to `0.9.0`.
 - [x] 20 new tests in `python/tests/test_graph_export.py`; 197 tests total (python/tests/).
+
+## Researched Feature Roadmap
+
+Plan-of-record for the next set of capabilities, derived from a survey of
+production HDC / agentic-memory systems. Items are ordered by their priority
+band and dependency depth, not necessarily by implementation order.
+
+### 🔴 P1 — Critical (this sprint)
+
+- **Temporal validity intervals** — each memory item carries `valid_from: datetime` and `valid_until: Optional[datetime]`. Retrieval automatically filters items where `now > valid_until` (and skips items where `now < valid_from`, i.e. future-dated facts). Kills the stale-memory failure mode. Encoded into hypervector context bits in a later wave; for v0.10.0 the filter lives in the metadata layer.
+  - `store(text, valid_until=datetime(2026, 1, 1))`
+  - `query()` skips expired items by default; opt-in `include_expired=True`.
+- **Salience scoring** — each memory carries a composite score: `salience = importance × recency_decay × (1 + reinforcement_count · k) × trust(source)`. `importance` set at store time (0.0-1.0). `reinforcement_count` increments on each retrieval hit. Retrieval can re-rank by salience instead of raw cosine. `GET /memories?sort=salience`.
+- **Memory provenance + source tagging** — every stored memory has `source: str` (e.g. `user_input`, `web_search`, `tool_result`, `agent_inference`). `GET /memories?source=web_search` filters by provenance. Poisoning defense: `agent_inference` gets `trust=0.5` by default, dampening its salience. Trust weights are tunable via `SOURCE_TRUST_WEIGHTS`.
+- **Sleep-phase consolidation daemon** — background thread runs every `consolidation_interval_minutes` (default 60). Finds episodic clusters with pairwise cosine ≥ 0.85, merges them into a semantic prototype via centroid bundling. Returns / logs a structured `SleepReport{episodes_consolidated, prototypes_created, memory_freed, run_seconds}`. `POST /consolidate` triggers a run on demand.
+
+### 🟠 P2 — High Impact / Medium Complexity (next sprint)
+
+- **Single-shot episodic binding (who / what / when / where)** — `store_episode(who=hv_agent, what=hv_action, when=hv_time, where=hv_context)` produces a composite HV via element-wise bind (XOR/multiply). Retrieval from any partial cue: `query_episode(what=hv_action)` returns the full bound episode. Uniquely native to HDC; out of reach for vector-DB-backed memory.
+- **Multi-hop associative chaining** — `chain_query(start, hops=3)` iteratively retrieves the top match for `start`, then for that match, etc. Returns the hop chain with per-step similarity. Relational queries across the memory graph.
+- **Write-time validation + poisoning defense** — before storing: (1) semantic-coherence check (cosine to existing similar items — flag contradictions), (2) per-source rate limit (e.g. ≤100 `agent_inference` stores/min), (3) novelty threshold (reject near-duplicate where cosine > 0.99). `POST /memories/validate` dry-run endpoint.
+- **Memory graph export (Graphiti-compatible)** — already partially landed via Phase 10 (`MemoryGraphExporter`). Next: add Graphiti / Mem0-shaped node + edge JSON dialects so external graph tools can import without translation.
+
+### 🟡 P3 — Strategic (later)
+
+- **Neuromorphic spike encoding** — optional mode encoding HDC vectors as spike trains for neuromorphic hardware (Intel Loihi 2). Spike density = vector magnitude; refractory period encodes binarisation. Gated behind a `--neuromorphic` feature flag.
+- **Cross-agent memory sharing** — shared memory pool with per-agent write namespaces and read-all semantics. Composes with the existing `TenantMemoryStore` (which is the dual: isolated read/write per tenant).
+- **Forgetting-curve fine-tuning** — per-memory `forgetting_rate` override that bypasses the Ebbinghaus default. High-priority memories decay slower (`half_life ∝ importance`).
+
+## Phase 11: Critical P1 Features (v0.10.0) ✅
+- [x] `python/kohaku/enriched.py` — `MemoryMetadata` dataclass with `valid_from`, `valid_until`, `source`, `importance`, `reinforcement_count`. `SOURCE_TRUST_WEIGHTS` dict (user_input=1.0, tool_result=0.9, web_search=0.8, agent_inference=0.5). `EnrichedMemoryStore` wraps `EpisodicMemory` and a parallel `{entry_id: MemoryMetadata}` table. `store(..., source, importance, valid_from, valid_until)`, `query(..., sort='similarity'|'salience', source_filter, include_expired)`, `list_memories(sort, source_filter, limit)`, `reinforce(entry_id)`, `expire_old(now)`. Salience formula: `importance × decay_weight(age_days, half_life) × (1 + reinforcement_count · 0.1) × trust(source)`. Expired items skipped by default.
+- [x] `python/kohaku/sleep.py` — `SleepConsolidator` background thread. `consolidation_interval_minutes`, `similarity_threshold=0.85`. Each run: find clusters via the existing `consolidation.consolidate`, merge episodic entries into semantic prototypes, log structured `SleepReport(episodes_consolidated, prototypes_created, memory_freed, run_seconds, started_at)`. Manual `run_once()` and context-manager lifecycle. Thread-safe via `threading.Lock`. Optional `on_report` callback for external observability.
+- [x] `api/main.py` — `GET /memories?sort=salience&source=web_search&limit=10` lists enriched memories with full metadata. `POST /memories/store` accepts the enriched fields. `POST /memories/query` retrieves with `sort` + `source_filter` + `include_expired`. `POST /consolidate` triggers a one-shot sleep-phase consolidation run and returns the `SleepReport`. New `EnrichedRestState` on the unified app.
+- [x] Tests: `python/tests/test_enriched.py` (validity filter, salience re-ranking, source filter, trust weights, reinforcement, expire_old), `python/tests/test_sleep.py` (manual run, threshold gating, structured report, callback, lifecycle), plus integration tests in `api/test_api.py` for the new endpoints.
+- [x] `__init__.py` exports `MemoryMetadata`, `EnrichedMemoryStore`, `EnrichedRetrievalResult`, `SOURCE_TRUST_WEIGHTS`, `SleepConsolidator`, `SleepReport`. Version bumped to `0.10.0`.

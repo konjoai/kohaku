@@ -2,6 +2,80 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.10.0] — 2026-05-12
+
+### Added — Phase 11: Critical P1 Features
+
+The first wave of the Researched Feature Roadmap. Four production-grade
+capabilities, all integrated with the unified FastAPI app and covered by 54
+new tests.
+
+- **Temporal validity intervals** — `python/kohaku/enriched.py` introduces
+  `MemoryMetadata(valid_from, valid_until, ...)`. `EnrichedMemoryStore.query()`
+  filters expired items by default (opt-in `include_expired=True`).
+  `expire_old()` drops everything past its `valid_until`. Naive datetimes are
+  promoted to UTC on write so cross-timezone comparisons never raise.
+  Validation: `valid_until >= valid_from`, `importance ∈ [0, 1]`,
+  `reinforcement_count >= 0`.
+
+- **Salience scoring** — composite score per memory:
+  `salience = importance · 0.5^(age_days / half_life) · (1 + count · k) · trust(source)`.
+  `EnrichedMemoryStore.query(sort='salience')` re-ranks results by this
+  composite instead of raw cosine. Every retrieval reinforces every hit
+  by default (the engine of the feedback loop), with `reinforce_hits=False`
+  for read-only probes.
+
+- **Memory provenance + trust weights** — each memory carries a `source`
+  string (`"user_input"`, `"tool_result"`, `"web_search"`, `"agent_inference"`).
+  `SOURCE_TRUST_WEIGHTS = {user_input: 1.0, tool_result: 0.9, web_search: 0.8,
+  agent_inference: 0.5}` modulates salience. Agent-generated memories don't
+  fail closed — they just rank lower. Tunable per `EnrichedMemoryStore` instance.
+
+- **Sleep-phase consolidation daemon** — `python/kohaku/sleep.py` adds
+  `SleepConsolidator(memory, consolidation_interval_minutes=60.0,
+  similarity_threshold=0.85, on_report)`. Time-scheduled background thread
+  (distinct from the existing pressure-driven `StreamingConsolidator`). Each
+  run emits a structured `SleepReport(started_at, run_seconds, episodes_before,
+  episodes_after, episodes_consolidated, prototypes_created, memory_freed,
+  similarity_threshold)`. Manual `run_once()` plus `start()` / `stop()` /
+  context-manager lifecycle. Callback exceptions are logged and swallowed
+  so a bad observer can't kill the daemon.
+
+- **Unified FastAPI endpoints** — `api/main.py` gains a `RestState.enriched`
+  store and `RestState.sleep` daemon:
+  - `POST /memories/store` — encode + persist with metadata.
+  - `POST /memories/query` — top-k retrieval with `sort`, `source_filter`,
+    `include_expired`, `min_similarity`, `reinforce_hits`.
+  - `GET /memories?sort=salience&source=X&limit=N` — inventory with metadata.
+  - `POST /memories/expire` — drop expired entries.
+  - `GET /memories/trust-weights` — inspect the live trust table.
+  - `POST /consolidate` — one-shot sleep-phase consolidation; returns the
+    `SleepReport`.
+
+- **Tests**: `python/tests/test_enriched.py` (24 cases — metadata validation,
+  validity windows, salience math, trust modulation, source filter,
+  reinforcement, expire-old, capacity eviction, sort modes),
+  `python/tests/test_sleep.py` (15 cases — interval/threshold validation,
+  empty/singleton/orthogonal/cluster runs, run count + report history,
+  callback + exception swallow, lifecycle, background interval firing,
+  `to_dict` JSON-serialisability), plus 15 new integration tests in
+  `api/test_api.py` for the new endpoints. **282 tests total** (54 new + 228 prior).
+
+- `python/kohaku/__init__.py` — exports `EnrichedMemoryStore`,
+  `EnrichedRetrievalResult`, `MemoryMetadata`, `SOURCE_TRUST_WEIGHTS`,
+  `SleepConsolidator`, `SleepReport`. Version bumped to `0.10.0`.
+- `python/pyproject.toml` — version bumped to `0.10.0`.
+- `PLAN.md` — adds **"Researched Feature Roadmap"** section (P1/P2/P3),
+  ticks the Phase 11 P1 deliverables.
+
+### Notes
+- The enriched store wraps `EpisodicMemory` rather than modifying it — the
+  `MemoryEntry` shape and `.hkb` binary format are unchanged, preserving
+  Rust/Python LCG parity.
+- "Encode validity into hypervector context bits" is intentionally deferred:
+  the metadata-layer filter is correct today; the HV-bit encoding is a
+  follow-up for a future wave once the consolidation pipeline needs it.
+
 ## [0.8.0] — 2026-05-10
 
 ### Added — Phase 9: kyro bridge + cosmos UI

@@ -1,7 +1,7 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 try:
     from kohaku._kohaku_rs import HyperVector, EpisodicMemory  # compiled Rust ext
@@ -39,6 +39,13 @@ from kohaku.graph_export import (
     MemoryNode,
     MemoryEdge,
 )
+from kohaku.enriched import (
+    EnrichedMemoryStore,
+    EnrichedRetrievalResult,
+    MemoryMetadata,
+    SOURCE_TRUST_WEIGHTS,
+)
+from kohaku.sleep import SleepConsolidator, SleepReport
 
 try:
     from kohaku.server import create_app, serve
@@ -91,4 +98,10 @@ __all__ = [
     "MemoryEdge",
     "create_app",
     "serve",
+    "EnrichedMemoryStore",
+    "EnrichedRetrievalResult",
+    "MemoryMetadata",
+    "SOURCE_TRUST_WEIGHTS",
+    "SleepConsolidator",
+    "SleepReport",
 ]

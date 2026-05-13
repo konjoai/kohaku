@@ -47,12 +47,17 @@ from pydantic import BaseModel, Field, model_validator
 
 from kohaku import (  # noqa: E402
     DecayConfig,
+    EnrichedMemoryStore,
+    EnrichedRetrievalResult,
     EpisodicMemory,
     GraphExportConfig,
     HDCRetriever,
     HyperVector,
     ItemMemory,
     MemoryGraphExporter,
+    SOURCE_TRUST_WEIGHTS,
+    SleepConsolidator,
+    SleepReport,
     _BACKEND,
     decay_weight,
     encode_text,
@@ -62,6 +67,8 @@ from kohaku import (  # noqa: E402
 from kohaku import __version__ as KOHAKU_VERSION  # noqa: E402
 from kohaku._pure import DIMS  # noqa: E402
 from kohaku._pure import HyperVector as _PyHyperVector  # noqa: E402
+
+from datetime import datetime, timezone  # noqa: E402
 
 DEMO_DIR = ROOT / "demo"
 SAMPLE_PATH = DEMO_DIR / "sample_memory.json"
@@ -276,6 +283,18 @@ class RestState:
         # from the general-purpose episodic store so /query and /bridge/retrieve
         # don't pollute each other.
         self.bridge = HDCRetriever(capacity=capacity, dims=dims)
+        # Enriched store (v0.10.0): temporal validity + salience + provenance.
+        # Lives alongside the plain `episodic` store so the legacy /store /query
+        # endpoints stay unchanged; the new /memories/* endpoints use this.
+        self.enriched = EnrichedMemoryStore(capacity=capacity, dims=dims)
+        # Sleep-phase consolidation daemon over the enriched store's episodic
+        # memory. Started lazily by /consolidate when a background thread is
+        # explicitly requested; manual run_once() runs synchronously.
+        self.sleep = SleepConsolidator(
+            self.enriched.episodic,
+            consolidation_interval_minutes=60.0,
+            similarity_threshold=0.85,
+        )
         self.lock = threading.Lock()
         self.started_at = time.time()
 
@@ -434,6 +453,73 @@ class BridgeRetrieveResponse(BaseModel):
     results: List[BridgeChunk]
     total_chunks: int
     decay_applied: bool
+
+
+# ── Enriched memory request/response models ──────────────────────────────────
+
+class EnrichedStoreRequest(BaseModel):
+    label: str = Field(..., min_length=1, max_length=200)
+    input: Union[str, List[float]]
+    type: InputType = "text"
+    source: str = Field("user_input", min_length=1, max_length=50)
+    importance: float = Field(0.5, ge=0.0, le=1.0)
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> "EnrichedStoreRequest":
+        if self.type == "text" and not isinstance(self.input, str):
+            raise ValueError("input must be a string when type='text'")
+        if self.type == "vector" and (
+            not isinstance(self.input, list) or len(self.input) != DIMS
+        ):
+            raise ValueError(f"vector input must be a list of length {DIMS}")
+        if self.valid_until is not None and self.valid_from is not None:
+            if self.valid_until < self.valid_from:
+                raise ValueError("valid_until must be >= valid_from")
+        return self
+
+
+class EnrichedStoreResponse(BaseModel):
+    entry_id: int
+    label: str
+    source: str
+    importance: float
+    valid_from: str
+    valid_until: Optional[str] = None
+    total_memories: int
+
+
+class EnrichedQueryRequest(BaseModel):
+    input: Union[str, List[float]]
+    type: InputType = "text"
+    top_k: int = Field(5, ge=1, le=100)
+    sort: Literal["similarity", "salience", "recency"] = "similarity"
+    source_filter: Optional[str] = Field(None, max_length=50)
+    include_expired: bool = False
+    min_similarity: Optional[float] = Field(None, ge=-1.0, le=1.0)
+    reinforce_hits: bool = True
+
+
+class EnrichedQueryResponse(BaseModel):
+    results: List[Dict[str, Any]]
+    top_k: int
+    sort: str
+
+
+class ConsolidateRequest(BaseModel):
+    similarity_threshold: Optional[float] = Field(None, ge=-1.0, le=1.0)
+
+
+class ConsolidateResponse(BaseModel):
+    started_at: str
+    run_seconds: float
+    episodes_before: int
+    episodes_after: int
+    episodes_consolidated: int
+    prototypes_created: int
+    memory_freed: int
+    similarity_threshold: float
 
 
 def _vec_input_to_hv(values: List[float]) -> HyperVector:
@@ -695,6 +781,118 @@ def create_app(
             exporter = MemoryGraphExporter(cfg)
             graph = exporter.export(rest.episodic, semantic=rest.semantic)
         return Response(content=graph.to_gexf(), media_type="application/xml")
+
+    # ════════════════════════════════════════════════════════════════════
+    #  Enriched memory endpoints — temporal validity + salience + provenance
+    # ════════════════════════════════════════════════════════════════════
+
+    @app.post("/memories/store", response_model=EnrichedStoreResponse)
+    def memories_store(req: EnrichedStoreRequest) -> EnrichedStoreResponse:
+        rest: RestState = app.state.rest
+        hv = _encode(req.input, req.type)
+        with rest.lock:
+            eid = rest.enriched.store(
+                hv, hv, req.label,
+                source=req.source,
+                importance=req.importance,
+                valid_from=req.valid_from,
+                valid_until=req.valid_until,
+            )
+            total = len(rest.enriched)
+        return EnrichedStoreResponse(
+            entry_id=eid,
+            label=req.label,
+            source=req.source,
+            importance=req.importance,
+            valid_from=(req.valid_from or datetime.now(timezone.utc)).isoformat(),
+            valid_until=req.valid_until.isoformat() if req.valid_until else None,
+            total_memories=total,
+        )
+
+    @app.post("/memories/query", response_model=EnrichedQueryResponse)
+    def memories_query(req: EnrichedQueryRequest) -> EnrichedQueryResponse:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            if len(rest.enriched) == 0:
+                return EnrichedQueryResponse(results=[], top_k=req.top_k, sort=req.sort)
+            probe = _encode(req.input, req.type)
+            try:
+                results = rest.enriched.query(
+                    probe,
+                    top_k=req.top_k,
+                    sort=req.sort,
+                    source_filter=req.source_filter,
+                    include_expired=req.include_expired,
+                    min_similarity=req.min_similarity,
+                    reinforce_hits=req.reinforce_hits,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return EnrichedQueryResponse(
+            results=[r.to_dict() for r in results],
+            top_k=req.top_k,
+            sort=req.sort,
+        )
+
+    @app.get("/memories")
+    def memories_list(
+        sort: str = Query("salience", description="Sort: salience | recency"),
+        source: Optional[str] = Query(None, description="Filter by source"),
+        limit: int = Query(50, ge=1, le=1000),
+        include_expired: bool = Query(False),
+    ) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        if sort not in ("salience", "recency"):
+            raise HTTPException(status_code=400, detail="sort must be 'salience' or 'recency'")
+        with rest.lock:
+            items = rest.enriched.list_memories(
+                sort=sort, source_filter=source,
+                include_expired=include_expired, limit=limit,
+            )
+            total = len(rest.enriched)
+        return {
+            "items": items, "count": len(items), "total": total,
+            "sort": sort, "source_filter": source, "include_expired": include_expired,
+        }
+
+    @app.post("/memories/expire")
+    def memories_expire() -> Dict[str, Any]:
+        """Drop all memories whose ``valid_until`` is in the past. Returns the
+        list of dropped entry ids."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            dropped = rest.enriched.expire_old()
+            remaining = len(rest.enriched)
+        return {"dropped_ids": dropped, "dropped_count": len(dropped),
+                "remaining": remaining}
+
+    @app.get("/memories/trust-weights")
+    def memories_trust_weights() -> Dict[str, float]:
+        rest: RestState = app.state.rest
+        # return a copy of the live table so the caller can see what's in effect
+        return dict(rest.enriched.trust_weights)
+
+    # ── Sleep-phase consolidation ──────────────────────────────────────────
+    @app.post("/consolidate", response_model=ConsolidateResponse)
+    def consolidate_endpoint(req: ConsolidateRequest = ConsolidateRequest()) -> ConsolidateResponse:
+        """Trigger a one-shot sleep-phase consolidation pass.
+
+        Runs synchronously over the enriched store's episodic memory:
+        finds clusters with pairwise cosine >= `similarity_threshold`
+        (default 0.85), merges them into semantic prototypes, returns the
+        structured `SleepReport`.
+        """
+        rest: RestState = app.state.rest
+        with rest.lock:
+            # The daemon owns its own lock too, but we hold the RestState lock
+            # to serialize against /memories/store.
+            if req.similarity_threshold is not None:
+                rest.sleep._threshold = req.similarity_threshold
+            try:
+                report = rest.sleep.run_once()
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return ConsolidateResponse(**report.to_dict())
 
     return app
 
