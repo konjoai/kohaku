@@ -132,3 +132,20 @@ band and dependency depth, not necessarily by implementation order.
 - [x] `api/main.py` — `GET /memories?sort=salience&source=web_search&limit=10` lists enriched memories with full metadata. `POST /memories/store` accepts the enriched fields. `POST /memories/query` retrieves with `sort` + `source_filter` + `include_expired`. `POST /consolidate` triggers a one-shot sleep-phase consolidation run and returns the `SleepReport`. New `EnrichedRestState` on the unified app.
 - [x] Tests: `python/tests/test_enriched.py` (validity filter, salience re-ranking, source filter, trust weights, reinforcement, expire_old), `python/tests/test_sleep.py` (manual run, threshold gating, structured report, callback, lifecycle), plus integration tests in `api/test_api.py` for the new endpoints.
 - [x] `__init__.py` exports `MemoryMetadata`, `EnrichedMemoryStore`, `EnrichedRetrievalResult`, `SOURCE_TRUST_WEIGHTS`, `SleepConsolidator`, `SleepReport`. Version bumped to `0.10.0`.
+
+## Phase 12: Provenance, Time-Range, Health (v0.10.x) ✅
+Three P2 features that turn the kohaku store into an observable, debuggable production system.
+
+- [x] `python/kohaku/provenance.py` — SQLite-backed DAG of memory lineage. `ProvenanceGraph.record(memory_id, parent_ids, source_type, metadata)` upserts a row; `get_ancestors` / `get_descendants` BFS with `max_depth`; `get_full_graph` returns a `ProvenanceGraphResult` with deduped edges + union nodes. Thread-safe (RLock). Persists across processes. `EnrichedMemoryStore.store(..., parent_ids=...)` auto-records when a `ProvenanceGraph` is attached (`EnrichedMemoryStore(provenance=pg)`), and `record_consolidation()` is the hook for sleep-phase merges.
+- [x] `python/kohaku/time_filter.py` — `TimeFilter(valid_after, valid_before)` with interval-overlap semantics ("memory was *known* during ``[a, b]``"). `from_iso()` accepts ISO 8601 with `Z` suffix. `apply_time_filter(memories, tf)` filters dataclass/dict iterables. `bucket_timeline(memories, start, end, bucket="hour|day|week|month")` returns `TimelineBucket` rows including empty intervals between `start` and `end`. `filter_recent(memories, since_hours, limit)` sorts most-recent-first.
+- [x] `python/kohaku/memory_health.py` — `MemoryHealthAnalyzer.compute()` returns `MemoryHealthReport(total_memories, stale_memories, expired_memories, orphaned_memories, duplicate_candidates: List[DuplicatePair], storage_bytes, avg_access_frequency, salience_buckets[5], health_score in [0,1], recommendations)`. Staleness = age (from `valid_from`) ≥ `stale_days` AND `reinforcement_count == 0`. Duplicates = O(n²) cosine ≥ 0.95 over bipolar key vectors. Orphans = entries present in the store but missing from the attached `ProvenanceGraph`. `list_stale()` / `delete_stale(dry_run=...)` for the cleanup workflow.
+- [x] `api/main.py` — 7 new endpoints on the unified app:
+  - `GET /memories/{id}/provenance?direction=ancestors|descendants|both&max_depth=5`
+  - `GET /memories/search?q=&valid_after=&valid_before=&source=&sort=salience|recency|similarity&limit=`
+  - `GET /memories/timeline?start=&end=&bucket=day&preview_per_bucket=5`
+  - `GET /memories/recent?limit=20&since_hours=24`
+  - `GET /memories/health?stale_days=30&duplicate_threshold=0.95`
+  - `GET /memories/health/stale?days=30`
+  - `DELETE /memories/stale?days=30&dry_run=true`
+- [x] Tests: 45 new (`test_provenance.py` 14, `test_time_filter.py` 16, `test_memory_health.py` 15). Total **327 passed**.
+- [x] `__init__.py` exports `ProvenanceGraph`, `ProvenanceNode`, `ProvenanceGraphResult`, `TimeFilter`, `TimelineBucket`, `apply_time_filter`, `bucket_timeline`, `filter_recent`, `MemoryHealthAnalyzer`, `MemoryHealthReport`, `DuplicatePair`, `StaleMemory`.

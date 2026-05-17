@@ -46,6 +46,25 @@ from kohaku.enriched import (
     SOURCE_TRUST_WEIGHTS,
 )
 from kohaku.sleep import SleepConsolidator, SleepReport
+from kohaku.provenance import (
+    ProvenanceGraph,
+    ProvenanceNode,
+    ProvenanceGraphResult,
+    KNOWN_SOURCE_TYPES,
+)
+from kohaku.time_filter import (
+    TimeFilter,
+    TimelineBucket,
+    apply_time_filter,
+    bucket_timeline,
+    filter_recent,
+)
+from kohaku.memory_health import (
+    MemoryHealthAnalyzer,
+    MemoryHealthReport,
+    DuplicatePair,
+    StaleMemory,
+)
 
 try:
     from kohaku.server import create_app, serve
@@ -104,4 +123,17 @@ __all__ = [
     "SOURCE_TRUST_WEIGHTS",
     "SleepConsolidator",
     "SleepReport",
+    "ProvenanceGraph",
+    "ProvenanceNode",
+    "ProvenanceGraphResult",
+    "KNOWN_SOURCE_TYPES",
+    "TimeFilter",
+    "TimelineBucket",
+    "apply_time_filter",
+    "bucket_timeline",
+    "filter_recent",
+    "MemoryHealthAnalyzer",
+    "MemoryHealthReport",
+    "DuplicatePair",
+    "StaleMemory",
 ]

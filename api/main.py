@@ -46,6 +46,14 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, model_validator
 
 from kohaku import (  # noqa: E402
+    MemoryHealthAnalyzer,
+    ProvenanceGraph,
+    TimeFilter,
+    apply_time_filter,
+    bucket_timeline,
+    filter_recent,
+)
+from kohaku import (  # noqa: E402
     DecayConfig,
     EnrichedMemoryStore,
     EnrichedRetrievalResult,
@@ -283,10 +291,15 @@ class RestState:
         # from the general-purpose episodic store so /query and /bridge/retrieve
         # don't pollute each other.
         self.bridge = HDCRetriever(capacity=capacity, dims=dims)
+        # Provenance graph — SQLite-backed DAG of memory lineage. Attached
+        # to the enriched store so every /memories/store call auto-records.
+        self.provenance = ProvenanceGraph()
         # Enriched store (v0.10.0): temporal validity + salience + provenance.
         # Lives alongside the plain `episodic` store so the legacy /store /query
         # endpoints stay unchanged; the new /memories/* endpoints use this.
-        self.enriched = EnrichedMemoryStore(capacity=capacity, dims=dims)
+        self.enriched = EnrichedMemoryStore(
+            capacity=capacity, dims=dims, provenance=self.provenance,
+        )
         # Sleep-phase consolidation daemon over the enriched store's episodic
         # memory. Started lazily by /consolidate when a background thread is
         # explicitly requested; manual run_once() runs synchronously.
@@ -871,6 +884,182 @@ def create_app(
         rest: RestState = app.state.rest
         # return a copy of the live table so the caller can see what's in effect
         return dict(rest.enriched.trust_weights)
+
+    # ── Provenance, time-range, health (P2 wave) ───────────────────────────
+
+    @app.get("/memories/{memory_id}/provenance")
+    def memories_provenance(
+        memory_id: int,
+        direction: str = Query("both", description="ancestors | descendants | both"),
+        max_depth: int = Query(5, ge=1, le=32),
+    ) -> Dict[str, Any]:
+        if direction not in ("ancestors", "descendants", "both"):
+            raise HTTPException(
+                status_code=400,
+                detail="direction must be 'ancestors', 'descendants', or 'both'",
+            )
+        rest: RestState = app.state.rest
+        graph: ProvenanceGraph = rest.provenance
+        if not graph.has(memory_id):
+            raise HTTPException(
+                status_code=404,
+                detail=f"no provenance record for memory_id={memory_id}",
+            )
+        if direction == "ancestors":
+            nodes = graph.get_ancestors(memory_id, max_depth=max_depth)
+            return {"root_id": str(memory_id),
+                    "direction": direction,
+                    "max_depth": max_depth,
+                    "ancestors": [n.to_dict() for n in nodes],
+                    "descendants": [],
+                    "edges": [],
+                    "nodes": [n.to_dict() for n in nodes]}
+        if direction == "descendants":
+            nodes = graph.get_descendants(memory_id, max_depth=max_depth)
+            return {"root_id": str(memory_id),
+                    "direction": direction,
+                    "max_depth": max_depth,
+                    "ancestors": [],
+                    "descendants": [n.to_dict() for n in nodes],
+                    "edges": [],
+                    "nodes": [n.to_dict() for n in nodes]}
+        result = graph.get_full_graph(memory_id, max_depth=max_depth)
+        out = result.to_dict()
+        out["direction"] = "both"
+        out["max_depth"] = max_depth
+        return out
+
+    @app.get("/memories/search")
+    def memories_search(
+        q: Optional[str] = Query(None, description="Free-text query"),
+        valid_after: Optional[str] = Query(None),
+        valid_before: Optional[str] = Query(None),
+        source: Optional[str] = Query(None),
+        sort: str = Query("salience"),
+        limit: int = Query(50, ge=1, le=1000),
+        include_expired: bool = Query(False),
+    ) -> Dict[str, Any]:
+        if sort not in ("salience", "recency", "similarity"):
+            raise HTTPException(status_code=400,
+                                detail="sort must be salience | recency | similarity")
+        try:
+            tf = TimeFilter.from_iso(valid_after, valid_before)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        rest: RestState = app.state.rest
+        with rest.lock:
+            base_sort = sort if sort in ("salience", "recency") else "salience"
+            items = rest.enriched.list_memories(
+                sort=base_sort, source_filter=source,
+                include_expired=include_expired, limit=None,
+            )
+            items = apply_time_filter(items, tf)
+            if q and sort == "similarity":
+                probe = encode_text(q)
+                results = rest.enriched.query(
+                    probe, top_k=max(limit, 1),
+                    source_filter=source,
+                    include_expired=include_expired,
+                    reinforce_hits=False,
+                )
+                live_ids = {it["entry_id"] for it in items}
+                items = [r.to_dict() for r in results if r.entry_id in live_ids]
+            items = items[:limit]
+        return {
+            "items": items, "count": len(items),
+            "sort": sort,
+            "valid_after": valid_after, "valid_before": valid_before,
+            "q": q, "source_filter": source,
+            "include_expired": include_expired,
+        }
+
+    @app.get("/memories/timeline")
+    def memories_timeline(
+        start: Optional[str] = Query(None),
+        end: Optional[str] = Query(None),
+        bucket: str = Query("day"),
+        preview_per_bucket: int = Query(5, ge=0, le=50),
+    ) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            items = rest.enriched.list_memories(
+                sort="recency", include_expired=True, limit=None,
+            )
+        try:
+            buckets = bucket_timeline(
+                items, start=start, end=end, bucket=bucket,
+                preview_per_bucket=preview_per_bucket,
+                text_field="label", id_field="entry_id",
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {
+            "buckets": [b.to_dict() for b in buckets],
+            "bucket": bucket,
+            "start": start, "end": end,
+            "total": sum(b.count for b in buckets),
+        }
+
+    @app.get("/memories/recent")
+    def memories_recent(
+        limit: int = Query(20, ge=1, le=500),
+        since_hours: float = Query(24.0, gt=0.0, le=24.0 * 365),
+    ) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            items = rest.enriched.list_memories(
+                sort="recency", include_expired=True, limit=None,
+            )
+        try:
+            recent = filter_recent(items, since_hours=since_hours, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {
+            "items": recent, "count": len(recent),
+            "since_hours": since_hours, "limit": limit,
+        }
+
+    @app.get("/memories/health")
+    def memories_health(
+        stale_days: int = Query(30, ge=1, le=3650),
+        duplicate_threshold: float = Query(0.95, gt=0.0, le=1.0),
+    ) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            analyzer = MemoryHealthAnalyzer(
+                rest.enriched, provenance=rest.provenance,
+                stale_days=stale_days,
+                duplicate_threshold=duplicate_threshold,
+            )
+            report = analyzer.compute()
+        return report.to_dict()
+
+    @app.get("/memories/health/stale")
+    def memories_health_stale(
+        days: int = Query(30, ge=1, le=3650),
+    ) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            analyzer = MemoryHealthAnalyzer(
+                rest.enriched, provenance=rest.provenance, stale_days=days,
+            )
+            stale = analyzer.list_stale(days=days)
+        return {
+            "items": [s.to_dict() for s in stale],
+            "count": len(stale), "days": days,
+        }
+
+    @app.delete("/memories/stale")
+    def memories_stale_delete(
+        days: int = Query(30, ge=1, le=3650),
+        dry_run: bool = Query(True),
+    ) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            analyzer = MemoryHealthAnalyzer(
+                rest.enriched, provenance=rest.provenance, stale_days=days,
+            )
+            return analyzer.delete_stale(days=days, dry_run=dry_run)
 
     # ── Sleep-phase consolidation ──────────────────────────────────────────
     @app.post("/consolidate", response_model=ConsolidateResponse)

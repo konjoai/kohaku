@@ -182,6 +182,7 @@ class EnrichedMemoryStore:
         half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
         reinforcement_k: float = DEFAULT_REINFORCEMENT_K,
         trust_weights: Optional[Dict[str, float]] = None,
+        provenance: "Optional[object]" = None,
     ) -> None:
         if half_life_days <= 0:
             raise ValueError("half_life_days must be > 0")
@@ -195,6 +196,10 @@ class EnrichedMemoryStore:
         self.trust_weights = (
             dict(trust_weights) if trust_weights is not None else dict(SOURCE_TRUST_WEIGHTS)
         )
+        # Optional provenance graph — when attached, every `store()` records a
+        # lineage row. Typed as `object` to avoid a circular import at module
+        # load; runtime duck-types `.record(memory_id, parent_ids, source_type)`.
+        self.provenance = provenance
 
     # ── basic accessors ────────────────────────────────────────────────────
     @property
@@ -225,8 +230,15 @@ class EnrichedMemoryStore:
         importance: float = DEFAULT_IMPORTANCE,
         valid_from: Optional[datetime] = None,
         valid_until: Optional[datetime] = None,
+        parent_ids: Optional[List[int]] = None,
     ) -> int:
-        """Store an entry plus its metadata. Returns the new entry id."""
+        """Store an entry plus its metadata. Returns the new entry id.
+
+        When :attr:`provenance` is attached the new entry is auto-recorded
+        as a lineage node. ``parent_ids`` is forwarded to the graph and
+        defaults to an empty list (= a root memory). The ``source`` field
+        is reused as the graph's ``source_type``.
+        """
         eid = self._mem.store(key, value, label)
         # If capacity caused FIFO eviction, drop the matching metadata row.
         live_ids = {e.id for e in self._mem.entries()}
@@ -240,6 +252,13 @@ class EnrichedMemoryStore:
             source=source,
             importance=importance,
         )
+        if self.provenance is not None:
+            self.provenance.record(
+                memory_id=eid,
+                parent_ids=list(parent_ids or []),
+                source_type=source,
+                metadata={"label": label},
+            )
         return eid
 
     # ── retrieval ──────────────────────────────────────────────────────────
