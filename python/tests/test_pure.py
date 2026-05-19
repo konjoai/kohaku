@@ -1,7 +1,6 @@
 """Tests for the pure-Python HDC implementation."""
 from __future__ import annotations
 
-import pytest
 import numpy as np
 from kohaku._pure import HyperVector, EpisodicMemory, DIMS
 from kohaku._query import query, query_threshold

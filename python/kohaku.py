@@ -12,11 +12,7 @@ computations run in pure Python (lists of int, cosine via dot product).
 
 from __future__ import annotations
 
-import json
-import math
 import subprocess
-import sys
-from typing import Iterator
 
 # ─── LCG constants (must match Rust implementation in src/hypervector.rs) ────
 _LCG_MUL: int = 6_364_136_223_846_793_005

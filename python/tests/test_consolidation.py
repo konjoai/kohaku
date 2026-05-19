@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from kohaku._pure import DIMS, EpisodicMemory, HyperVector
-from kohaku.consolidation import Cluster, consolidate, consolidate_to_memory
+from kohaku.consolidation import consolidate, consolidate_to_memory
 
 
 def _noisy(base: HyperVector, flip_frac: float, seed: int) -> HyperVector:

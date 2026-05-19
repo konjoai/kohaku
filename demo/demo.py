@@ -13,7 +13,6 @@ Sections:
 """
 from __future__ import annotations
 
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -24,14 +23,14 @@ PY_PKG = ROOT / "python"
 if str(PY_PKG) not in sys.path:
     sys.path.insert(0, str(PY_PKG))
 
-import numpy as np
-from rich.console import Console
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.table import Table
-from rich.text import Text
+import numpy as np  # noqa: E402
+from rich.console import Console  # noqa: E402
+from rich.panel import Panel  # noqa: E402
+from rich.rule import Rule  # noqa: E402
+from rich.table import Table  # noqa: E402
+from rich.text import Text  # noqa: E402
 
-from kohaku import (
+from kohaku import (  # noqa: E402
     DecayConfig,
     EpisodicMemory,
     HyperVector,
@@ -42,7 +41,7 @@ from kohaku import (
     query_with_decay,
     save,
 )
-from kohaku._pure import DIMS
+from kohaku._pure import DIMS  # noqa: E402
 
 console = Console()
 

@@ -42,18 +42,17 @@ PY_PKG = ROOT / "python"
 if str(PY_PKG) not in sys.path:
     sys.path.insert(0, str(PY_PKG))
 
-import kohaku
-from kohaku import (
+import kohaku  # noqa: E402
+from kohaku import (  # noqa: E402
     DecayConfig,
     EpisodicMemory,
-    HyperVector,
     encode_text,
     load,
     query,
     save,
 )
-from kohaku._pure import DIMS
-from kohaku.decay import decay_weight
+from kohaku._pure import DIMS  # noqa: E402
+from kohaku.decay import decay_weight  # noqa: E402
 
 DEMO_DIR = Path(__file__).resolve().parent
 INDEX_HTML = DEMO_DIR / "index.html"
@@ -328,7 +327,9 @@ class DemoHandler(BaseHTTPRequestHandler):
             elif path == "/api/graph":
                 self._send_json(self.state.graph())
             elif path == "/favicon.ico":
-                self.send_response(204); self._cors(); self.end_headers()
+                self.send_response(204)
+                self._cors()
+                self.end_headers()
             else:
                 self._send_json({"error": f"unknown path {path!r}"}, status=404)
         except Exception as e:

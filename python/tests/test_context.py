@@ -1,7 +1,6 @@
 """Tests for kohaku.context — ContextMemoryManager and ContextConfig."""
 from __future__ import annotations
 
-import pytest
 from kohaku.context import ContextConfig, ContextMemoryManager, _encode_text_to_hv
 
 

@@ -5,17 +5,13 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from kohaku._pure import EpisodicMemory, HyperVector
-from kohaku.decay import DecayConfig
 from kohaku.graph_export import (
     GraphExportConfig,
-    MemoryEdge,
     MemoryGraph,
     MemoryGraphExporter,
-    MemoryNode,
 )
 from kohaku.learning import ItemMemory
 

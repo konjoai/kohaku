@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-import numpy as np
 from kohaku.attention import attention_weighted_encode, encode_text
 from kohaku._pure import DIMS
 
@@ -38,7 +37,6 @@ def test_high_weight_token_dominates():
     hv_gamma = attention_weighted_encode(tokens, weights_gamma)
 
     alpha_hv = _token_to_hv("alpha", DIMS)
-    gamma_hv = _token_to_hv("gamma", DIMS)
 
     # Result weighted toward 'alpha' should be more similar to alpha than gamma result
     sim_alpha_to_alpha = hv_alpha.cosine_similarity(alpha_hv)

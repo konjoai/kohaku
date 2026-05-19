@@ -24,8 +24,8 @@ episodic decay.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Iterable, List, Optional
+from dataclasses import dataclass
+from typing import List, Optional
 
 import numpy as np
 

@@ -5,7 +5,11 @@ Critic model: claude-opus-4-6
 Exit codes: 0=APPROVED/WARNING, 1=BLOCKER, 2=API error
 """
 from __future__ import annotations
-import argparse, json, os, sys, time
+import argparse
+import json
+import os
+import sys
+import time
 from pathlib import Path
 
 CRITIC_MODEL = "claude-opus-4-6"
@@ -68,7 +72,7 @@ def _call_api(diff_text: str, anthropic_module) -> dict:
             usage = response.usage
             print(f"[konjo-review] tokens: input={usage.input_tokens} output={usage.output_tokens} cache_read={getattr(usage, 'cache_read_input_tokens', 0)}", file=sys.stderr)
             return json.loads(raw)
-        except (anthropic_module.RateLimitError, anthropic_module.APIStatusError) as exc:
+        except (anthropic_module.RateLimitError, anthropic_module.APIStatusError):
             if attempt < MAX_RETRIES - 1:
                 delay = RETRY_BASE_DELAY * (2**attempt)
                 print(f"[konjo-review] retrying in {delay:.0f}s...", file=sys.stderr)

@@ -16,9 +16,9 @@ bridge ships in this repo and kyro pulls it via `pip install kohaku`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
-from kohaku._pure import DIMS, EpisodicMemory, HyperVector
+from kohaku._pure import DIMS, EpisodicMemory
 from kohaku._query import query as _episodic_query
 from kohaku.attention import encode_text
 from kohaku.decay import DecayConfig, query_with_decay
