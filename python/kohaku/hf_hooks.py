@@ -78,7 +78,6 @@ try:
             if self._step % self.store_every_n_steps != 0:
                 return
 
-            model = kwargs.get("model")
             label = f"step_{self._step}"
 
             # Attempt to extract mean attention from the last forward pass outputs.

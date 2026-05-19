@@ -26,7 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
-from kohaku._pure import EpisodicMemory, HyperVector, MemoryEntry
+from kohaku._pure import EpisodicMemory, HyperVector
 
 
 @dataclass

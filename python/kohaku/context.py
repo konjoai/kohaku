@@ -1,7 +1,7 @@
 """Context window memory manager — sliding-window episodic store sized to an LLM context limit."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 

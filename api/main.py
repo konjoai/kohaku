@@ -41,9 +41,9 @@ PY_PKG = ROOT / "python"
 if str(PY_PKG) not in sys.path:
     sys.path.insert(0, str(PY_PKG))
 
-from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, Field, model_validator
+from fastapi import Body, FastAPI, HTTPException, Query  # noqa: E402
+from fastapi.responses import FileResponse, Response  # noqa: E402
+from pydantic import BaseModel, Field, model_validator  # noqa: E402
 
 from kohaku import (  # noqa: E402
     MemoryHealthAnalyzer,
@@ -56,25 +56,27 @@ from kohaku import (  # noqa: E402
 from kohaku import (  # noqa: E402
     DecayConfig,
     EnrichedMemoryStore,
-    EnrichedRetrievalResult,
     EpisodicMemory,
     GraphExportConfig,
     HDCRetriever,
     HyperVector,
     ItemMemory,
     MemoryGraphExporter,
-    SOURCE_TRUST_WEIGHTS,
     SleepConsolidator,
-    SleepReport,
     _BACKEND,
     decay_weight,
     encode_text,
     query as _kohaku_query,
     query_with_decay,
 )
+from kohaku import (  # noqa: E402
+    EpisodeStore,
+    RateLimit,
+    WriteValidator,
+    chain_query,
+)
 from kohaku import __version__ as KOHAKU_VERSION  # noqa: E402
 from kohaku._pure import DIMS  # noqa: E402
-from kohaku._pure import HyperVector as _PyHyperVector  # noqa: E402
 
 from datetime import datetime, timezone  # noqa: E402
 
@@ -308,6 +310,12 @@ class RestState:
             consolidation_interval_minutes=60.0,
             similarity_threshold=0.85,
         )
+        # Phase 13 P2 stores.
+        self.episodes = EpisodeStore(dims=dims, capacity=capacity)
+        self.validator = WriteValidator(
+            self.episodic,
+            rate_limits={"agent_inference": RateLimit(max_stores=100, window_seconds=60.0)},
+        )
         self.lock = threading.Lock()
         self.started_at = time.time()
 
@@ -518,6 +526,58 @@ class EnrichedQueryResponse(BaseModel):
     results: List[Dict[str, Any]]
     top_k: int
     sort: str
+
+
+# ── Phase 13 P2 models ────────────────────────────────────────────────────────
+
+class EpisodeStoreRequest(BaseModel):
+    label: str = Field(..., min_length=1)
+    who: Optional[List[float]] = None
+    what: Optional[List[float]] = None
+    when: Optional[List[float]] = None
+    where: Optional[List[float]] = None
+
+
+class EpisodeStoreResponse(BaseModel):
+    entry_id: int
+    label: str
+
+
+class EpisodeQueryRequest(BaseModel):
+    who: Optional[List[float]] = None
+    what: Optional[List[float]] = None
+    when: Optional[List[float]] = None
+    where: Optional[List[float]] = None
+    top_k: int = Field(5, ge=1, le=100)
+
+
+class EpisodeQueryResponse(BaseModel):
+    results: List[Dict[str, Any]]
+
+
+class ChainQueryRequest(BaseModel):
+    start: Union[str, List[float]]
+    type: InputType = "text"
+    hops: int = Field(3, ge=1, le=20)
+    min_similarity: float = Field(0.0, ge=-1.0, le=1.0)
+
+
+class ChainQueryResponse(BaseModel):
+    hops: List[Dict[str, Any]]
+    terminated_early: bool
+
+
+class ValidateRequest(BaseModel):
+    input: Union[str, List[float]]
+    type: InputType = "text"
+    source: Optional[str] = None
+
+
+class ValidateResponse(BaseModel):
+    accepted: bool
+    reason: str
+    nearest_similarity: float
+    nearest_label: str
 
 
 class ConsolidateRequest(BaseModel):
@@ -1060,6 +1120,121 @@ def create_app(
                 rest.enriched, provenance=rest.provenance, stale_days=days,
             )
             return analyzer.delete_stale(days=days, dry_run=dry_run)
+
+    # ── Phase 13 P2: episodic binding, chaining, validation ───────────────
+
+    @app.post("/episodes/store", response_model=EpisodeStoreResponse)
+    def episodes_store(req: EpisodeStoreRequest) -> EpisodeStoreResponse:
+        """Store an episode bound from who / what / when / where role HVs.
+
+        Each provided role vector is binarized and bound with its fixed role HV;
+        the resulting bundle is stored as a single composite hypervector.
+        """
+        def _to_hv(vals: Optional[List[float]]) -> Optional[HyperVector]:
+            return _vec_input_to_hv(vals) if vals is not None else None
+
+        who_hv = _to_hv(req.who)
+        what_hv = _to_hv(req.what)
+        when_hv = _to_hv(req.when)
+        where_hv = _to_hv(req.where)
+        if all(v is None for v in (who_hv, what_hv, when_hv, where_hv)):
+            raise HTTPException(status_code=422, detail="At least one role must be provided")
+        rest: RestState = app.state.rest
+        with rest.lock:
+            try:
+                eid = rest.episodes.store_episode(
+                    req.label, who=who_hv, what=what_hv, when=when_hv, where=where_hv
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return EpisodeStoreResponse(entry_id=eid, label=req.label)
+
+    @app.post("/episodes/query", response_model=EpisodeQueryResponse)
+    def episodes_query(req: EpisodeQueryRequest) -> EpisodeQueryResponse:
+        """Retrieve episodes matching a partial role cue.
+
+        Supply any subset of who / what / when / where; the query composite is
+        built from those roles only, enabling partial-cue retrieval.
+        """
+        def _to_hv(vals: Optional[List[float]]) -> Optional[HyperVector]:
+            return _vec_input_to_hv(vals) if vals is not None else None
+
+        who_hv = _to_hv(req.who)
+        what_hv = _to_hv(req.what)
+        when_hv = _to_hv(req.when)
+        where_hv = _to_hv(req.where)
+        if all(v is None for v in (who_hv, what_hv, when_hv, where_hv)):
+            raise HTTPException(status_code=422, detail="At least one role must be provided")
+        rest: RestState = app.state.rest
+        with rest.lock:
+            try:
+                results = rest.episodes.query_episode(
+                    who=who_hv, what=what_hv, when=when_hv, where=where_hv,
+                    top_k=req.top_k,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return EpisodeQueryResponse(
+            results=[
+                {
+                    "entry_id": r.entry_id,
+                    "label": r.label,
+                    "similarity": r.similarity,
+                }
+                for r in results
+            ]
+        )
+
+    @app.post("/chain", response_model=ChainQueryResponse)
+    def chain_endpoint(req: ChainQueryRequest) -> ChainQueryResponse:
+        """Multi-hop associative chain starting from a text or vector query.
+
+        Each hop retrieves the highest-similarity unvisited entry, then follows
+        that entry's key HV to the next hop.
+        """
+        if req.type == "text":
+            start_hv = encode_text(req.start if isinstance(req.start, str) else "")
+        else:
+            if not isinstance(req.start, list):
+                raise HTTPException(status_code=422, detail="start must be a list when type='vector'")
+            start_hv = _vec_input_to_hv(req.start)
+        rest: RestState = app.state.rest
+        with rest.lock:
+            result = chain_query(
+                rest.episodic, start_hv,
+                hops=req.hops,
+                min_similarity=req.min_similarity,
+            )
+        return ChainQueryResponse(
+            hops=[
+                {"hop": h.hop, "entry_id": h.entry_id, "label": h.label, "similarity": h.similarity}
+                for h in result.hops
+            ],
+            terminated_early=result.terminated_early,
+        )
+
+    @app.post("/memories/validate", response_model=ValidateResponse)
+    def memories_validate(req: ValidateRequest) -> ValidateResponse:
+        """Dry-run validation: check if a vector would be accepted by the write validator.
+
+        Returns accepted=True/False, rejection reason, and nearest existing entry info.
+        Does NOT store anything or consume a rate-limit slot.
+        """
+        if req.type == "text":
+            key_hv = encode_text(req.input if isinstance(req.input, str) else "")
+        else:
+            if not isinstance(req.input, list):
+                raise HTTPException(status_code=422, detail="input must be a list when type='vector'")
+            key_hv = _vec_input_to_hv(req.input)
+        rest: RestState = app.state.rest
+        with rest.lock:
+            result = rest.validator.validate(key_hv, source=req.source)
+        return ValidateResponse(
+            accepted=result.accepted,
+            reason=result.reason,
+            nearest_similarity=result.nearest_similarity,
+            nearest_label=result.nearest_label,
+        )
 
     # ── Sleep-phase consolidation ──────────────────────────────────────────
     @app.post("/consolidate", response_model=ConsolidateResponse)

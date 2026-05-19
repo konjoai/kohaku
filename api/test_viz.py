@@ -19,10 +19,10 @@ if str(PY_PKG) not in sys.path:
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: E402
 
-from api.main import VizState, create_app
-from kohaku._pure import DIMS
+from api.main import VizState, create_app  # noqa: E402
+from kohaku._pure import DIMS  # noqa: E402
 
 
 @pytest.fixture
