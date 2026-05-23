@@ -59,6 +59,14 @@ def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
+def _normalise_tag(tag: str) -> str:
+    """Lower-cased, whitespace-stripped tag (≤ 64 chars). Empty if invalid."""
+    if not isinstance(tag, str):
+        return ""
+    cleaned = tag.strip().lower()
+    return cleaned[:64]
+
+
 @dataclass
 class MemoryMetadata:
     """Per-memory metadata maintained outside :class:`EpisodicMemory`.
@@ -73,6 +81,7 @@ class MemoryMetadata:
     importance: float = DEFAULT_IMPORTANCE
     reinforcement_count: int = 0
     created_at: datetime = field(default_factory=_utcnow)
+    tags: set = field(default_factory=set)
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.importance <= 1.0:
@@ -87,6 +96,9 @@ class MemoryMetadata:
         self.created_at = _aware(self.created_at)
         if self.source == "":
             raise ValueError("source must be non-empty")
+        # Coerce tags to a set of normalised non-empty strings. Empty tags are
+        # silently dropped — they're never useful for filtering.
+        self.tags = {_normalise_tag(t) for t in self.tags if _normalise_tag(t)}
 
     def is_valid_at(self, now: datetime) -> bool:
         """True if this memory is currently active at ``now``."""
@@ -141,6 +153,7 @@ class EnrichedRetrievalResult:
     valid_until: Optional[datetime]
     trust: float
     value: HyperVector
+    tags: tuple = ()  # immutable view for the frozen dataclass
 
     def to_dict(self) -> dict:
         return {
@@ -154,6 +167,7 @@ class EnrichedRetrievalResult:
             "valid_from": self.valid_from.isoformat(),
             "valid_until": self.valid_until.isoformat() if self.valid_until else None,
             "trust": float(self.trust),
+            "tags": list(self.tags),
         }
 
 
@@ -231,13 +245,15 @@ class EnrichedMemoryStore:
         valid_from: Optional[datetime] = None,
         valid_until: Optional[datetime] = None,
         parent_ids: Optional[List[int]] = None,
+        tags: Optional[List[str]] = None,
     ) -> int:
         """Store an entry plus its metadata. Returns the new entry id.
 
         When :attr:`provenance` is attached the new entry is auto-recorded
         as a lineage node. ``parent_ids`` is forwarded to the graph and
         defaults to an empty list (= a root memory). The ``source`` field
-        is reused as the graph's ``source_type``.
+        is reused as the graph's ``source_type``. ``tags`` are normalised
+        to lowercase and deduped at the metadata boundary.
         """
         eid = self._mem.store(key, value, label)
         # If capacity caused FIFO eviction, drop the matching metadata row.
@@ -251,6 +267,7 @@ class EnrichedMemoryStore:
             valid_until=valid_until,
             source=source,
             importance=importance,
+            tags=set(tags or []),
         )
         if self.provenance is not None:
             self.provenance.record(
@@ -260,6 +277,41 @@ class EnrichedMemoryStore:
                 metadata={"label": label},
             )
         return eid
+
+    # ── tagging ───────────────────────────────────────────────────────────
+    def add_tags(self, entry_id: int, tags: List[str]) -> Optional[set]:
+        """Union the given tags into the entry's tag set. Returns the new
+        set, or None if the entry is unknown."""
+        meta = self._meta.get(entry_id)
+        if meta is None:
+            return None
+        for t in tags:
+            normalised = _normalise_tag(t)
+            if normalised:
+                meta.tags.add(normalised)
+        return set(meta.tags)
+
+    def remove_tags(self, entry_id: int, tags: List[str]) -> Optional[set]:
+        """Difference the given tags from the entry's tag set. Returns the
+        new set, or None if the entry is unknown."""
+        meta = self._meta.get(entry_id)
+        if meta is None:
+            return None
+        for t in tags:
+            meta.tags.discard(_normalise_tag(t))
+        return set(meta.tags)
+
+    def get_tags(self, entry_id: int) -> Optional[set]:
+        meta = self._meta.get(entry_id)
+        return None if meta is None else set(meta.tags)
+
+    def all_tags(self) -> Dict[str, int]:
+        """Aggregate tag → count over all live memories."""
+        counts: Dict[str, int] = {}
+        for meta in self._meta.values():
+            for t in meta.tags:
+                counts[t] = counts.get(t, 0) + 1
+        return counts
 
     # ── retrieval ──────────────────────────────────────────────────────────
     def query(
@@ -273,6 +325,8 @@ class EnrichedMemoryStore:
         min_similarity: Optional[float] = None,
         now: Optional[datetime] = None,
         reinforce_hits: bool = True,
+        tags_any: Optional[List[str]] = None,
+        tags_all: Optional[List[str]] = None,
     ) -> List[EnrichedRetrievalResult]:
         """Return up to ``top_k`` matches, filtered by validity and (optionally)
         source, ranked by ``sort``.
@@ -283,6 +337,8 @@ class EnrichedMemoryStore:
         if top_k <= 0:
             return []
         now = _aware(now or _utcnow())
+        any_set = {_normalise_tag(t) for t in (tags_any or []) if _normalise_tag(t)}
+        all_set = {_normalise_tag(t) for t in (tags_all or []) if _normalise_tag(t)}
 
         scored: List[EnrichedRetrievalResult] = []
         for e in self._mem.entries():
@@ -292,6 +348,10 @@ class EnrichedMemoryStore:
             if not include_expired and not meta.is_valid_at(now):
                 continue
             if source_filter is not None and meta.source != source_filter:
+                continue
+            if any_set and not (meta.tags & any_set):
+                continue
+            if all_set and not all_set.issubset(meta.tags):
                 continue
             sim = float(e.key.cosine_similarity(query_key))
             if min_similarity is not None and sim < min_similarity:
@@ -315,6 +375,7 @@ class EnrichedMemoryStore:
                     valid_until=meta.valid_until,
                     trust=meta.trust(self.trust_weights),
                     value=e.value,
+                    tags=tuple(sorted(meta.tags)),
                 )
             )
 
@@ -342,6 +403,8 @@ class EnrichedMemoryStore:
         include_expired: bool = False,
         limit: Optional[int] = None,
         now: Optional[datetime] = None,
+        tags_any: Optional[List[str]] = None,
+        tags_all: Optional[List[str]] = None,
     ) -> List[dict]:
         """Inventory all memories with their full metadata.
 
@@ -350,6 +413,8 @@ class EnrichedMemoryStore:
         similar to.
         """
         now = _aware(now or _utcnow())
+        any_set = {_normalise_tag(t) for t in (tags_any or []) if _normalise_tag(t)}
+        all_set = {_normalise_tag(t) for t in (tags_all or []) if _normalise_tag(t)}
         items: List[dict] = []
         for e in self._mem.entries():
             meta = self._meta.get(e.id)
@@ -358,6 +423,10 @@ class EnrichedMemoryStore:
             if not include_expired and not meta.is_valid_at(now):
                 continue
             if source_filter is not None and meta.source != source_filter:
+                continue
+            if any_set and not (meta.tags & any_set):
+                continue
+            if all_set and not all_set.issubset(meta.tags):
                 continue
             sal = meta.salience(
                 now=now,
@@ -377,6 +446,7 @@ class EnrichedMemoryStore:
                 "valid_from": meta.valid_from.isoformat(),
                 "valid_until": meta.valid_until.isoformat() if meta.valid_until else None,
                 "created_at": meta.created_at.isoformat(),
+                "tags": sorted(meta.tags),
             })
         if sort == "recency":
             items.sort(key=lambda r: r["valid_from"], reverse=True)

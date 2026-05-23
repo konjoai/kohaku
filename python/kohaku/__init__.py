@@ -68,6 +68,22 @@ from kohaku.memory_health import (
 from kohaku.episode import EpisodeStore, EpisodeRoles, EpisodeResult
 from kohaku.chaining import chain_query, ChainResult, HopResult
 from kohaku.validation import WriteValidator, RateLimit, ValidationResult
+from kohaku.conflicts import (
+    ConflictPair,
+    ConflictResolution,
+    detect_conflicts,
+    resolve_conflict,
+)
+from kohaku.portability import (
+    ExportBundle,
+    ImportReport,
+    export_memories,
+    export_json,
+    export_markdown,
+    export_csv,
+    import_memories,
+    import_iter,
+)
 
 try:
     from kohaku.server import create_app, serve
@@ -145,6 +161,18 @@ __all__ = [
     "chain_query",
     "ChainResult",
     "HopResult",
+    "ConflictPair",
+    "ConflictResolution",
+    "detect_conflicts",
+    "resolve_conflict",
+    "ExportBundle",
+    "ImportReport",
+    "export_memories",
+    "export_json",
+    "export_markdown",
+    "export_csv",
+    "import_memories",
+    "import_iter",
     "WriteValidator",
     "RateLimit",
     "ValidationResult",

@@ -158,3 +158,21 @@ Three P2 features that turn the kohaku store into an observable, debuggable prod
 - [x] `api/main.py` — 4 new endpoints: `POST /episodes/store`, `POST /episodes/query`, `POST /chain`, `POST /memories/validate`. `RestState` gains `episodes: EpisodeStore` and `validator: WriteValidator` (pre-configured with `agent_inference` rate limit of 100/min).
 - [x] `__init__.py` exports `EpisodeStore`, `EpisodeRoles`, `EpisodeResult`, `chain_query`, `ChainResult`, `HopResult`, `WriteValidator`, `RateLimit`, `ValidationResult`. Version bumped to `0.11.0`.
 - [x] 46 new tests (17 episode + 14 chaining + 17 validation — 2 from chaining/validation consolidated = 46 net). Total **404 passed**.
+
+## Phase 14: Tags, Conflicts, Portability (v0.11.x) ✅
+
+Three orthogonal P2 features that complete the curatorial layer:
+
+- [x] **Tagging** — `MemoryMetadata.tags: set[str]` with lowercase + 64-char normalisation; empty/whitespace tags dropped. `EnrichedMemoryStore.store(..., tags=[...])` accepts tags at write time. `add_tags()` / `remove_tags()` / `get_tags()` / `all_tags()` (returns count by tag). `query()` and `list_memories()` accept `tags_any` (any-match) and `tags_all` (all-match) filters. Tags surface in `list_memories()` dicts and `EnrichedRetrievalResult.tags`.
+- [x] `python/kohaku/conflicts.py` — `detect_conflicts(store, similarity_threshold=0.40, contradiction_threshold=0.45, max_pairs=100)` scans all pairs for contradiction signals. Score in [0, 1] composed from four independent signals: shared topic (gate, weight 0.40), predicate divergence via Jaccard on same subject anchor (0.15), polarity flip via negation marker (0.30), numeric divergence (0.15). Returns `ConflictPair(a_id, b_id, similarity, contradiction_score, reasons)` sorted by score desc. `resolve_conflict(store, a_id, b_id, keep="a"|"b"|"both"|"dismiss")` applies the decision; drops the loser from episodic memory + metadata + provenance.
+- [x] `python/kohaku/portability.py` — `export_memories(store, fmt="json"|"markdown"|"csv")` returns `ExportBundle(format, payload, memory_count, tag_count)`. JSON preserves full metadata + tags + provenance edges (when a graph is attached). Markdown is human-readable. CSV pipes tags with `|`. `import_memories(store, payload, dedup_threshold=0.99)` parses JSON, re-encodes labels via `encode_text`, and skips entries whose closest existing match is ≥ threshold. Returns `ImportReport(imported, skipped_duplicates, skipped_invalid, new_ids, duplicate_of)`.
+- [x] `api/main.py` — 6 new endpoints:
+  - `GET  /memories/tags` — tag → count index across all live memories.
+  - `GET  /memories/{id}/tags`, `POST /memories/{id}/tags`, `DELETE /memories/{id}/tags?tag=a,b`.
+  - `GET  /memories/conflicts?similarity_threshold=0.40&contradiction_threshold=0.45&max_pairs=100`.
+  - `POST /memories/conflicts/resolve` with `{a_id, b_id, keep}`.
+  - `GET  /memories/export?format=json|markdown|csv`.
+  - `POST /memories/import` with `{payload: str, dedup_threshold: 0.99}`.
+  - `GET /memories` now accepts `?tags=…&tags_all=…` comma-separated filters; `POST /memories/store` and `POST /memories/query` accept `tags` / `tags_any` / `tags_all`.
+- [x] Tests: **37 new** (11 `test_tags.py` + 12 `test_conflicts.py` + 14 `test_portability.py`). Total **410 passed**.
+- [x] `__init__.py` exports `ConflictPair`, `ConflictResolution`, `detect_conflicts`, `resolve_conflict`, `ExportBundle`, `ImportReport`, `export_memories`, `export_json`, `export_markdown`, `export_csv`, `import_memories`, `import_iter`.
