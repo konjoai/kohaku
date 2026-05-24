@@ -60,7 +60,7 @@ def test_export_markdown_has_header_and_sections() -> None:
     bundle = export_markdown(s)
     lines = bundle.payload.splitlines()
     assert lines[0] == "# Kohaku memory export"
-    section_headers = [l for l in lines if l.startswith("## ")]
+    section_headers = [line for line in lines if line.startswith("## ")]
     assert len(section_headers) == 2
 
 

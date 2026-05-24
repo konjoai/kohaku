@@ -26,10 +26,9 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
-from kohaku._pure import HyperVector
 from kohaku.enriched import EnrichedMemoryStore
 
 logger = logging.getLogger(__name__)

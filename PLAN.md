@@ -1,6 +1,6 @@
 # Kohaku — Development Plan
 
-## Current Version: v0.10.0
+## Current Version: v0.12.0
 
 ## Phase 1: Core HDC Engine (v0.1.0) ✅
 - [x] Hypervector arithmetic: random, bundle, bind, permute
@@ -176,3 +176,15 @@ Three orthogonal P2 features that complete the curatorial layer:
   - `GET /memories` now accepts `?tags=…&tags_all=…` comma-separated filters; `POST /memories/store` and `POST /memories/query` accept `tags` / `tags_any` / `tags_all`.
 - [x] Tests: **37 new** (11 `test_tags.py` + 12 `test_conflicts.py` + 14 `test_portability.py`). Total **410 passed**.
 - [x] `__init__.py` exports `ConflictPair`, `ConflictResolution`, `detect_conflicts`, `resolve_conflict`, `ExportBundle`, `ImportReport`, `export_memories`, `export_json`, `export_markdown`, `export_csv`, `import_memories`, `import_iter`.
+
+## Phase 15: Graphiti/Mem0 Dialects + Forgetting-Rate Overrides (v0.12.0) ✅
+
+Two orthogonal features: external-tool compatibility via new graph export dialects, and per-memory decay control via forgetting-rate overrides.
+
+- [x] **Graphiti export** — `MemoryGraph.to_graphiti()` and `to_graphiti_json()` emit Graphiti-compatible graph dicts. Memory nodes map to Graphiti `episodes` (with `uuid`, `name`, `content`, `source`, `valid_at`, `invalid_at`, `attributes`); memory edges map to Graphiti `relations` (`similar_to` facts with `weight`). `entities` list is intentionally empty — kohaku memories are episodic facts, not named entities. `MemoryGraphExporter.save_graphiti(graph, path)` writes atomically.
+- [x] **Mem0 export** — `MemoryGraph.to_mem0()` and `to_mem0_json()` emit Mem0-compatible memory lists. Each node becomes a `memory` record with `id`, `memory` (label), `hash` (16-char SHA-256 prefix for dedup), `metadata`, `score` (decay_weight or 1.0), `created_at`, `updated_at`. `MemoryGraphExporter.save_mem0(graph, path)` writes atomically.
+- [x] **API** — `GET /export/graph/graphiti?threshold=0.3` and `GET /export/graph/mem0?threshold=0.3` on the unified app. Threshold forwarded to `GraphExportConfig`.
+- [x] **Per-memory forgetting-rate override** — `MemoryMetadata.forgetting_rate: Optional[float]` (must be > 0). `salience()` computes `effective_half_life = half_life_days / forgetting_rate` when set; rates > 1 accelerate decay, rates < 1 slow it. `EnrichedMemoryStore.store(..., forgetting_rate=...)` passes the field through at write time. `POST /memories/store` accepts `forgetting_rate` (Pydantic field validated `gt=0`).
+- [x] **Pre-session cleanup** — 6 ruff lint violations fixed (`field`/`HyperVector`/`Sequence`/`ConflictPair`/`pytest` unused imports; ambiguous variable `l`). `PLAN.md` version header updated from stale `v0.10.0` to `v0.11.0`.
+- [x] Tests: **35 new** (16 `test_graphiti_mem0.py` + 10 `test_forgetting_rate.py` + 9 new API tests in `api/test_api.py`). Total **445 passed**.
+- [x] Version bumped to `0.12.0` in `__init__.py` and `pyproject.toml`.

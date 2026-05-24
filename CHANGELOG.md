@@ -2,6 +2,57 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.12.0] — 2026-05-24
+
+### Added — Phase 15: Graphiti/Mem0 Dialects + Forgetting-Rate Overrides
+
+Two orthogonal capabilities: Graphiti/Mem0 export compatibility and
+per-memory decay fine-tuning, plus six pre-sprint lint fixes.
+
+- **Graphiti export dialect** — `MemoryGraph.to_graphiti()` /
+  `to_graphiti_json()` emit a Graphiti-compatible graph dict.
+  Memory nodes map to Graphiti episodes (`uuid`, `name`, `content`,
+  `source`, `valid_at`, `invalid_at`, `attributes`); memory edges map
+  to relations with `name="similar_to"` and a `weight` equal to the
+  cosine similarity. `entities` is empty — kohaku memories are episodic
+  facts, not named entities. `MemoryGraphExporter.save_graphiti(graph, path)`
+  writes atomically via `.tmp` + `os.replace`.
+
+- **Mem0 export dialect** — `MemoryGraph.to_mem0()` / `to_mem0_json()`
+  emit a Mem0-compatible memory list. Each node becomes a `memory` record
+  with `id`, `memory` (label text), `hash` (16-char SHA-256 prefix for
+  deduplication), `metadata` dict, `score` (decay_weight when available,
+  else 1.0), `created_at`, and `updated_at`.
+  `MemoryGraphExporter.save_mem0(graph, path)` writes atomically.
+
+- **REST endpoints** — `GET /export/graph/graphiti?threshold=0.3` and
+  `GET /export/graph/mem0?threshold=0.3` on the unified FastAPI app.
+  The `threshold` query parameter is forwarded to `GraphExportConfig`.
+
+- **Per-memory forgetting-rate override** (`python/kohaku/enriched.py`) —
+  `MemoryMetadata.forgetting_rate: Optional[float]` (validated > 0 at
+  construction). `salience()` computes `effective_half_life = half_life_days
+  / forgetting_rate` when set, leaving the default Ebbinghaus path intact
+  when the field is `None`. This lets callers slow decay for high-priority
+  memories (`rate < 1`) or accelerate it for ephemeral facts (`rate > 1`).
+  `EnrichedMemoryStore.store(..., forgetting_rate=...)` accepts the
+  parameter at write time. `POST /memories/store` exposes it as a Pydantic
+  field validated `gt=0`.
+
+- **Lint cleanup** — 6 ruff violations fixed: unused imports
+  (`field`, `HyperVector`, `Sequence`, `ConflictPair`, `pytest`) and
+  ambiguous variable name `l` in `test_portability.py`. `PLAN.md` version
+  header updated from stale `v0.10.0` to `v0.11.0`.
+
+- **Tests** — 35 new: 16 `python/tests/test_graphiti_mem0.py` (Graphiti
+  and Mem0 struct contracts, hash determinism, score fallback, file I/O),
+  10 `python/tests/test_forgetting_rate.py` (metadata validation, salience
+  ordering, store integration, ranking with aged memories), 9 new API tests
+  in `api/test_api.py`. **445 tests total**.
+
+- `python/kohaku/__init__.py` / `python/pyproject.toml` — version bumped
+  to `0.12.0`.
+
 ## [0.10.0] — 2026-05-12
 
 ### Added — Phase 11: Critical P1 Features

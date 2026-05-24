@@ -82,12 +82,15 @@ class MemoryMetadata:
     reinforcement_count: int = 0
     created_at: datetime = field(default_factory=_utcnow)
     tags: set = field(default_factory=set)
+    forgetting_rate: Optional[float] = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.importance <= 1.0:
             raise ValueError(f"importance must be in [0, 1], got {self.importance}")
         if self.reinforcement_count < 0:
             raise ValueError("reinforcement_count must be >= 0")
+        if self.forgetting_rate is not None and self.forgetting_rate <= 0:
+            raise ValueError("forgetting_rate must be > 0")
         self.valid_from = _aware(self.valid_from)
         if self.valid_until is not None:
             self.valid_until = _aware(self.valid_until)
@@ -129,12 +132,21 @@ class MemoryMetadata:
     ) -> float:
         """Composite salience score.
 
-        salience = importance · 0.5^(age / half_life) · (1 + count · k) · trust(source)
+        salience = importance · 0.5^(age / effective_half_life) · (1 + count · k) · trust(source)
+
+        When ``forgetting_rate`` is set, ``effective_half_life = half_life_days / forgetting_rate``
+        so rates > 1 accelerate decay and rates < 1 slow it.  High-importance memories
+        naturally warrant a low forgetting rate (longer half-life).
         """
         if half_life_days <= 0:
             raise ValueError("half_life_days must be > 0")
+        effective_hl = (
+            half_life_days / self.forgetting_rate
+            if self.forgetting_rate is not None
+            else half_life_days
+        )
         age = self.age_days(now)
-        recency = 0.5 ** (age / half_life_days)
+        recency = 0.5 ** (age / effective_hl)
         reinforcement = 1.0 + self.reinforcement_count * reinforcement_k
         return self.importance * recency * reinforcement * self.trust(trust_weights)
 
@@ -246,6 +258,7 @@ class EnrichedMemoryStore:
         valid_until: Optional[datetime] = None,
         parent_ids: Optional[List[int]] = None,
         tags: Optional[List[str]] = None,
+        forgetting_rate: Optional[float] = None,
     ) -> int:
         """Store an entry plus its metadata. Returns the new entry id.
 
@@ -268,6 +281,7 @@ class EnrichedMemoryStore:
             source=source,
             importance=importance,
             tags=set(tags or []),
+            forgetting_rate=forgetting_rate,
         )
         if self.provenance is not None:
             self.provenance.record(
