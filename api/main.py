@@ -487,6 +487,7 @@ class EnrichedStoreRequest(BaseModel):
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     tags: List[str] = Field(default_factory=list)
+    forgetting_rate: Optional[float] = Field(None, gt=0.0, description="Per-memory decay rate override (> 0). Values > 1 accelerate forgetting; < 1 slow it.")
 
     @model_validator(mode="after")
     def _check_shape(self) -> "EnrichedStoreRequest":
@@ -858,6 +859,30 @@ def create_app(
             graph = exporter.export(rest.episodic, semantic=rest.semantic)
         return Response(content=graph.to_gexf(), media_type="application/xml")
 
+    @app.get("/export/graph/graphiti")
+    def export_graph_graphiti(
+        threshold: float = Query(0.3, ge=-1.0, le=1.0),
+    ) -> Dict[str, Any]:
+        """Export as a Graphiti-compatible graph (episodes + relations)."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            cfg = GraphExportConfig(similarity_threshold=threshold)
+            exporter = MemoryGraphExporter(cfg)
+            graph = exporter.export(rest.episodic, semantic=rest.semantic)
+        return graph.to_graphiti()
+
+    @app.get("/export/graph/mem0")
+    def export_graph_mem0(
+        threshold: float = Query(0.3, ge=-1.0, le=1.0),
+    ) -> Dict[str, Any]:
+        """Export as a Mem0-compatible memory list."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            cfg = GraphExportConfig(similarity_threshold=threshold)
+            exporter = MemoryGraphExporter(cfg)
+            graph = exporter.export(rest.episodic, semantic=rest.semantic)
+        return graph.to_mem0()
+
     # ════════════════════════════════════════════════════════════════════
     #  Enriched memory endpoints — temporal validity + salience + provenance
     # ════════════════════════════════════════════════════════════════════
@@ -874,6 +899,7 @@ def create_app(
                 valid_from=req.valid_from,
                 valid_until=req.valid_until,
                 tags=req.tags,
+                forgetting_rate=req.forgetting_rate,
             )
             total = len(rest.enriched)
         return EnrichedStoreResponse(

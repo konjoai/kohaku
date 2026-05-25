@@ -32,7 +32,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional
 
 from kohaku.attention import encode_text
 from kohaku.enriched import EnrichedMemoryStore

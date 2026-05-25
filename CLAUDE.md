@@ -2,7 +2,7 @@
 
 Episodic memory engine for LLMs — persistent, associative, and beyond context windows. Hyperdimensional Computing (HDC) in Rust with Python bindings, temporal decay, semantic consolidation, and OpenAI-compatible memory middleware.
 
-**v0.11.0** (Python) / **v0.1.0** (Rust) — 404 tests passing.
+**v0.12.0** (Python) / **v0.1.0** (Rust) — 445 tests passing.
 
 ## Stack
 Rust 2021 · rand · serde · anyhow · clap · PyO3 (optional, `--features python`) · Python 3.9+ · NumPy · asyncio · hatchling

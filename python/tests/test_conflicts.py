@@ -6,7 +6,6 @@ import pytest
 
 from kohaku import EnrichedMemoryStore, ProvenanceGraph, encode_text
 from kohaku.conflicts import (
-    ConflictPair,
     detect_conflicts,
     resolve_conflict,
 )

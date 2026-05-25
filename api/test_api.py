@@ -508,3 +508,105 @@ def test_consolidate_default_threshold(client: TestClient):
     assert r.status_code == 200
     body = r.json()
     assert body["similarity_threshold"] == 0.85
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Phase 15 — Graphiti/Mem0 export + forgetting_rate
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_export_graphiti_empty_memory(client: TestClient):
+    r = client.get("/export/graph/graphiti")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["format"] == "graphiti"
+    assert body["episodes"] == []
+    assert body["entities"] == []
+    assert body["relations"] == []
+
+
+def test_export_graphiti_populated(client: TestClient):
+    for phrase in ("cats are fluffy", "dogs are loyal", "birds can fly"):
+        client.post("/store", json={"label": phrase, "input": phrase})
+    r = client.get("/export/graph/graphiti")
+    assert r.status_code == 200
+    body = r.json()
+    episodic_eps = [e for e in body["episodes"] if e["source"] == "episodic"]
+    assert len(episodic_eps) == 3
+    ep = episodic_eps[0]
+    assert {"uuid", "name", "content", "source", "created_at", "valid_at",
+            "invalid_at", "attributes"} <= ep.keys()
+
+
+def test_export_graphiti_relations_at_low_threshold(client: TestClient):
+    # Two very similar phrases should produce at least one relation.
+    client.post("/store", json={"label": "fox1", "input": "the quick brown fox"})
+    client.post("/store", json={"label": "fox2", "input": "the quick brown fox jumps"})
+    r = client.get("/export/graph/graphiti?threshold=-1.0")
+    body = r.json()
+    assert len(body["relations"]) >= 1
+    rel = body["relations"][0]
+    assert rel["name"] == "similar_to"
+    assert -1.0 <= rel["weight"] <= 1.0
+
+
+def test_export_mem0_empty_memory(client: TestClient):
+    r = client.get("/export/graph/mem0")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["format"] == "mem0"
+    assert body["memories"] == []
+
+
+def test_export_mem0_populated(client: TestClient):
+    for phrase in ("red apple", "green pear", "yellow banana"):
+        client.post("/store", json={"label": phrase, "input": phrase})
+    r = client.get("/export/graph/mem0")
+    assert r.status_code == 200
+    body = r.json()
+    episodic_mems = [m for m in body["memories"] if m["metadata"]["source"] == "episodic"]
+    assert len(episodic_mems) == 3
+    mem = episodic_mems[0]
+    assert {"id", "memory", "hash", "metadata", "score", "created_at", "updated_at"} <= mem.keys()
+    assert len(mem["hash"]) == 16
+    assert mem["score"] == 1.0  # no DecayConfig → default
+
+
+def test_export_mem0_threshold_parameter(client: TestClient):
+    """threshold query param is forwarded to MemoryGraphExporter."""
+    for phrase in ("alpha", "beta"):
+        client.post("/store", json={"label": phrase, "input": phrase})
+    r_low = client.get("/export/graph/mem0?threshold=-1.0")
+    r_high = client.get("/export/graph/mem0?threshold=1.0")
+    assert r_low.status_code == 200
+    assert r_high.status_code == 200
+
+
+def test_memories_store_accepts_forgetting_rate(client: TestClient):
+    r = client.post("/memories/store", json={
+        "label": "high priority fact",
+        "input": "high priority fact",
+        "source": "user_input",
+        "importance": 0.9,
+        "forgetting_rate": 0.5,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["entry_id"] is not None
+
+
+def test_memories_store_forgetting_rate_zero_rejected(client: TestClient):
+    r = client.post("/memories/store", json={
+        "label": "bad rate",
+        "input": "bad rate",
+        "forgetting_rate": 0.0,
+    })
+    assert r.status_code == 422
+
+
+def test_memories_store_forgetting_rate_negative_rejected(client: TestClient):
+    r = client.post("/memories/store", json={
+        "label": "bad rate",
+        "input": "bad rate",
+        "forgetting_rate": -1.5,
+    })
+    assert r.status_code == 422

@@ -11,6 +11,7 @@ Cosine similarity: computed in FP32 via np.einsum.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -115,6 +116,93 @@ class MemoryGraph:
     def to_json(self) -> str:
         """Serialise to a JSON string."""
         return json.dumps(self.to_dict(), indent=2)
+
+    def to_graphiti(self) -> dict:
+        """Export as a Graphiti-compatible graph dict.
+
+        Memory nodes → Graphiti episodes; memory edges → Graphiti relations.
+        The ``entities`` list is empty because kohaku memories are episodic
+        facts, not named entities in the Graphiti ontology sense.
+        """
+        episodes = [
+            {
+                "uuid": node.node_id,
+                "name": node.label,
+                "content": node.label,
+                "source": node.source,
+                "created_at": self.exported_at,
+                "valid_at": self.exported_at,
+                "invalid_at": None,
+                "attributes": {
+                    "timestamp": node.timestamp,
+                    "decay_weight": node.decay_weight,
+                    "cluster_id": node.cluster_id,
+                },
+            }
+            for node in self.nodes
+        ]
+        relations = [
+            {
+                "uuid": f"rel_{idx}",
+                "name": "similar_to",
+                "fact": f"{edge.source_id} is similar to {edge.target_id}",
+                "source_node_uuid": edge.source_id,
+                "target_node_uuid": edge.target_id,
+                "created_at": self.exported_at,
+                "expired_at": None,
+                "weight": edge.similarity,
+            }
+            for idx, edge in enumerate(self.edges)
+        ]
+        return {
+            "format": "graphiti",
+            "version": "1.0",
+            "exported_at": self.exported_at,
+            "similarity_threshold": self.similarity_threshold,
+            "episodes": episodes,
+            "entities": [],
+            "relations": relations,
+        }
+
+    def to_graphiti_json(self) -> str:
+        """Serialise :meth:`to_graphiti` as a JSON string."""
+        return json.dumps(self.to_graphiti(), indent=2)
+
+    def to_mem0(self) -> dict:
+        """Export as a Mem0-compatible memory list.
+
+        Each memory node becomes a Mem0 ``memory`` record.  The ``score``
+        field is the decay_weight when available, falling back to 1.0.
+        The ``hash`` is a short SHA-256 prefix of the label so downstream
+        tools can detect duplicates without re-encoding.
+        """
+        memories = [
+            {
+                "id": node.node_id,
+                "memory": node.label,
+                "hash": hashlib.sha256(node.label.encode()).hexdigest()[:16],
+                "metadata": {
+                    "source": node.source,
+                    "timestamp": node.timestamp,
+                    "decay_weight": node.decay_weight,
+                    "cluster_id": node.cluster_id,
+                },
+                "score": node.decay_weight if node.decay_weight is not None else 1.0,
+                "created_at": self.exported_at,
+                "updated_at": self.exported_at,
+            }
+            for node in self.nodes
+        ]
+        return {
+            "format": "mem0",
+            "version": "1.0",
+            "exported_at": self.exported_at,
+            "memories": memories,
+        }
+
+    def to_mem0_json(self) -> str:
+        """Serialise :meth:`to_mem0` as a JSON string."""
+        return json.dumps(self.to_mem0(), indent=2)
 
     def to_gexf(self) -> str:
         """Return a GEXF 1.3 XML string representing the graph.
@@ -259,6 +347,22 @@ class MemoryGraphExporter:
         dest.parent.mkdir(parents=True, exist_ok=True)
         tmp = dest.with_suffix(dest.suffix + ".tmp")
         tmp.write_text(graph.to_gexf(), encoding="utf-8")
+        os.replace(tmp, dest)
+
+    def save_graphiti(self, graph: MemoryGraph, path: str | Path) -> None:
+        """Write graph.to_graphiti_json() atomically to path."""
+        dest = Path(path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        tmp.write_text(graph.to_graphiti_json(), encoding="utf-8")
+        os.replace(tmp, dest)
+
+    def save_mem0(self, graph: MemoryGraph, path: str | Path) -> None:
+        """Write graph.to_mem0_json() atomically to path."""
+        dest = Path(path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        tmp.write_text(graph.to_mem0_json(), encoding="utf-8")
         os.replace(tmp, dest)
 
     def save(self, graph: MemoryGraph, path: str | Path) -> None:
