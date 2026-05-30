@@ -188,3 +188,43 @@ Two orthogonal features: external-tool compatibility via new graph export dialec
 - [x] **Pre-session cleanup** — 6 ruff lint violations fixed (`field`/`HyperVector`/`Sequence`/`ConflictPair`/`pytest` unused imports; ambiguous variable `l`). `PLAN.md` version header updated from stale `v0.10.0` to `v0.11.0`.
 - [x] Tests: **35 new** (16 `test_graphiti_mem0.py` + 10 `test_forgetting_rate.py` + 9 new API tests in `api/test_api.py`). Total **445 passed**.
 - [x] Version bumped to `0.12.0` in `__init__.py` and `pyproject.toml`.
+
+## Phase 16: Versioning + Sleep Lineage + Consolidation History (v0.12.x) ✅
+
+Three orthogonal gaps from the curatorial layer — none re-implementing
+anything already shipped:
+
+- [x] **Memory versioning** (`python/kohaku/versions.py`) — SQLite-backed
+  edit history. `VersionStore.record(memory_id, …)` appends a monotonically-
+  numbered `MemoryVersion` snapshot (label, source, importance, tags,
+  validity, edited_at, editor). `list_versions()` / `get_version()` /
+  `latest_version()` / `count()` / `delete()`. `update_memory(store, id, vs,
+  *, label, source, importance, tags, valid_until, editor)` mutates the live
+  entry — re-encoding the HV when the label changes — and appends the new
+  snapshot. `EnrichedMemoryStore(versions=VersionStore())` auto-snapshots v1
+  on every store. Cross-process persistence via `VersionStore(Path)`.
+- [x] **Sleep → provenance lineage** (`python/kohaku/sleep.py`) —
+  `SleepConsolidator(memory, …, provenance=ProvenanceGraph())` now calls
+  `provenance.record_consolidation(merged_id, source_ids)` for every
+  multi-member cluster after the merge. Singletons skip the edge (identity
+  re-store). The post-clear `merged_id` can collide with a pre-clear source
+  id (since `EpisodicMemory.clear()` resets `_next_id`) — the wiring filters
+  the self-parent and writes the remaining edges without raising.
+- [x] **Consolidation history endpoint** — `GET /memories/consolidation/history?limit=50`
+  exposes the existing `SleepConsolidator._reports` list, newest-first.
+  Returns `{count, total_runs, reports: [SleepReport.to_dict()]}`. No
+  schema changes; the daemon already accumulated reports in memory.
+- [x] **API** — 4 new endpoints on the unified app:
+  - `PUT  /memories/{id}` — edit label/source/importance/tags/valid_until;
+    appends a new version snapshot. Re-encodes the bipolar HV when the
+    label changes.
+  - `GET  /memories/{id}/versions` — full ascending list.
+  - `GET  /memories/{id}/versions/{n}` — one snapshot by version number.
+  - `GET  /memories/consolidation/history?limit=` — run-by-run audit trail.
+- [x] **RestState** wires `VersionStore` + the `provenance=` argument on
+  `SleepConsolidator`. `EnrichedMemoryStore(versions=…)` auto-snapshots
+  every store; manual `update_memory()` snapshots every edit.
+- [x] Tests: **24 new** (17 `test_versions.py` + 7 `test_sleep_provenance.py`).
+  Total **469 passed**.
+- [x] `__init__.py` exports `MemoryVersion`, `UpdateResult`, `VersionStore`,
+  `update_memory`.

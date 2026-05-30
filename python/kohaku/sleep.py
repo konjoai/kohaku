@@ -93,6 +93,7 @@ class SleepConsolidator:
         consolidation_interval_minutes: float = 60.0,
         similarity_threshold: float = 0.85,
         on_report: Optional[SleepCallback] = None,
+        provenance: "Optional[object]" = None,
     ) -> None:
         if consolidation_interval_minutes <= 0:
             raise ValueError("consolidation_interval_minutes must be > 0")
@@ -102,6 +103,10 @@ class SleepConsolidator:
         self._interval_s = consolidation_interval_minutes * 60.0
         self._threshold = similarity_threshold
         self._on_report = on_report
+        # Optional provenance graph — when attached, multi-member clusters
+        # emit `record_consolidation(merged_id, source_ids)` after the merge
+        # so downstream lineage queries can trace prototypes back to episodes.
+        self._provenance = provenance
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -179,7 +184,34 @@ class SleepConsolidator:
                     label = (
                         f"{c.label} (n={c.size})" if c.size > 1 else c.label
                     )
-                    self._memory.store(c.centroid_key, c.centroid_value, label)
+                    new_id = self._memory.store(
+                        c.centroid_key, c.centroid_value, label,
+                    )
+                    # Lineage: only multi-member clusters are "consolidations".
+                    # Single-member clusters are identity re-stores; not worth
+                    # the provenance edge.
+                    if self._provenance is not None and c.size > 1:
+                        # EpisodicMemory.clear() resets _next_id, so the new
+                        # merged_id can collide with a pre-clear member_id.
+                        # Filter the collision (the lineage edge would be
+                        # self-referential) but keep every other parent.
+                        parents = [m for m in c.member_ids if m != new_id]
+                        if parents:
+                            try:
+                                self._provenance.record_consolidation(
+                                    merged_id=new_id,
+                                    source_ids=parents,
+                                    metadata={
+                                        "label": label,
+                                        "similarity_threshold": self._threshold,
+                                        "cluster_size": c.size,
+                                    },
+                                )
+                            except (ValueError, RuntimeError, OSError) as exc:
+                                logger.warning(
+                                    "provenance record_consolidation failed: %s",
+                                    exc.__class__.__name__,
+                                )
                 report = SleepReport(
                     started_at=started,
                     run_seconds=time.perf_counter() - t0,

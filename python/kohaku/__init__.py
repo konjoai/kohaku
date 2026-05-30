@@ -84,6 +84,12 @@ from kohaku.portability import (
     import_memories,
     import_iter,
 )
+from kohaku.versions import (
+    MemoryVersion,
+    UpdateResult,
+    VersionStore,
+    update_memory,
+)
 
 try:
     from kohaku.server import create_app, serve
@@ -173,6 +179,10 @@ __all__ = [
     "export_csv",
     "import_memories",
     "import_iter",
+    "MemoryVersion",
+    "UpdateResult",
+    "VersionStore",
+    "update_memory",
     "WriteValidator",
     "RateLimit",
     "ValidationResult",

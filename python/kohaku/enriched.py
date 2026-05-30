@@ -209,6 +209,7 @@ class EnrichedMemoryStore:
         reinforcement_k: float = DEFAULT_REINFORCEMENT_K,
         trust_weights: Optional[Dict[str, float]] = None,
         provenance: "Optional[object]" = None,
+        versions: "Optional[object]" = None,
     ) -> None:
         if half_life_days <= 0:
             raise ValueError("half_life_days must be > 0")
@@ -226,6 +227,10 @@ class EnrichedMemoryStore:
         # lineage row. Typed as `object` to avoid a circular import at module
         # load; runtime duck-types `.record(memory_id, parent_ids, source_type)`.
         self.provenance = provenance
+        # Optional version store — when attached, every `store()` writes a
+        # version-1 snapshot. Subsequent edits use ``kohaku.versions.update_memory``
+        # which appends version 2, 3, …
+        self.versions = versions
 
     # ── basic accessors ────────────────────────────────────────────────────
     @property
@@ -289,6 +294,17 @@ class EnrichedMemoryStore:
                 parent_ids=list(parent_ids or []),
                 source_type=source,
                 metadata={"label": label},
+            )
+        if self.versions is not None:
+            self.versions.record(
+                memory_id=eid,
+                label=label,
+                source=source,
+                importance=float(importance),
+                tags=list(self._meta[eid].tags),
+                valid_from=self._meta[eid].valid_from,
+                valid_until=self._meta[eid].valid_until,
+                editor="store",
             )
         return eid
 

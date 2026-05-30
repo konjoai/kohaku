@@ -49,9 +49,11 @@ from kohaku import (  # noqa: E402
     MemoryHealthAnalyzer,
     ProvenanceGraph,
     TimeFilter,
+    VersionStore,
     apply_time_filter,
     bucket_timeline,
     filter_recent,
+    update_memory,
 )
 from kohaku import (  # noqa: E402
     DecayConfig,
@@ -296,19 +298,26 @@ class RestState:
         # Provenance graph — SQLite-backed DAG of memory lineage. Attached
         # to the enriched store so every /memories/store call auto-records.
         self.provenance = ProvenanceGraph()
+        # Version store — Phase 16. Every /memories/store records v1; every
+        # PUT /memories/{id} appends v2, v3, …
+        self.versions = VersionStore()
         # Enriched store (v0.10.0): temporal validity + salience + provenance.
         # Lives alongside the plain `episodic` store so the legacy /store /query
         # endpoints stay unchanged; the new /memories/* endpoints use this.
         self.enriched = EnrichedMemoryStore(
-            capacity=capacity, dims=dims, provenance=self.provenance,
+            capacity=capacity, dims=dims,
+            provenance=self.provenance, versions=self.versions,
         )
         # Sleep-phase consolidation daemon over the enriched store's episodic
         # memory. Started lazily by /consolidate when a background thread is
         # explicitly requested; manual run_once() runs synchronously.
+        # The provenance graph is attached so multi-member clusters write a
+        # `record_consolidation` lineage edge on every merge.
         self.sleep = SleepConsolidator(
             self.enriched.episodic,
             consolidation_interval_minutes=60.0,
             similarity_threshold=0.85,
+            provenance=self.provenance,
         )
         # Phase 13 P2 stores.
         self.episodes = EpisodeStore(dims=dims, capacity=capacity)
@@ -1282,6 +1291,83 @@ def create_app(
                 rest.enriched, provenance=rest.provenance, stale_days=days,
             )
             return analyzer.delete_stale(days=days, dry_run=dry_run)
+
+    # ── Phase 16: memory versioning + consolidation history ────────────────
+
+    @app.put("/memories/{memory_id}")
+    def memories_update(
+        memory_id: int,
+        payload: Dict[str, Any] = Body(...),
+    ) -> Dict[str, Any]:
+        """Apply an edit to a memory and append a new version snapshot.
+
+        Editable fields: ``label``, ``source``, ``importance``, ``tags``,
+        ``valid_until``. Fields not present in the payload are preserved.
+        """
+        rest: RestState = app.state.rest
+        # Build the kwargs dict so unspecified fields stay at their sentinel.
+        kwargs: Dict[str, Any] = {}
+        for field_name in ("label", "source", "importance", "tags", "valid_until"):
+            if field_name in payload:
+                kwargs[field_name] = payload[field_name]
+        editor = payload.get("editor")
+        with rest.lock:
+            try:
+                result = update_memory(
+                    rest.enriched, memory_id, rest.versions,
+                    editor=editor, **kwargs,
+                )
+            except KeyError as exc:
+                raise HTTPException(status_code=404, detail=str(exc)) from exc
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return result.to_dict()
+
+    @app.get("/memories/{memory_id}/versions")
+    def memories_versions(memory_id: int) -> Dict[str, Any]:
+        rest: RestState = app.state.rest
+        with rest.lock:
+            versions = rest.versions.list_versions(memory_id)
+        if not versions:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no version history for memory_id {memory_id}",
+            )
+        return {
+            "memory_id": memory_id,
+            "count": len(versions),
+            "versions": [v.to_dict() for v in versions],
+        }
+
+    @app.get("/memories/{memory_id}/versions/{version}")
+    def memories_version_get(memory_id: int, version: int) -> Dict[str, Any]:
+        if version <= 0:
+            raise HTTPException(status_code=400, detail="version must be >= 1")
+        rest: RestState = app.state.rest
+        with rest.lock:
+            snapshot = rest.versions.get_version(memory_id, version)
+        if snapshot is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no version {version} for memory_id {memory_id}",
+            )
+        return snapshot.to_dict()
+
+    @app.get("/memories/consolidation/history")
+    def consolidation_history(
+        limit: int = Query(50, ge=1, le=500),
+    ) -> Dict[str, Any]:
+        """All sleep-phase consolidation runs in this process, newest-first."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            reports = list(rest.sleep.reports())
+            # newest-first cap
+            tail = reports[-limit:][::-1]
+            return {
+                "count": len(tail),
+                "total_runs": rest.sleep.run_count,
+                "reports": [r.to_dict() for r in tail],
+            }
 
     # ── Phase 13 P2: episodic binding, chaining, validation ───────────────
 
