@@ -90,6 +90,26 @@ from kohaku.versions import (
     VersionStore,
     update_memory,
 )
+from kohaku.relationships import (
+    KNOWN_RELATIONS,
+    Relationship,
+    RelationshipStore,
+)
+from kohaku.importance import (
+    DEFAULT_WEIGHTS as IMPORTANCE_DEFAULT_WEIGHTS,
+    ImportanceBreakdown,
+    ImportanceScorer,
+    RescoreReport,
+    rescore_all,
+)
+from kohaku.bulk_ops import (
+    BatchDeleteReport,
+    BatchUpdateReport,
+    batch_delete_by_filter,
+    batch_delete_by_ids,
+    batch_export,
+    batch_update,
+)
 
 try:
     from kohaku.server import create_app, serve
@@ -183,6 +203,20 @@ __all__ = [
     "UpdateResult",
     "VersionStore",
     "update_memory",
+    "KNOWN_RELATIONS",
+    "Relationship",
+    "RelationshipStore",
+    "IMPORTANCE_DEFAULT_WEIGHTS",
+    "ImportanceBreakdown",
+    "ImportanceScorer",
+    "RescoreReport",
+    "rescore_all",
+    "BatchDeleteReport",
+    "BatchUpdateReport",
+    "batch_delete_by_filter",
+    "batch_delete_by_ids",
+    "batch_export",
+    "batch_update",
     "WriteValidator",
     "RateLimit",
     "ValidationResult",

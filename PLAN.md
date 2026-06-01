@@ -228,3 +228,64 @@ anything already shipped:
   Total **469 passed**.
 - [x] `__init__.py` exports `MemoryVersion`, `UpdateResult`, `VersionStore`,
   `update_memory`.
+
+## Phase 17: Relationships + Auto-Importance + Bulk Ops (v0.12.x) ✅
+
+Three orthogonal additions that turn the store into something an operator
+can curate at scale:
+
+- [x] **Typed memory relationships** (`python/kohaku/relationships.py`) —
+  SQLite-backed `RelationshipStore` with a `(source_id, target_id,
+  relation_type)` primary key. Documented vocabulary: ``supports`` ·
+  ``contradicts`` · ``extends`` · ``derived_from`` · ``references``
+  (extensible). `record()` is an upsert; `delete()` accepts an optional
+  ``relation_type`` for narrow drops; `delete_all_for(id)` is called by
+  `batch_delete_by_ids` to keep dangling edges out. Read API:
+  `list_outgoing` / `list_incoming` / `list_related` (deduped union) /
+  `list_by_type` / `counts_by_type`. Distinct from provenance (which is
+  lineage) — this captures user-asserted semantic edges.
+
+- [x] **Auto importance scoring** (`python/kohaku/importance.py`) —
+  `ImportanceScorer.compute()` derives importance from four signals
+  normalised to [0, 1]: **frequency** (`min(1, reinforcement_count /
+  freq_cap)`), **recency** (`0.5 ** (age_days / half_life)`),
+  **uniqueness** (`1 - max_cosine_to_other_memories`, O(n²) pairwise on
+  bipolar keys), **provenance depth** (`log1p(children_count) /
+  log1p(max_children)`). Configurable per-signal weights (renormalised
+  to a unit sum on construction) plus a `blend_alpha` for exponential
+  smoothing against the prior `importance`. `ImportanceScorer.apply()`
+  writes back; `dry_run=True` returns the same `RescoreReport` without
+  mutating. `rescore_all()` is the one-shot helper. Depth signal
+  silently falls back to 0 when no `ProvenanceGraph` is attached.
+
+- [x] **Bulk operations** (`python/kohaku/bulk_ops.py`) —
+  `batch_update(store, vs, updates: list[dict])` applies
+  `kohaku.versions.update_memory` per row; individual failures
+  accumulate into `BatchUpdateReport.errors` without aborting.
+  `batch_delete_by_ids(store, ids, relationships=…)` drops entries from
+  episodic memory + metadata + provenance + version + relationship
+  tables in one pass. `batch_delete_by_filter(store, *, stale_days,
+  older_than_days, source, tags_any, max_importance)` requires at least
+  one filter (no accidental wipe) and composes them with AND. Both
+  return `BatchDeleteReport`. `batch_export(store, ids, fmt)` reuses
+  the existing exporters via a transient `_SubsetView` so JSON / CSV /
+  markdown all work for arbitrary id subsets.
+
+- [x] **API** — 7 new endpoints on the unified app:
+  - `POST   /memories/{id}/relate`            (assert a relationship)
+  - `GET    /memories/{id}/related`           (`?direction=both|outgoing|incoming&relation_type=`)
+  - `DELETE /memories/{id}/relate`            (`?target_id=&relation_type=`)
+  - `GET    /memories/relationships`          (full or by type)
+  - `POST   /memories/rescore`                (live or `{dry_run: true}`)
+  - `POST   /memories/batch-update`           (`{updates: [...]}`)
+  - `POST   /memories/batch-delete`           (`{ids: [...]} | {filter: {...}}`)
+  - `POST   /memories/batch-export`           (`{ids, format}`)
+- [x] **RestState** wires `RelationshipStore`; bulk ops pass it through so
+  deleted memories don't leave dangling edges.
+- [x] Tests: **47 new** (17 `test_relationships.py` + 13 `test_importance.py`
+  + 17 `test_bulk_ops.py`). Total **516 passed**.
+- [x] `__init__.py` exports `Relationship`, `RelationshipStore`,
+  `KNOWN_RELATIONS`, `ImportanceScorer`, `ImportanceBreakdown`,
+  `RescoreReport`, `rescore_all`, `IMPORTANCE_DEFAULT_WEIGHTS`,
+  `BatchUpdateReport`, `BatchDeleteReport`, `batch_update`,
+  `batch_delete_by_ids`, `batch_delete_by_filter`, `batch_export`.
