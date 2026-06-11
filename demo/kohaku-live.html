@@ -126,6 +126,11 @@ header{position:fixed;top:0;left:0;right:0;height:52px;z-index:100;background:rg
 .mem-card .sal-bar>div{height:100%;border-radius:1px;background:linear-gradient(90deg,var(--amber),var(--gold));transition:width .4s ease;}
 .mem-card .mc-num{font-family:'SF Mono',monospace;font-size:9.5px;color:var(--fg-2);}
 .mem-card .expired-badge{font-family:'SF Mono',monospace;font-size:9px;color:var(--rose);padding:1px 5px;border:1px solid rgba(255,107,138,.3);border-radius:4px;}
+.mc-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .15s ease;}
+.mem-card:hover .mc-actions{opacity:1;}
+.mc-act{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:5px;color:var(--fg-2);font-size:11px;font-family:'SF Mono',monospace;width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s ease;padding:0;}
+.mc-act:hover{background:rgba(255,184,108,.12);border-color:var(--border-2);color:var(--amber);}
+.mc-act-del:hover{background:rgba(255,107,138,.12);border-color:rgba(255,107,138,.3);color:var(--rose)!important;}
 
 /* ── Right panel sections ── */
 .rp-section{padding:14px 16px;border-bottom:1px solid var(--border);}
@@ -323,6 +328,10 @@ canvas.chart{width:100%;display:block;}
     <!-- Memory list -->
     <div class="section">
       <h3>Memory Store <span id="memListCount" style="color:var(--fg-2);font-weight:400;font-size:9px;margin-left:4px"></span></h3>
+      <div class="field" style="margin-bottom:6px;">
+        <input id="memSearch" type="text" placeholder="search memories…" maxlength="120"
+          oninput="searchMemories(this.value)" style="font-size:12px;" />
+      </div>
       <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-secondary" onclick="setMemSort('salience')" id="sortSalience" style="font-size:9px">salience</button>
         <button class="btn btn-sm" onclick="setMemSort('recency')" id="sortRecency" style="font-size:9px;background:transparent;border:1px solid var(--border);color:var(--fg-2)">recency</button>
@@ -378,6 +387,14 @@ canvas.chart{width:100%;display:block;}
         <span class="btn-text">⌬ Consolidate Now</span>
       </button>
       <div id="consReport" style="margin-top:10px;display:none"></div>
+      <div id="consHistory" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- Trust Weights -->
+    <div class="rp-section">
+      <h3>Source Trust Weights</h3>
+      <canvas id="trustRadar" height="110" style="width:100%;height:110px;display:block;"></canvas>
+      <div id="trustLegend" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);"></div>
     </div>
 
     <!-- Vector Probe -->
@@ -416,6 +433,7 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab" onclick="switchTab('export')" data-tab="export">Export</button>
     <button class="dock-tab" onclick="switchTab('episodes')" data-tab="episodes">Episodes</button>
     <button class="dock-tab" onclick="switchTab('conflicts')" data-tab="conflicts">Conflicts</button>
+    <button class="dock-tab" onclick="switchTab('timeline')" data-tab="timeline">Timeline</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -501,6 +519,16 @@ canvas.chart{width:100%;display:block;}
           <div id="epResult" style="margin-top:10px;"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="dock-pane" id="paneTimeline">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Memory Age Distribution</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadTimeline()">↻ Refresh</button>
+      </div>
+      <canvas id="timelineChart" style="width:100%;height:190px;display:block;border-radius:6px;background:rgba(0,0,0,.25);"></canvas>
+      <div id="timelineLegend" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);"></div>
     </div>
 
     <!-- Conflicts -->
@@ -1457,6 +1485,80 @@ async function queryEpisode() {
   } catch(e) { el.innerHTML=`<div style="color:var(--rose);font-size:11px">${escHtml(e.message)}</div>`; }
 }
 
+async function loadTimeline() {
+  const cv = document.getElementById('timelineChart');
+  const leg = document.getElementById('timelineLegend');
+  if (!cv) return;
+  let mems = [];
+  if (S.live) {
+    try {
+      const data = await apiFetch('/memories/timeline', {params:{limit:80}});
+      mems = Array.isArray(data) ? data : (data.memories || data.timeline || []);
+    } catch { mems = S.memories; }
+  } else {
+    mems = S.memories.length ? S.memories : S.nodes.map(n=>({
+      label:n.label, decay_weight:n.decay_weight, importance:n._importance||0.5,
+      source:n._source||'user_input', cluster:n.cluster,
+      age_days: n.age || Math.floor(Math.random()*60),
+    }));
+  }
+  if (!mems.length) return;
+  renderTimeline(mems);
+}
+
+function renderTimeline(mems) {
+  const cv = document.getElementById('timelineChart');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth||600, H2 = 190;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const pad = {l:36,r:12,t:12,b:24};
+  const pw = W2-pad.l-pad.r, ph = H2-pad.t-pad.b;
+
+  const ages = mems.map(m => m.age_days ?? m.age ?? 0);
+  const maxAge = Math.max(...ages, 1);
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=0.7;
+  for (let i=0;i<=4;i++) {
+    const x = pad.l + (i/4)*pw;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke();
+    ctx.fillStyle='rgba(106,98,88,.6)'; ctx.font='8px SF Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(Math.round(i/4*maxAge)+'d', x, H2-6);
+  }
+
+  // Draw each memory as a bar (vertical strip)
+  const barW = Math.max(2, pw/mems.length - 1);
+  mems.forEach((m,i) => {
+    const age = m.age_days ?? m.age ?? 0;
+    const decay = m.decay_weight ?? 0.5;
+    const imp = m.importance ?? 0.5;
+    const src = m.source || 'user_input';
+    const rgb = src==='tool_result'?[93,232,218]:src==='web_search'?[167,139,250]:src==='agent_inference'?[255,107,138]:[255,184,108];
+    const x = pad.l + (age/maxAge)*pw;
+    const barH = Math.max(4, ph * imp * decay);
+    const y = pad.t + ph - barH;
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${0.3+decay*0.5})`;
+    ctx.fillRect(x - barW/2, y, barW, barH);
+  });
+
+  // Age axis label
+  ctx.fillStyle='rgba(106,98,88,.7)'; ctx.font='8px SF Mono,monospace'; ctx.textAlign='left';
+  ctx.fillText('age →', pad.l, pad.t-2);
+
+  // Legend
+  const leg = document.getElementById('timelineLegend');
+  if (leg) {
+    const srcs = [...new Set(mems.map(m=>m.source||'user_input'))];
+    const cols = {user_input:[255,184,108],tool_result:[93,232,218],web_search:[167,139,250],agent_inference:[255,107,138]};
+    leg.innerHTML = srcs.map(s=>{
+      const c=cols[s]||[200,200,200];
+      return `<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(${c[0]},${c[1]},${c[2]},.7);margin-right:3px;"></span>${s}</span>`;
+    }).join(' ');
+  }
+}
+
 async function loadConflicts() {
   const el = document.getElementById('conflictList');
   el.innerHTML = '<div style="color:var(--fg-2);font-size:11px">loading…</div>';
@@ -1529,6 +1631,99 @@ async function exportData(fmt) {
     toast('Exported: '+filename, 'ok');
     document.getElementById('exportPreview').textContent = 'Exported: '+filename+' · '+text.length+' bytes';
   } catch(e) { toast('Export failed: '+e.message,'err'); }
+}
+
+async function loadConsHistory() {
+  if (!S.live) return;
+  try {
+    const data = await apiFetch('/memories/consolidation/history', {params:{limit:5}});
+    const runs = Array.isArray(data) ? data : (data.history || data.runs || []);
+    const el = document.getElementById('consHistory');
+    if (!runs.length) { el.innerHTML=''; return; }
+    el.innerHTML = '<div style="font-family:SF Mono,monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px;">Recent Runs</div>'
+      + runs.slice(0,5).map(r=>`<div class="cons-report" style="margin-bottom:4px;padding:7px 10px;">
+          <div class="cr-row"><span>${fmtDate(r.ran_at||r.created_at||'')}</span><span class="cr-val">${r.prototypes_created||0} proto · freed ${r.memory_freed||0}</span></div>
+        </div>`).join('');
+  } catch { /* silently skip */ }
+}
+
+async function loadTrustWeights() {
+  const cv = document.getElementById('trustRadar');
+  const leg = document.getElementById('trustLegend');
+  if (!cv) return;
+  let weights;
+  if (S.live) {
+    try { weights = await apiFetch('/memories/trust-weights'); }
+    catch { weights = null; }
+  }
+  if (!weights) {
+    // Derive from current memories source distribution
+    const counts = {};
+    for (const m of S.memories) { const s = m.source||'user_input'; counts[s]=(counts[s]||0)+1; }
+    const total = Math.max(1, Object.values(counts).reduce((a,b)=>a+b,0));
+    weights = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v/total]));
+  }
+  // Normalize so max = 1
+  const entries = Object.entries(weights);
+  if (!entries.length) return;
+  const maxW = Math.max(...entries.map(([,v])=>v), 0.01);
+  const normed = entries.map(([k,v])=>([k, v/maxW]));
+  renderTrustRadar(normed);
+  if (leg) leg.innerHTML = normed.map(([k,v])=>`<span style="color:var(--fg-1)">${k}: <span style="color:var(--amber)">${(v*100).toFixed(0)}%</span></span>`).join(' · ');
+}
+
+function renderTrustRadar(entries) {
+  const cv = document.getElementById('trustRadar');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth||280, H2 = 110;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const n = entries.length;
+  if (!n) return;
+  const cx = W2/2, cy = H2*0.52, R = Math.min(W2/2,H2)*0.78;
+  const angle = i => -Math.PI/2 + (i/n)*Math.PI*2;
+  // Grid rings
+  for (let r = 0.25; r <= 1.01; r+=0.25) {
+    ctx.strokeStyle = `rgba(255,255,255,${r===1?0.08:0.04})`;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    entries.forEach((_,i)=>{
+      const a=angle(i); const x=cx+Math.cos(a)*R*r, y=cy+Math.sin(a)*R*r;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
+  }
+  // Spokes
+  entries.forEach((_,i)=>{
+    const a=angle(i);
+    ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=0.7;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*R, cy+Math.sin(a)*R); ctx.stroke();
+  });
+  // Data polygon
+  ctx.beginPath();
+  entries.forEach(([,v],i)=>{
+    const a=angle(i), r2=v*R; const x=cx+Math.cos(a)*r2, y=cy+Math.sin(a)*r2;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle='rgba(255,184,108,0.12)'; ctx.fill();
+  ctx.strokeStyle='rgba(255,184,108,0.65)'; ctx.lineWidth=1.5; ctx.stroke();
+  // Dots + labels
+  entries.forEach(([k,v],i)=>{
+    const a=angle(i), r2=v*R;
+    const dx=Math.cos(a), dy=Math.sin(a);
+    ctx.fillStyle='rgba(255,184,108,0.9)';
+    ctx.shadowColor='rgba(255,184,108,0.5)'; ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.arc(cx+dx*r2, cy+dy*r2, 3,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(176,168,152,0.7)';
+    ctx.font='8px SF Mono,monospace'; ctx.textAlign='center';
+    const lx=cx+dx*(R+10), ly=cy+dy*(R+10)+3;
+    const short=k.replace('_',' ').replace('agent','agt').replace('inference','inf').replace('result','res').slice(0,10);
+    ctx.fillText(short, lx, ly);
+  });
+  ctx.textAlign='left';
 }
 
 function renderProbeWave(hv, label) {
@@ -1606,8 +1801,15 @@ function renderMemList() {
   el.innerHTML = mems.slice(0,40).map((m,i) => {
     const sal = m.salience ?? (m.importance||0.5)*(m.decay_weight||0.5);
     const expired = m.valid_until && new Date(m.valid_until)<new Date();
+    const eid = m.entry_id || m.id || '';
     return `<div class="mem-card${expired?' expired-card':''}" onclick="selectMemoryCard(${i})" style="animation-delay:${i*30}ms">
-      <div class="mc-label">${escHtml(m.label||'—')}</div>
+      <div style="display:flex;align-items:flex-start;gap:4px;">
+        <div class="mc-label" style="flex:1;">${escHtml(m.label||'—')}</div>
+        <div class="mc-actions" onclick="event.stopPropagation()">
+          <button class="mc-act" title="reinforce" onclick="reinforceMemory(${JSON.stringify(String(eid))})">+</button>
+          <button class="mc-act mc-act-del" title="delete" onclick="deleteMemory(${JSON.stringify(String(eid))},${i})">×</button>
+        </div>
+      </div>
       <div class="mc-meta">
         <span class="src src-${m.source||'user_input'}">${m.source||'user_input'}</span>
         <span class="mc-num">↑${m.reinforcement_count||0}</span>
@@ -1629,6 +1831,70 @@ function selectMemoryCard(idx) {
     showDetailCard(S.selectedIdx);
     spawnNova(sn._sx||sn.x+W/2, sn._sy||sn.y+H/2, CLUSTER_RGB[sn.data.cluster%CLUSTER_RGB.length]);
   }
+}
+
+let _searchTimer = null;
+function searchMemories(q) {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(async () => {
+    if (!q.trim()) { await loadMemories(); return; }
+    if (S.live) {
+      try {
+        const data = await apiFetch('/memories/search', {params:{q:q.trim(),limit:40}});
+        S.memories = Array.isArray(data) ? data : (data.results || data.memories || []);
+        renderMemList();
+        return;
+      } catch { /* fall through to client-side filter */ }
+    }
+    // Offline: client-side filter
+    const lq = q.toLowerCase();
+    S.memories = S.nodes.map(n => ({
+      entry_id: n.entry_id, label: n.label,
+      source: n._source||'user_input', importance: n._importance||0.5,
+      reinforcement_count: n._reinforce||0,
+      salience: (n._importance||0.5)*(n.decay_weight||0.5),
+      decay_weight: n.decay_weight,
+    })).filter(m => (m.label||'').toLowerCase().includes(lq));
+    renderMemList();
+  }, 200);
+}
+
+async function reinforceMemory(entryId) {
+  if (!entryId || !S.live) { toast('Reinforce requires live backend', 'err'); return; }
+  try {
+    await apiFetch(`/memories/${entryId}/reinforce`, {method:'POST', body:{}});
+    toast('Reinforced +1', 'ok');
+    // Float +1 from the cosmos node
+    const sn = S.simNodes.find(n => String(n.data.entry_id)===String(entryId));
+    if (sn && sn._sx) S.reinforceFloats.push({x:sn._sx, y:sn._sy, born:performance.now()});
+    await loadMemories();
+  } catch(e) {
+    // Try alternate endpoint format
+    try {
+      await apiFetch('/memories/reinforce', {method:'POST', body:{entry_id:entryId}});
+      toast('Reinforced +1', 'ok');
+      await loadMemories();
+    } catch { toast('Reinforce: '+e.message, 'err'); }
+  }
+}
+
+async function deleteMemory(entryId, listIdx) {
+  if (!entryId) { toast('No entry id', 'err'); return; }
+  if (!S.live) {
+    // Offline: remove from sim
+    S.simNodes = S.simNodes.filter(n => String(n.data.entry_id)!==String(entryId) && n.id!==String(entryId));
+    S.nodes = S.nodes.filter(n => String(n.entry_id)!==String(entryId));
+    S.memories = S.memories.filter((_,i)=>i!==listIdx);
+    renderMemList();
+    toast('Removed (offline)', 'ok');
+    return;
+  }
+  try {
+    await apiFetch(`/memories/${entryId}`, {method:'DELETE'});
+    toast('Deleted', 'ok');
+    spawnNova(W/2, H/2, [255,107,138]);
+    await refreshGraph(); await loadMemories();
+  } catch(e) { toast('Delete: '+e.message, 'err'); }
 }
 
 function setMemSort(mode) {
@@ -1798,6 +2064,7 @@ function switchTab(name) {
   document.querySelectorAll('.dock-pane').forEach(p=>p.classList.toggle('active',p.id==='pane'+name.charAt(0).toUpperCase()+name.slice(1)));
   if (!dockOpen) { dockOpen=true; document.getElementById('dock').className='expanded'; document.getElementById('dockToggleBtn').textContent='↓ collapse'; }
   if (name==='conflicts') loadConflicts();
+  if (name==='timeline') loadTimeline();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1915,6 +2182,8 @@ async function poll() {
   await loadMemories();
   await loadDecayCurves();
   await loadHealth();
+  await loadTrustWeights();
+  await loadConsHistory();
   pollTimer = setTimeout(poll, POLL_INTERVAL);
 }
 
@@ -1941,6 +2210,8 @@ async function boot() {
     await loadMemories();
     await loadDecayCurves();
     await loadHealth();
+    await loadTrustWeights();
+    await loadConsHistory();
     pollTimer = setTimeout(poll, POLL_INTERVAL);
   } else {
     // Offline: simulate decay chart
@@ -1953,6 +2224,9 @@ async function boot() {
     renderDecayChart(mockDecay);
     // Offline health mock
     renderHealth({health_score:.88,total_memories:og.nodes.length,stale_memories:2,duplicate_candidates:[],orphaned_memories:0,recommendations:['simulation mode — no API']});
+    // Offline trust weights
+    S.memories = og.nodes.map(n=>({label:n.label,source:n._source||'user_input',importance:n._importance||0.5,decay_weight:n.decay_weight||0.7,reinforcement_count:n._reinforce||0,salience:(n._importance||0.5)*(n.decay_weight||0.7)}));
+    await loadTrustWeights();
   }
 
   // Boot splash out
