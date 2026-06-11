@@ -172,6 +172,13 @@ canvas.chart{width:100%;display:block;}
 .export-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;}
 .export-card .ec-title{font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-1);letter-spacing:1px;text-transform:uppercase;}
 .export-card .ec-desc{font-size:11px;color:var(--fg-2);}
+.conflict-card{background:rgba(255,107,138,.04);border:1px solid rgba(255,107,138,.15);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;}
+.conflict-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.conflict-mem{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px;padding:8px;font-size:11px;color:var(--fg-1);}
+.conflict-mem .cm-label{font-weight:500;color:var(--fg-0);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.conflict-mem .cm-meta{font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);}
+.conflict-actions{display:flex;gap:6px;align-items:center;}
+.conflict-sim{font-family:'SF Mono',monospace;font-size:10px;color:var(--rose);}
 
 /* ── Floating detail card ── */
 #detailCard{position:fixed;z-index:90;pointer-events:none;opacity:0;transform:scale(.95) translateY(4px);transition:opacity .22s ease,transform .25s cubic-bezier(.34,1.56,.64,1);width:260px;}
@@ -229,6 +236,11 @@ canvas.chart{width:100%;display:block;}
   <div class="h-pill" id="memPill" style="color:var(--fg-2)"><span id="memCount">0</span>&nbsp;memories</div>
   <div class="h-spacer"></div>
   <div class="h-actions">
+    <div class="h-pill" style="color:var(--fg-2);font-size:9px;gap:10px;display:none;" id="shortcutHint">
+      <span title="focus query">/&nbsp;query</span>
+      <span title="ctrl+enter to submit">⌘↵&nbsp;submit</span>
+      <span title="escape to close">⎋&nbsp;close</span>
+    </div>
     <button class="h-btn" id="btnLeft" onclick="toggleLeft()">☰ Console</button>
     <button class="h-btn" id="btnRight" onclick="toggleRight()">Panels ☰</button>
   </div>
@@ -368,6 +380,13 @@ canvas.chart{width:100%;display:block;}
       <div id="consReport" style="margin-top:10px;display:none"></div>
     </div>
 
+    <!-- Vector Probe -->
+    <div class="rp-section">
+      <h3>Vector Probe <span id="probeLabel" style="color:var(--fg-2);font-weight:400;font-size:9px;margin-left:4px;font-family:'SF Mono',monospace;"></span></h3>
+      <canvas id="probeWave" height="32" style="width:100%;height:32px;border-radius:4px;background:rgba(0,0,0,.3);margin-bottom:8px;display:block;"></canvas>
+      <div id="probeStats" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:'SF Mono',monospace;font-size:9.5px;color:var(--fg-2);"></div>
+    </div>
+
     <!-- Graph controls -->
     <div class="rp-section">
       <h3>Cosmos Controls</h3>
@@ -396,6 +415,7 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab active" onclick="switchTab('chain')" data-tab="chain">Chain Query</button>
     <button class="dock-tab" onclick="switchTab('export')" data-tab="export">Export</button>
     <button class="dock-tab" onclick="switchTab('episodes')" data-tab="episodes">Episodes</button>
+    <button class="dock-tab" onclick="switchTab('conflicts')" data-tab="conflicts">Conflicts</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -468,6 +488,10 @@ canvas.chart{width:100%;display:block;}
           <div class="field"><label>When</label><input id="epWhen" type="text" placeholder="the time or context…" /></div>
           <div class="field"><label>Where</label><input id="epWhere" type="text" placeholder="the location or space…" /></div>
           <button class="btn btn-primary btn-sm" onclick="storeEpisode()">⌬ Bind Episode</button>
+          <div style="margin-top:10px;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg-2);margin-bottom:4px;">encoded vector (first 64 dims)</div>
+            <canvas id="hvWaveform" width="220" height="28" style="width:100%;height:28px;border-radius:4px;background:rgba(0,0,0,.3);"></canvas>
+          </div>
         </div>
         <div>
           <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:8px;">Query by Cue</div>
@@ -476,6 +500,17 @@ canvas.chart{width:100%;display:block;}
           <button class="btn btn-secondary btn-sm" onclick="queryEpisode()">⌕ Recall Episode</button>
           <div id="epResult" style="margin-top:10px;"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Conflicts -->
+    <div class="dock-pane" id="paneConflicts">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Conflict Candidates</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadConflicts()">↻ Refresh</button>
+      </div>
+      <div id="conflictList" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="color:var(--fg-2);font-size:11px">loading conflicts…</div>
       </div>
     </div>
 
@@ -584,6 +619,7 @@ const S = {
   queryHitsBorn: 0,
   novas: [],
   retrievalPaths: [],
+  reinforceFloats: [],
   memSortMode: 'salience',
   storeTags: [],
   loading: {},
@@ -732,6 +768,7 @@ function easeOut(t){ return 1 - Math.pow(1-t,3); }
 
 function renderCosmos(now, dt) {
   CTX.clearRect(0,0,W,H);
+  const PX = _parallaxX, PY = _parallaxY;
 
   // Nebula glow per cluster
   CTX.save();
@@ -745,7 +782,7 @@ function renderCosmos(now, dt) {
   }
   for (const [c, cc] of clusterCenters) {
     if (cc.n === 0) continue;
-    const cx = cc.x/cc.n, cy = cc.y/cc.n;
+    const cx = cc.x/cc.n+PX, cy = cc.y/cc.n+PY;
     const r = Math.min(W,H) * 0.28;
     const rgb = CLUSTER_RGB[c % CLUSTER_RGB.length];
     const g = CTX.createRadialGradient(cx,cy,0,cx,cy,r);
@@ -767,16 +804,36 @@ function renderCosmos(now, dt) {
 
   // Edges
   CTX.save();
+  const hitSet = new Set(S.queryHits);
   for (const e of S.edges) {
     const a = _snById.get(e.source), b = _snById.get(e.target);
     if (!a || !b) continue;
-    const ax = a.x+W/2, ay = a.y+H/2, bx = b.x+W/2, by = b.y+H/2;
-    const alpha = clamp((e.similarity - 0.22) * 0.7, 0, 0.35);
+    const ax = a.x+W/2+PX, ay = a.y+H/2+PY, bx = b.x+W/2+PX, by = b.y+H/2+PY;
+    const bothHit = (hitSet.has(a.data.id)||hitSet.has(String(a.data.entry_id)))
+                 && (hitSet.has(b.data.id)||hitSet.has(String(b.data.entry_id)));
+    const eitherHit = bothHit || hitSet.has(a.data.id)||hitSet.has(String(a.data.entry_id))
+                               ||hitSet.has(b.data.id)||hitSet.has(String(b.data.entry_id));
+    let alpha = clamp((e.similarity - 0.22) * 0.7, 0, 0.35);
     if (alpha < 0.01) continue;
-    CTX.strokeStyle = `rgba(255,235,200,${alpha})`;
-    CTX.lineWidth = 0.5 + e.similarity * 0.6;
+    if (eitherHit) {
+      const qt = clamp((now-S.queryHitsBorn)/3000,0,1);
+      const pulse = 0.3 + 0.5*Math.abs(Math.sin(now*0.006 + e.similarity*8));
+      alpha = bothHit ? (1-qt)*0.65*pulse : (1-qt)*0.45*pulse;
+      const rgbH = bothHit ? [255,215,0] : [255,184,108];
+      CTX.strokeStyle = `rgba(${rgbH[0]},${rgbH[1]},${rgbH[2]},${alpha})`;
+      CTX.lineWidth = bothHit ? 1.4 + e.similarity*0.8 : 0.8 + e.similarity*0.5;
+      if (bothHit) {
+        CTX.setLineDash([4,6]);
+        CTX.lineDashOffset = -(now*0.06 % 10);
+      } else { CTX.setLineDash([]); }
+    } else {
+      CTX.setLineDash([]);
+      CTX.strokeStyle = `rgba(255,235,200,${alpha})`;
+      CTX.lineWidth = 0.5 + e.similarity * 0.6;
+    }
     CTX.beginPath(); CTX.moveTo(ax,ay); CTX.lineTo(bx,by); CTX.stroke();
   }
+  CTX.setLineDash([]);
   CTX.restore();
 
   // Retrieval paths
@@ -788,7 +845,7 @@ function renderCosmos(now, dt) {
     if (t > 1.6) { toRemove.push(pi); continue; }
     const tgt = _snById.get(rp.targetId);
     if (!tgt) continue;
-    const tx = tgt.x+W/2, ty = tgt.y+H/2;
+    const tx = tgt.x+W/2+PX, ty = tgt.y+H/2+PY;
     const mx = (rp.x0+tx)/2, my = (rp.y0+ty)/2;
     const dx = tx-rp.x0, dy = ty-rp.y0;
     const len = Math.sqrt(dx*dx+dy*dy)+0.01;
@@ -824,7 +881,7 @@ function renderCosmos(now, dt) {
   for (let i = 0; i < S.simNodes.length; i++) {
     const sn = S.simNodes[i];
     const node = sn.data;
-    const sx = sn.x+W/2, sy = sn.y+H/2;
+    const sx = sn.x+W/2+PX, sy = sn.y+H/2+PY;
     if (sx < -60 || sx > W+60 || sy < -60 || sy > H+60) continue;
     const rgb = CLUSTER_RGB[node.cluster % CLUSTER_RGB.length];
     const decay = node.decay_weight ?? 0.7;
@@ -882,12 +939,18 @@ function renderCosmos(now, dt) {
       CTX.beginPath(); CTX.arc(sx,sy,baseR*4,0,TAU); CTX.stroke();
     }
 
-    // Label (hover or close)
-    if (i === S.hoverIdx || i === S.selectedIdx) {
-      CTX.font = `12px 'SF Pro Display',system-ui,sans-serif`;
-      CTX.fillStyle = `rgba(245,234,216,0.92)`;
-      CTX.shadowColor = 'rgba(0,0,0,0.9)'; CTX.shadowBlur = 8;
-      CTX.fillText(node.label, sx+baseR+8, sy+4);
+    // Label — always show for salient/active/hit nodes
+    const isActive = i === S.hoverIdx || i === S.selectedIdx;
+    const isHit = S.queryHits.includes(node.id) || S.queryHits.includes(String(node.entry_id));
+    if (isActive || isHit || imp > 0.62) {
+      const maxC = isActive ? 34 : 18;
+      const lbl = node.label.length > maxC ? node.label.slice(0, maxC-2)+'…' : node.label;
+      const alpha = isActive ? 0.93 : isHit ? 0.82 : 0.30 + imp*0.38;
+      CTX.font = `${isActive ? 12 : 10}px 'SF Pro Display',system-ui,sans-serif`;
+      CTX.fillStyle = `rgba(245,234,216,${alpha})`;
+      CTX.shadowColor = 'rgba(0,0,0,0.95)';
+      CTX.shadowBlur = isActive ? 8 : 5;
+      CTX.fillText(lbl, sx+baseR+5, sy+4);
       CTX.shadowBlur = 0;
     }
 
@@ -917,6 +980,27 @@ function renderCosmos(now, dt) {
   }
   CTX.restore();
   S.novas = aliveNovas;
+
+  // Reinforcement floats (+1 text rising from hit nodes)
+  CTX.save();
+  const aliveRF = [];
+  for (const rf of S.reinforceFloats) {
+    const t = (now-rf.born)/1600;
+    if (t >= 1) continue;
+    aliveRF.push(rf);
+    const e2 = easeOut(t);
+    const alpha = t < 0.5 ? t*2 : (1-t)*2;
+    CTX.globalAlpha = alpha * 0.9;
+    CTX.font = `bold ${11+e2*3}px 'SF Mono',monospace`;
+    CTX.fillStyle = `rgba(255,215,0,1)`;
+    CTX.shadowColor = 'rgba(255,184,108,0.8)'; CTX.shadowBlur = 8;
+    CTX.textAlign = 'center';
+    CTX.fillText('+1', rf.x, rf.y - e2*44);
+    CTX.shadowBlur = 0;
+  }
+  CTX.globalAlpha = 1; CTX.textAlign = 'left';
+  CTX.restore();
+  S.reinforceFloats = aliveRF;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1233,6 +1317,17 @@ async function queryMemory() {
       });
     });
 
+    // Spawn +1 floats on reinforced nodes
+    if (S.live) {
+      hits.forEach((hit, rank) => {
+        setTimeout(() => {
+          const sn = S.simNodes.find(n => String(n.data.entry_id)===String(hit.entry_id)
+                                       || String(n.data.id)===String(hit.entry_id));
+          if (sn && sn._sx) S.reinforceFloats.push({x:sn._sx,y:sn._sy,born:performance.now()});
+        }, rank * 140 + 400);
+      });
+    }
+
     toast(`Recalled ${hits.length} memories`, 'ok');
   } catch(e) {
     toast('Query failed: '+e.message, 'err');
@@ -1362,6 +1457,59 @@ async function queryEpisode() {
   } catch(e) { el.innerHTML=`<div style="color:var(--rose);font-size:11px">${escHtml(e.message)}</div>`; }
 }
 
+async function loadConflicts() {
+  const el = document.getElementById('conflictList');
+  el.innerHTML = '<div style="color:var(--fg-2);font-size:11px">loading…</div>';
+  if (!S.live) {
+    el.innerHTML = '<div style="color:var(--fg-2);font-size:11px">conflicts require live backend</div>';
+    return;
+  }
+  try {
+    const data = await apiFetch('/memories/conflicts', {params:{threshold:0.92}});
+    const pairs = Array.isArray(data) ? data : (data.conflicts || data.pairs || []);
+    if (!pairs.length) {
+      el.innerHTML = '<div style="color:var(--green);font-size:11px;font-family:SF Mono,monospace">✓ no conflicts detected</div>';
+      return;
+    }
+    el.innerHTML = pairs.slice(0,8).map((p,i) => {
+      const a = p.memory_a || p.a || p[0] || {};
+      const b = p.memory_b || p.b || p[1] || {};
+      const sim = p.similarity ?? p.sim ?? 0;
+      return `<div class="conflict-card">
+        <div class="conflict-actions">
+          <span class="conflict-sim">sim ${sim.toFixed(4)}</span>
+          <button class="btn btn-sm btn-secondary" style="font-size:9px" onclick="resolveConflict(${JSON.stringify(a.id||a.entry_id||'')},${JSON.stringify(b.id||b.entry_id||'')},'a')">Keep A</button>
+          <button class="btn btn-sm btn-secondary" style="font-size:9px" onclick="resolveConflict(${JSON.stringify(a.id||a.entry_id||'')},${JSON.stringify(b.id||b.entry_id||'')},'b')">Keep B</button>
+          <button class="btn btn-sm btn-teal" style="font-size:9px" onclick="resolveConflict(${JSON.stringify(a.id||a.entry_id||'')},${JSON.stringify(b.id||b.entry_id||'')},'merge')">Merge</button>
+        </div>
+        <div class="conflict-pair">
+          <div class="conflict-mem"><div class="cm-label">${escHtml(a.label||'—')}</div><div class="cm-meta">id:${a.id||a.entry_id||'?'} · imp:${(a.importance||0).toFixed(2)}</div></div>
+          <div class="conflict-mem"><div class="cm-label">${escHtml(b.label||'—')}</div><div class="cm-meta">id:${b.id||b.entry_id||'?'} · imp:${(b.importance||0).toFixed(2)}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--rose);font-size:11px">${escHtml(e.message)}</div>`;
+  }
+}
+
+async function resolveConflict(idA, idB, action) {
+  if (!S.live) return;
+  try {
+    if (action === 'merge') {
+      await apiFetch('/consolidate', {method:'POST', body:{force:true}});
+      toast('Merged via consolidation', 'ok');
+    } else {
+      const del = action === 'a' ? idB : idA;
+      if (del) await apiFetch(`/memories/${del}`, {method:'DELETE'});
+      toast(`Kept memory ${action.toUpperCase()}`, 'ok');
+    }
+    await loadConflicts();
+    await refreshGraph();
+    await loadMemories();
+  } catch(e) { toast('Resolve failed: '+e.message,'err'); }
+}
+
 async function exportData(fmt) {
   try {
     let url, filename, type='application/json';
@@ -1381,6 +1529,59 @@ async function exportData(fmt) {
     toast('Exported: '+filename, 'ok');
     document.getElementById('exportPreview').textContent = 'Exported: '+filename+' · '+text.length+' bytes';
   } catch(e) { toast('Export failed: '+e.message,'err'); }
+}
+
+function renderProbeWave(hv, label) {
+  const cv = document.getElementById('probeWave');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth || 280, H2 = 32;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const n = Math.min(128, hv.length);
+  const bw = W2/n;
+  for (let i = 0; i < n; i++) {
+    const v = hv[i];
+    const rgb = v > 0 ? [255,184,108] : [93,232,218];
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.65)`;
+    ctx.fillRect(i*bw+0.5, v>0?2:H2/2, Math.max(1,bw-0.5), H2/2-2);
+  }
+  document.getElementById('probeLabel').textContent = label ? '· '+label.slice(0,20) : '';
+  const nPlus = hv.slice(0,1024).filter(x=>x>0).length;
+  const nMinus = hv.length - nPlus;
+  document.getElementById('probeStats').innerHTML =
+    `<span style="color:var(--amber)">+1: ${nPlus}</span><span style="color:var(--teal)">−1: ${nMinus}</span>`+
+    `<span>dims: ${hv.length}</span><span>balance: ${((nPlus/hv.length)*100).toFixed(1)}%</span>`;
+}
+
+function renderHvWaveform(hv) {
+  const cv = document.getElementById('hvWaveform');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth || 220, H2 = 28;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const n = Math.min(64, hv.length);
+  const bw = W2/n;
+  for (let i = 0; i < n; i++) {
+    const v = hv[i]; // +1 or -1
+    const rgb = v > 0 ? [255,184,108] : [93,232,218];
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.7)`;
+    const barH = H2 * 0.7;
+    const y = v > 0 ? (H2 - barH)/2 : H2/2;
+    const h = v > 0 ? barH/2 : barH/2;
+    ctx.fillRect(i*bw+0.5, y, Math.max(1, bw-1), h);
+  }
+}
+
+function updateEpWaveform() {
+  const parts = [
+    document.getElementById('epWho')?.value,
+    document.getElementById('epWhat')?.value,
+    document.getElementById('epWhen')?.value,
+    document.getElementById('epWhere')?.value,
+  ].filter(Boolean).join(' ');
+  if (parts.trim()) renderHvWaveform(encodeText(parts));
 }
 
 function download(content, filename, type) {
@@ -1481,6 +1682,15 @@ function showDetailCard(idx) {
     `<div class="dn-item"><span class="dn-label">${escHtml(n.label.slice(0,28))}</span><span class="dn-sim">${n.sim.toFixed(3)}</span></div>`
   ).join('');
 
+  // Render probe waveform — live fetch from /viz/probe or browser HDC fallback
+  if (S.live) {
+    apiFetch('/viz/probe', {params:{input:nd.label,type:'text'}})
+      .then(p => { if (p.vector) renderProbeWave(p.vector.slice(0,1024), nd.label); })
+      .catch(() => renderProbeWave(encodeText(nd.label||''), nd.label));
+  } else {
+    renderProbeWave(nd._hv || encodeText(nd.label||''), nd.label);
+  }
+
   const card = document.getElementById('detailCard');
   const sx = sn._sx ?? sn.x+W/2, sy = sn._sy ?? sn.y+H/2;
   let cx = sx+24, cy = sy-90;
@@ -1547,6 +1757,10 @@ function renderTags() {
   row.innerHTML = S.storeTags.map((t,i)=>`<span class="tag-chip">${escHtml(t)}<span class="rm" onclick="removeTag(${i})">×</span></span>`).join('');
 }
 function removeTag(i) { S.storeTags.splice(i,1); renderTags(); }
+['epWho','epWhat','epWhen','epWhere'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input', updateEpWaveform);
+});
+
 document.getElementById('storeTagInput').addEventListener('keydown', e=>{
   if (e.key==='Enter' || e.key===',') {
     e.preventDefault();
@@ -1583,6 +1797,7 @@ function switchTab(name) {
   document.querySelectorAll('.dock-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.dock-pane').forEach(p=>p.classList.toggle('active',p.id==='pane'+name.charAt(0).toUpperCase()+name.slice(1)));
   if (!dockOpen) { dockOpen=true; document.getElementById('dock').className='expanded'; document.getElementById('dockToggleBtn').textContent='↓ collapse'; }
+  if (name==='conflicts') loadConflicts();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1601,9 +1816,11 @@ function findStar(mx,my) {
   return best;
 }
 
+let _mx = 0, _my = 0, _parallaxX = 0, _parallaxY = 0;
 CV.addEventListener('mousemove', e=>{
   S.hoverIdx=findStar(e.clientX,e.clientY);
   CV.style.cursor=S.hoverIdx>=0?'pointer':'crosshair';
+  _mx = e.clientX; _my = e.clientY;
 });
 CV.addEventListener('mouseleave',()=>{ S.hoverIdx=-1; });
 CV.addEventListener('click',e=>{
@@ -1624,7 +1841,44 @@ CV.addEventListener('click',e=>{
     hideDetailCard();
   }
 });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideDetailCard(); });
+document.addEventListener('keydown', e => {
+  const sh = document.getElementById('shortcutHint');
+  if (sh) sh.style.display = 'inline-flex';
+  const tag = document.activeElement?.tagName;
+  const inInput = ['INPUT','TEXTAREA','SELECT'].includes(tag);
+  if (e.key === 'Escape') {
+    hideDetailCard();
+    document.getElementById('panelLeft').classList.remove('open');
+    document.getElementById('panelRight').classList.remove('open');
+    document.getElementById('btnLeft').classList.remove('active');
+    document.getElementById('btnRight').classList.remove('active');
+    return;
+  }
+  if (e.key === '/' && !inInput) {
+    e.preventDefault();
+    if (!document.getElementById('panelLeft').classList.contains('open')) toggleLeft();
+    setTimeout(()=>document.getElementById('queryInput').focus(), 340);
+    return;
+  }
+  if ((e.ctrlKey||e.metaKey) && e.key==='k') {
+    e.preventDefault();
+    if (!document.getElementById('panelLeft').classList.contains('open')) toggleLeft();
+    setTimeout(()=>document.getElementById('queryInput').focus(), 340);
+    return;
+  }
+  if ((e.ctrlKey||e.metaKey) && e.key==='Enter') {
+    e.preventDefault();
+    const id = document.activeElement?.id;
+    if (id==='queryInput') queryMemory();
+    else storeMemory();
+    return;
+  }
+  if ((e.ctrlKey||e.metaKey) && e.key==='r' && !inInput) {
+    e.preventDefault();
+    refreshGraph(); loadMemories(); toast('Refreshed','ok');
+    return;
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  RESIZE
@@ -1644,6 +1898,9 @@ window.addEventListener('resize', resize);
 function loop(now) {
   const dt = Math.min((now-lastT)/1000, 0.05);
   lastT = now;
+  // Soft parallax drift toward mouse
+  _parallaxX += ((_mx/W - 0.5)*14 - _parallaxX) * 0.04;
+  _parallaxY += ((_my/H - 0.5)*10 - _parallaxY) * 0.04;
   stepSim(dt);
   updateSnById();
   renderCosmos(now, dt);
