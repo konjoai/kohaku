@@ -91,6 +91,7 @@ from datetime import datetime, timezone  # noqa: E402
 DEMO_DIR = ROOT / "demo"
 SAMPLE_PATH = DEMO_DIR / "sample_memory.json"
 MEMORY_MAP_HTML = DEMO_DIR / "memory_map.html"
+LIVE_HTML = DEMO_DIR / "kohaku-live.html"
 
 DEFAULT_THRESHOLD = 0.7
 DEFAULT_K = 3
@@ -685,7 +686,7 @@ def create_app(
             "num_concepts": len(viz.memory.entries()),
             "endpoints": [
                 "/health", "/stats",
-                "/viz/graph", "/viz/decay", "/viz/probe", "/viz/memory_map.html",
+                "/viz/graph", "/viz/decay", "/viz/probe", "/viz/memory_map.html", "/live",
                 "/encode", "/store", "/query", "/bundle",
             ],
         }
@@ -746,6 +747,12 @@ def create_app(
         if not MEMORY_MAP_HTML.exists():
             raise HTTPException(status_code=404, detail="memory_map.html not found")
         return FileResponse(MEMORY_MAP_HTML, media_type="text/html")
+
+    @app.get("/live", response_class=FileResponse)
+    def live_ui() -> FileResponse:
+        if not LIVE_HTML.exists():
+            raise HTTPException(status_code=404, detail="kohaku-live.html not found")
+        return FileResponse(LIVE_HTML, media_type="text/html")
 
     # ── REST encoding / storage / retrieval ──────────────────────────────
     @app.post("/encode", response_model=EncodeResponse)
