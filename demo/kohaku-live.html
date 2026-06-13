@@ -201,6 +201,10 @@ canvas.chart{width:100%;display:block;}
 #detailCard .dn-label{color:var(--fg-0);}
 #detailCard .dn-sim{color:var(--amber);}
 
+/* ── Activity stream ── */
+.act-entry{background:rgba(7,7,15,0.82);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-family:'SF Mono',monospace;font-size:9.5px;color:var(--fg-1);display:flex;align-items:center;gap:6px;animation:actSlide .28s cubic-bezier(.34,1.56,.64,1) both;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@keyframes actSlide{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+.act-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
 /* ── Toast ── */
 #toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -600,12 +604,19 @@ canvas.chart{width:100%;display:block;}
       <div class="dn-head">resonant neighbors</div>
       <div id="dcNeighbors"></div>
     </div>
+    <div class="dc-neighbors" id="dcRelatedSection" style="display:none;">
+      <div class="dn-head">related memories</div>
+      <div id="dcRelated"></div>
+    </div>
     <div class="dc-neighbors" id="dcProvSection" style="display:none;">
       <div class="dn-head">provenance</div>
       <div id="dcProvenance"></div>
     </div>
   </div>
 </div>
+
+<!-- Activity stream -->
+<div id="activityStream" style="position:fixed;bottom:52px;right:16px;z-index:65;display:flex;flex-direction:column-reverse;gap:4px;pointer-events:none;width:220px;"></div>
 
 <!-- Toast -->
 <div id="toast"><div class="toast-inner" id="toastText"></div></div>
@@ -867,11 +878,13 @@ function renderCosmos(now, dt) {
   }
   CTX.restore();
 
-  // Dust (background stars)
+  // Dust (drifting background stars)
   CTX.save();
   for (const d of _dust) {
-    const tw = 0.35 + 0.65*Math.abs(Math.sin(now*0.0008 + d.ph));
-    CTX.fillStyle = `rgba(245,234,216,${(0.07 + tw*0.12)})`;
+    d.x = (d.x + d.vx + 1) % 1;
+    d.y = (d.y + d.vy + 1) % 1;
+    const tw = 0.3 + 0.7*Math.abs(Math.sin(now*0.0007 + d.ph));
+    CTX.fillStyle = `rgba(245,234,216,${(0.05 + tw*0.14)})`;
     CTX.beginPath(); CTX.arc(d.x*W, d.y*H, d.r, 0, TAU); CTX.fill();
   }
   CTX.restore();
@@ -1007,11 +1020,45 @@ function renderCosmos(now, dt) {
     CTX.fillStyle = `rgba(255,248,230,${bright*0.7})`;
     CTX.beginPath(); CTX.arc(sx,sy,baseR*0.38,0,TAU); CTX.fill();
 
-    // Hover ring
+    // Decay age rings (concentric fading rings showing memory freshness)
+    for (let ri = 1; ri <= 3; ri++) {
+      const ringR = baseR * (3 + ri*2.5);
+      const ringA = decay * (0.18 - ri*0.045) * salienceAlpha;
+      if (ringA < 0.01) break;
+      CTX.strokeStyle = rgba(rgb, ringA);
+      CTX.lineWidth = 0.5;
+      CTX.setLineDash([3+ri, 5-ri]);
+      CTX.lineDashOffset = now * (ri%2===0?0.03:-0.03);
+      CTX.beginPath(); CTX.arc(sx, sy, ringR, 0, TAU); CTX.stroke();
+    }
+    CTX.setLineDash([]);
+
+    // Hover ring + constellation lines to all neighbors
     if (i === S.hoverIdx) {
       CTX.strokeStyle = rgba(rgb, 0.9);
-      CTX.lineWidth = 1.2;
+      CTX.lineWidth = 1.4;
       CTX.beginPath(); CTX.arc(sx,sy,baseR*3.5,0,TAU); CTX.stroke();
+      // Constellation lines to ALL edge neighbors
+      const neighborEdges = S.edges.filter(e2=>e2.source===sn.id||e2.target===sn.id);
+      for (const ne of neighborEdges) {
+        const otherId = ne.source===sn.id?ne.target:ne.source;
+        const other = _snById.get(otherId);
+        if (!other) continue;
+        const ox = other.x+W/2+PX, oy = other.y+H/2+PY;
+        const pulse = 0.3 + 0.4*Math.abs(Math.sin(now*0.005 + ne.similarity*10));
+        CTX.strokeStyle = rgba(rgb, 0.55*pulse*ne.similarity);
+        CTX.lineWidth = 0.8 + ne.similarity;
+        CTX.setLineDash([6, 8]);
+        CTX.lineDashOffset = -(now * 0.08 % 14);
+        CTX.beginPath(); CTX.moveTo(sx, sy); CTX.lineTo(ox, oy); CTX.stroke();
+        // Dot at other end
+        CTX.setLineDash([]);
+        CTX.fillStyle = rgba(rgb, 0.7*pulse);
+        CTX.shadowColor = rgba(rgb, 0.5); CTX.shadowBlur = 6;
+        CTX.beginPath(); CTX.arc(ox, oy, 2.5+ne.similarity*2, 0, TAU); CTX.fill();
+        CTX.shadowBlur = 0;
+      }
+      CTX.setLineDash([]);
     }
     if (i === S.selectedIdx) {
       CTX.strokeStyle = `rgba(255,215,0,0.8)`;
@@ -1288,6 +1335,7 @@ async function triggerConsolidate() {
       <div class="cr-row"><span>memory freed</span><span class="cr-val">${data.memory_freed??0}</span></div>
       <div class="cr-row"><span>run time</span><span class="cr-val">${((data.run_seconds||0)*1000).toFixed(1)}ms</span></div>
     </div>`;
+    actLog('consolidate', data.prototypes_created+' prototypes');
     toast('Consolidation complete · '+data.prototypes_created+' prototypes', 'ok');
     spawnConsolidationNovas();
     await refreshGraph();
@@ -1355,6 +1403,7 @@ async function storeMemory() {
     S.storeTags = [];
     renderTags();
     document.getElementById('storeLabel').value = '';
+    actLog('store', label);
     toast('Memory stored: "'+label.slice(0,40)+'"', 'ok');
     // Spawn nova at center
     spawnNova(W/2, H/2, CLUSTER_RGB[0]);
@@ -1430,6 +1479,7 @@ async function queryMemory() {
       });
     }
 
+    actLog('query', text);
     toast(`Recalled ${hits.length} memories`, 'ok');
   } catch(e) {
     toast('Query failed: '+e.message, 'err');
@@ -2054,6 +2104,7 @@ async function reinforceMemory(entryId) {
   if (!entryId || !S.live) { toast('Reinforce requires live backend', 'err'); return; }
   try {
     await apiFetch(`/memories/${entryId}/reinforce`, {method:'POST', body:{}});
+    actLog('reinforce', String(entryId));
     toast('Reinforced +1', 'ok');
     // Float +1 from the cosmos node
     const sn = S.simNodes.find(n => String(n.data.entry_id)===String(entryId));
@@ -2082,6 +2133,7 @@ async function deleteMemory(entryId, listIdx) {
   }
   try {
     await apiFetch(`/memories/${entryId}`, {method:'DELETE'});
+    actLog('delete', String(entryId));
     toast('Deleted', 'ok');
     spawnNova(W/2, H/2, [255,107,138]);
     await refreshGraph(); await loadMemories();
@@ -2148,6 +2200,22 @@ function showDetailCard(idx) {
     renderProbeWave(nd._hv || encodeText(nd.label||''), nd.label);
   }
 
+  // Load related memories
+  const relSec = document.getElementById('dcRelatedSection');
+  const relEl = document.getElementById('dcRelated');
+  if (relSec) relSec.style.display='none';
+  if (S.live && nd.entry_id) {
+    apiFetch(`/memories/${nd.entry_id}/related`, {params:{limit:4}}).then(r=>{
+      const rels = Array.isArray(r)?r:(r.related||r.memories||[]);
+      if (rels.length && relEl && relSec) {
+        relSec.style.display='block';
+        relEl.innerHTML = rels.slice(0,4).map(m=>
+          `<div class="dn-item"><span class="dn-label">${escHtml((m.label||'?').slice(0,26))}</span><span class="dn-sim">${(m.similarity||m.score||0).toFixed(3)}</span></div>`
+        ).join('');
+      }
+    }).catch(()=>{});
+  }
+
   // Load provenance chain
   const provSec = document.getElementById('dcProvSection');
   const provEl = document.getElementById('dcProvenance');
@@ -2187,7 +2255,13 @@ function updateSnById() { _snById = new Map(S.simNodes.map(n=>[n.id,n])); }
 
 let _dust = [];
 function initDust() {
-  _dust = Array.from({length:180},()=>({x:Math.random(),y:Math.random(),r:Math.random()*0.8+0.2,ph:Math.random()*TAU}));
+  _dust = Array.from({length:220},()=>({
+    x:Math.random(), y:Math.random(),
+    r:Math.random()*0.9+0.15,
+    ph:Math.random()*TAU,
+    vx:(Math.random()-0.5)*0.00012,
+    vy:(Math.random()-0.5)*0.00008,
+  }));
 }
 
 function spawnNova(x, y, rgb) {
@@ -2197,6 +2271,23 @@ function spawnNova(x, y, rgb) {
     return {vx:Math.cos(a)*sp, vy:Math.sin(a)*sp};
   });
   S.novas.push({x,y,rgb,particles,born:performance.now()});
+}
+
+// Activity stream
+const ACT_COLORS = {store:'#ffb86c',query:'#5de8da',reinforce:'#ffd700',delete:'#ff6b8a',consolidate:'#a78bfa',conflict:'#ff9f3f'};
+function actLog(type, label) {
+  const el = document.getElementById('activityStream');
+  if (!el) return;
+  const ts = new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const color = ACT_COLORS[type] || '#b0a898';
+  const entry = document.createElement('div');
+  entry.className = 'act-entry';
+  entry.innerHTML = `<span class="act-dot" style="background:${color};box-shadow:0 0 4px ${color};"></span><span style="color:${color};min-width:62px;">${type}</span><span style="color:var(--fg-2);flex:1;overflow:hidden;text-overflow:ellipsis;">${escHtml((label||'').slice(0,24))}</span><span style="color:rgba(106,98,88,.6);font-size:8.5px;">${ts}</span>`;
+  el.prepend(entry);
+  // Keep max 6 entries
+  while (el.children.length > 6) el.removeChild(el.lastChild);
+  // Fade out after 6s
+  setTimeout(() => { entry.style.transition='opacity .5s'; entry.style.opacity='0'; setTimeout(()=>entry.remove(),550); }, 6000);
 }
 
 function escHtml(s) {
