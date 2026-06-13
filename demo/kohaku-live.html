@@ -126,6 +126,11 @@ header{position:fixed;top:0;left:0;right:0;height:52px;z-index:100;background:rg
 .mem-card .sal-bar>div{height:100%;border-radius:1px;background:linear-gradient(90deg,var(--amber),var(--gold));transition:width .4s ease;}
 .mem-card .mc-num{font-family:'SF Mono',monospace;font-size:9.5px;color:var(--fg-2);}
 .mem-card .expired-badge{font-family:'SF Mono',monospace;font-size:9px;color:var(--rose);padding:1px 5px;border:1px solid rgba(255,107,138,.3);border-radius:4px;}
+.mc-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .15s ease;}
+.mem-card:hover .mc-actions{opacity:1;}
+.mc-act{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:5px;color:var(--fg-2);font-size:11px;font-family:'SF Mono',monospace;width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s ease;padding:0;}
+.mc-act:hover{background:rgba(255,184,108,.12);border-color:var(--border-2);color:var(--amber);}
+.mc-act-del:hover{background:rgba(255,107,138,.12);border-color:rgba(255,107,138,.3);color:var(--rose)!important;}
 
 /* ── Right panel sections ── */
 .rp-section{padding:14px 16px;border-bottom:1px solid var(--border);}
@@ -323,6 +328,10 @@ canvas.chart{width:100%;display:block;}
     <!-- Memory list -->
     <div class="section">
       <h3>Memory Store <span id="memListCount" style="color:var(--fg-2);font-weight:400;font-size:9px;margin-left:4px"></span></h3>
+      <div class="field" style="margin-bottom:6px;">
+        <input id="memSearch" type="text" placeholder="search memories…" maxlength="120"
+          oninput="searchMemories(this.value)" style="font-size:12px;" />
+      </div>
       <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-secondary" onclick="setMemSort('salience')" id="sortSalience" style="font-size:9px">salience</button>
         <button class="btn btn-sm" onclick="setMemSort('recency')" id="sortRecency" style="font-size:9px;background:transparent;border:1px solid var(--border);color:var(--fg-2)">recency</button>
@@ -378,6 +387,14 @@ canvas.chart{width:100%;display:block;}
         <span class="btn-text">⌬ Consolidate Now</span>
       </button>
       <div id="consReport" style="margin-top:10px;display:none"></div>
+      <div id="consHistory" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- Trust Weights -->
+    <div class="rp-section">
+      <h3>Source Trust Weights</h3>
+      <canvas id="trustRadar" height="110" style="width:100%;height:110px;display:block;"></canvas>
+      <div id="trustLegend" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);"></div>
     </div>
 
     <!-- Vector Probe -->
@@ -390,6 +407,15 @@ canvas.chart{width:100%;display:block;}
     <!-- Graph controls -->
     <div class="rp-section">
       <h3>Cosmos Controls</h3>
+      <div class="field">
+        <label>Salience Filter</label>
+        <div class="slider-row">
+          <input type="range" id="salienceFilter" min="0" max="0.8" step="0.02" value="0"
+            style="flex:1;accent-color:var(--violet);"
+            oninput="S.salienceThreshold=parseFloat(this.value);document.getElementById('salFiltVal').textContent=parseFloat(this.value).toFixed(2)" />
+          <span id="salFiltVal" style="font-family:'SF Mono',monospace;font-size:11px;color:var(--violet);min-width:32px;">0.00</span>
+        </div>
+      </div>
       <div class="field">
         <label>Edge Threshold</label>
         <div class="slider-row">
@@ -416,6 +442,9 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab" onclick="switchTab('export')" data-tab="export">Export</button>
     <button class="dock-tab" onclick="switchTab('episodes')" data-tab="episodes">Episodes</button>
     <button class="dock-tab" onclick="switchTab('conflicts')" data-tab="conflicts">Conflicts</button>
+    <button class="dock-tab" onclick="switchTab('timeline')" data-tab="timeline">Timeline</button>
+    <button class="dock-tab" onclick="switchTab('encode')" data-tab="encode">HDC Encode</button>
+    <button class="dock-tab" onclick="switchTab('heatmap')" data-tab="heatmap">Heatmap</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -503,6 +532,46 @@ canvas.chart{width:100%;display:block;}
       </div>
     </div>
 
+    <!-- Timeline -->
+    <div class="dock-pane" id="paneTimeline">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Memory Age Distribution</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadTimeline()">↻ Refresh</button>
+      </div>
+      <canvas id="timelineChart" style="width:100%;height:190px;display:block;border-radius:6px;background:rgba(0,0,0,.25);"></canvas>
+      <div id="timelineLegend" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);"></div>
+    </div>
+
+    <!-- HDC Encode Terminal -->
+    <div class="dock-pane" id="paneEncode">
+      <div class="dock-cols">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px;">Live HDC Encoding</div>
+            <input id="encodeInput" type="text" placeholder="type any text to encode…" maxlength="200"
+              oninput="liveEncode(this.value)" style="font-size:12px;width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);padding:7px 10px;outline:none;" />
+          </div>
+          <div id="encodeTokens" style="display:flex;gap:4px;flex-wrap:wrap;min-height:22px;"></div>
+          <div id="encodeStats" style="font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);display:grid;grid-template-columns:1fr 1fr;gap:4px;"></div>
+          <canvas id="encodeFinalWave" height="36" style="width:100%;height:36px;border-radius:5px;background:rgba(0,0,0,.3);display:block;"></canvas>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Token Vectors (first 32 dims)</div>
+          <div id="encodeTokenWaves" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Similarity Heatmap -->
+    <div class="dock-pane" id="paneHeatmap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Cosine Similarity Matrix</div>
+        <button class="btn btn-secondary btn-sm" onclick="renderHeatmap()">↻ Refresh</button>
+      </div>
+      <canvas id="heatmapChart" style="width:100%;max-height:220px;display:block;image-rendering:pixelated;border-radius:4px;cursor:crosshair;" onclick="heatmapClick(event)"></canvas>
+      <div id="heatmapTip" style="margin-top:6px;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);"></div>
+    </div>
+
     <!-- Conflicts -->
     <div class="dock-pane" id="paneConflicts">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -530,6 +599,10 @@ canvas.chart{width:100%;display:block;}
     <div class="dc-neighbors">
       <div class="dn-head">resonant neighbors</div>
       <div id="dcNeighbors"></div>
+    </div>
+    <div class="dc-neighbors" id="dcProvSection" style="display:none;">
+      <div class="dn-head">provenance</div>
+      <div id="dcProvenance"></div>
     </div>
   </div>
 </div>
@@ -620,6 +693,7 @@ const S = {
   novas: [],
   retrievalPaths: [],
   reinforceFloats: [],
+  salienceThreshold: 0,
   memSortMode: 'salience',
   storeTags: [],
   loading: {},
@@ -887,9 +961,15 @@ function renderCosmos(now, dt) {
     const decay = node.decay_weight ?? 0.7;
     const imp = node._importance ?? node.importance ?? 0.5;
     const rc = node._reinforce ?? node.reinforcement_count ?? 0;
+    const salience = imp * decay;
+    // Salience filter: fade nodes below threshold
+    const salienceAlpha = S.salienceThreshold > 0
+      ? clamp((salience - S.salienceThreshold) / 0.1, 0, 1)
+      : 1;
+    if (salienceAlpha < 0.02) { sn._sx = sx; sn._sy = sy; sn._sr = 0; continue; }
     const baseR = 2.2 + imp*2.4 + Math.log1p(rc)*0.8;
     const tw = 0.88 + 0.12*Math.sin(now*0.002 + sn.x*0.01 + i);
-    const bright = (0.4 + 0.6*decay) * tw;
+    const bright = (0.4 + 0.6*decay) * tw * salienceAlpha;
 
     if (sn._flash > 0) {
       sn._flash = Math.max(0, sn._flash - dt*1.8);
@@ -954,8 +1034,30 @@ function renderCosmos(now, dt) {
       CTX.shadowBlur = 0;
     }
 
-    // Store screen pos for hit testing
+    // Store screen pos + trail for hit testing
+    if (sn._sx !== undefined) {
+      if (!sn._trail) sn._trail = [];
+      sn._trail.push({x: sn._sx, y: sn._sy, t: now});
+      if (sn._trail.length > 18) sn._trail.shift();
+    }
     sn._sx = sx; sn._sy = sy; sn._sr = baseR;
+  }
+
+  // Star trails (fading comet tails behind moving nodes)
+  for (const sn of S.simNodes) {
+    if (!sn._trail || sn._trail.length < 2) continue;
+    const rgb = CLUSTER_RGB[sn.data.cluster % CLUSTER_RGB.length];
+    for (let ti = 1; ti < sn._trail.length; ti++) {
+      const age = (now - sn._trail[ti].t) / 900;
+      if (age > 1) continue;
+      const alpha = (1 - age) * 0.28 * (ti / sn._trail.length);
+      CTX.beginPath();
+      CTX.moveTo(sn._trail[ti-1].x, sn._trail[ti-1].y);
+      CTX.lineTo(sn._trail[ti].x, sn._trail[ti].y);
+      CTX.strokeStyle = rgba(rgb, alpha);
+      CTX.lineWidth = (1 - age) * 1.6;
+      CTX.stroke();
+    }
   }
   CTX.restore();
 
@@ -1457,6 +1559,197 @@ async function queryEpisode() {
   } catch(e) { el.innerHTML=`<div style="color:var(--rose);font-size:11px">${escHtml(e.message)}</div>`; }
 }
 
+async function loadTimeline() {
+  const cv = document.getElementById('timelineChart');
+  const leg = document.getElementById('timelineLegend');
+  if (!cv) return;
+  let mems = [];
+  if (S.live) {
+    try {
+      const data = await apiFetch('/memories/timeline', {params:{limit:80}});
+      mems = Array.isArray(data) ? data : (data.memories || data.timeline || []);
+    } catch { mems = S.memories; }
+  } else {
+    mems = S.memories.length ? S.memories : S.nodes.map(n=>({
+      label:n.label, decay_weight:n.decay_weight, importance:n._importance||0.5,
+      source:n._source||'user_input', cluster:n.cluster,
+      age_days: n.age || Math.floor(Math.random()*60),
+    }));
+  }
+  if (!mems.length) return;
+  renderTimeline(mems);
+}
+
+function renderTimeline(mems) {
+  const cv = document.getElementById('timelineChart');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth||600, H2 = 190;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const pad = {l:36,r:12,t:12,b:24};
+  const pw = W2-pad.l-pad.r, ph = H2-pad.t-pad.b;
+
+  const ages = mems.map(m => m.age_days ?? m.age ?? 0);
+  const maxAge = Math.max(...ages, 1);
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=0.7;
+  for (let i=0;i<=4;i++) {
+    const x = pad.l + (i/4)*pw;
+    ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke();
+    ctx.fillStyle='rgba(106,98,88,.6)'; ctx.font='8px SF Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(Math.round(i/4*maxAge)+'d', x, H2-6);
+  }
+
+  // Draw each memory as a bar (vertical strip)
+  const barW = Math.max(2, pw/mems.length - 1);
+  mems.forEach((m,i) => {
+    const age = m.age_days ?? m.age ?? 0;
+    const decay = m.decay_weight ?? 0.5;
+    const imp = m.importance ?? 0.5;
+    const src = m.source || 'user_input';
+    const rgb = src==='tool_result'?[93,232,218]:src==='web_search'?[167,139,250]:src==='agent_inference'?[255,107,138]:[255,184,108];
+    const x = pad.l + (age/maxAge)*pw;
+    const barH = Math.max(4, ph * imp * decay);
+    const y = pad.t + ph - barH;
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${0.3+decay*0.5})`;
+    ctx.fillRect(x - barW/2, y, barW, barH);
+  });
+
+  // Age axis label
+  ctx.fillStyle='rgba(106,98,88,.7)'; ctx.font='8px SF Mono,monospace'; ctx.textAlign='left';
+  ctx.fillText('age →', pad.l, pad.t-2);
+
+  // Legend
+  const leg = document.getElementById('timelineLegend');
+  if (leg) {
+    const srcs = [...new Set(mems.map(m=>m.source||'user_input'))];
+    const cols = {user_input:[255,184,108],tool_result:[93,232,218],web_search:[167,139,250],agent_inference:[255,107,138]};
+    leg.innerHTML = srcs.map(s=>{
+      const c=cols[s]||[200,200,200];
+      return `<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(${c[0]},${c[1]},${c[2]},.7);margin-right:3px;"></span>${s}</span>`;
+    }).join(' ');
+  }
+}
+
+// ── HDC Live Encode Terminal ─────────────────────────────────────────────────
+let _encodeTimer = null;
+function liveEncode(text) {
+  clearTimeout(_encodeTimer);
+  _encodeTimer = setTimeout(() => _doLiveEncode(text), 60);
+}
+function _doLiveEncode(text) {
+  const tokens = (text||'').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  // Token chips
+  const tokEl = document.getElementById('encodeTokens');
+  if (tokEl) tokEl.innerHTML = tokens.map((t,i)=>{
+    const rgb = CLUSTER_RGB[i % CLUSTER_RGB.length];
+    return `<span style="font-family:'SF Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(${rgb[0]},${rgb[1]},${rgb[2]},.12);border:1px solid rgba(${rgb[0]},${rgb[1]},${rgb[2]},.3);color:rgba(${rgb[0]},${rgb[1]},${rgb[2]},1)">${escHtml(t)}</span>`;
+  }).join('');
+  // Per-token mini waves
+  const wavEl = document.getElementById('encodeTokenWaves');
+  if (wavEl) wavEl.innerHTML = tokens.slice(0,8).map((t,i)=>{
+    const hv = lcgBipolar(hashToken(t));
+    const rgb = CLUSTER_RGB[i % CLUSTER_RGB.length];
+    const bars = Array.from(hv.slice(0,32)).map(v=>
+      `<span style="display:inline-block;width:4px;height:${v>0?10:5}px;background:rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.7);vertical-align:bottom;margin-right:1px;border-radius:1px 1px 0 0;"></span>`
+    ).join('');
+    return `<div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-family:'SF Mono',monospace;font-size:9px;color:rgba(${rgb[0]},${rgb[1]},${rgb[2]},1);min-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(t)}</span>
+      <div style="flex:1;display:flex;align-items:flex-end;height:14px;">${bars}</div>
+    </div>`;
+  }).join('');
+  // Final bundled HV
+  const finalHv = tokens.length ? encodeText(text) : null;
+  if (finalHv) {
+    renderMiniWave(document.getElementById('encodeFinalWave'), finalHv, [255,215,0]);
+    const nPlus = finalHv.filter(x=>x>0).length;
+    const statsEl = document.getElementById('encodeStats');
+    if (statsEl) statsEl.innerHTML =
+      `<span style="color:var(--amber)">+1: ${nPlus}</span><span style="color:var(--teal)">−1: ${finalHv.length-nPlus}</span>`+
+      `<span>tokens: ${tokens.length}</span><span>dims: ${finalHv.length}</span>`;
+  }
+}
+function renderMiniWave(cv, hv, rgb) {
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth||280, H2 = 36;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const n = Math.min(128, hv.length), bw = W2/n;
+  for (let i=0;i<n;i++) {
+    ctx.fillStyle = hv[i]>0 ? `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.75)` : `rgba(93,232,218,0.55)`;
+    ctx.fillRect(i*bw+0.5, hv[i]>0?2:H2/2, Math.max(1,bw-0.5), H2/2-2);
+  }
+}
+
+// ── Similarity Heatmap ───────────────────────────────────────────────────────
+function renderHeatmap() {
+  const cv = document.getElementById('heatmapChart');
+  const tip = document.getElementById('heatmapTip');
+  if (!cv) return;
+  const nodes = S.simNodes.slice(0,20);
+  const n = nodes.length;
+  if (!n) { if(tip) tip.textContent='no nodes in cosmos'; return; }
+  const size = Math.min(220, Math.floor((cv.clientWidth||400)/n)*n);
+  cv.width = size; cv.height = size;
+  cv.style.width = Math.min(cv.clientWidth||400, 400)+'px';
+  cv.style.height = Math.min(cv.clientWidth||400, 400)+'px';
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,size,size);
+  const cell = size/n;
+  // Compute similarities
+  const sims = [];
+  for (let i=0;i<n;i++) {
+    sims.push([]);
+    for (let j=0;j<n;j++) {
+      const a = nodes[i].data, b = nodes[j].data;
+      const hvA = a._hv || encodeText(a.label||'');
+      const hvB = b._hv || encodeText(b.label||'');
+      sims[i].push(i===j ? 1 : hvCosine(hvA, hvB));
+    }
+  }
+  // Draw cells
+  for (let i=0;i<n;i++) {
+    for (let j=0;j<n;j++) {
+      const s = sims[i][j];
+      const clipped = Math.max(0, s);
+      // Hot colormap: low=dark blue, mid=teal, high=amber
+      let r,g,b2;
+      if (clipped < 0.5) { const t=clipped*2; r=Math.round(t*93); g=Math.round(t*232); b2=Math.round(218-t*218); }
+      else { const t=(clipped-0.5)*2; r=Math.round(93+t*162); g=Math.round(232-t*48); b2=0; }
+      ctx.fillStyle = i===j ? `rgba(255,215,0,0.9)` : `rgb(${r},${g},${b2})`;
+      ctx.fillRect(j*cell, i*cell, cell, cell);
+    }
+  }
+  // Row/col labels on diagonal
+  ctx.font = `${Math.max(7,Math.min(10,cell*0.4))}px SF Mono,monospace`;
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.textAlign = 'center';
+  for (let i=0;i<n;i++) {
+    const label = (nodes[i].data.label||'').slice(0,Math.max(3,Math.floor(cell/7)));
+    ctx.fillText(label, (i+0.5)*cell, (i+0.62)*cell);
+  }
+  if (tip) tip.textContent = `${n}×${n} matrix · click a cell for details`;
+  // Store for click
+  cv._sims = sims; cv._nodes = nodes; cv._cell = cell;
+}
+function heatmapClick(evt) {
+  const cv = document.getElementById('heatmapChart');
+  if (!cv || !cv._sims) return;
+  const rect = cv.getBoundingClientRect();
+  const scaleX = cv.width / rect.width, scaleY = cv.height / rect.height;
+  const x = (evt.clientX - rect.left) * scaleX;
+  const y = (evt.clientY - rect.top) * scaleY;
+  const i = Math.floor(y / cv._cell), j = Math.floor(x / cv._cell);
+  if (i<0||j<0||i>=cv._nodes.length||j>=cv._nodes.length) return;
+  const a = cv._nodes[i].data.label||'?', b = cv._nodes[j].data.label||'?';
+  const sim = cv._sims[i][j];
+  document.getElementById('heatmapTip').textContent =
+    `"${a.slice(0,24)}" ↔ "${b.slice(0,24)}" · sim = ${sim.toFixed(4)}`;
+}
+
 async function loadConflicts() {
   const el = document.getElementById('conflictList');
   el.innerHTML = '<div style="color:var(--fg-2);font-size:11px">loading…</div>';
@@ -1529,6 +1822,99 @@ async function exportData(fmt) {
     toast('Exported: '+filename, 'ok');
     document.getElementById('exportPreview').textContent = 'Exported: '+filename+' · '+text.length+' bytes';
   } catch(e) { toast('Export failed: '+e.message,'err'); }
+}
+
+async function loadConsHistory() {
+  if (!S.live) return;
+  try {
+    const data = await apiFetch('/memories/consolidation/history', {params:{limit:5}});
+    const runs = Array.isArray(data) ? data : (data.history || data.runs || []);
+    const el = document.getElementById('consHistory');
+    if (!runs.length) { el.innerHTML=''; return; }
+    el.innerHTML = '<div style="font-family:SF Mono,monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px;">Recent Runs</div>'
+      + runs.slice(0,5).map(r=>`<div class="cons-report" style="margin-bottom:4px;padding:7px 10px;">
+          <div class="cr-row"><span>${fmtDate(r.ran_at||r.created_at||'')}</span><span class="cr-val">${r.prototypes_created||0} proto · freed ${r.memory_freed||0}</span></div>
+        </div>`).join('');
+  } catch { /* silently skip */ }
+}
+
+async function loadTrustWeights() {
+  const cv = document.getElementById('trustRadar');
+  const leg = document.getElementById('trustLegend');
+  if (!cv) return;
+  let weights;
+  if (S.live) {
+    try { weights = await apiFetch('/memories/trust-weights'); }
+    catch { weights = null; }
+  }
+  if (!weights) {
+    // Derive from current memories source distribution
+    const counts = {};
+    for (const m of S.memories) { const s = m.source||'user_input'; counts[s]=(counts[s]||0)+1; }
+    const total = Math.max(1, Object.values(counts).reduce((a,b)=>a+b,0));
+    weights = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v/total]));
+  }
+  // Normalize so max = 1
+  const entries = Object.entries(weights);
+  if (!entries.length) return;
+  const maxW = Math.max(...entries.map(([,v])=>v), 0.01);
+  const normed = entries.map(([k,v])=>([k, v/maxW]));
+  renderTrustRadar(normed);
+  if (leg) leg.innerHTML = normed.map(([k,v])=>`<span style="color:var(--fg-1)">${k}: <span style="color:var(--amber)">${(v*100).toFixed(0)}%</span></span>`).join(' · ');
+}
+
+function renderTrustRadar(entries) {
+  const cv = document.getElementById('trustRadar');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth||280, H2 = 110;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  const n = entries.length;
+  if (!n) return;
+  const cx = W2/2, cy = H2*0.52, R = Math.min(W2/2,H2)*0.78;
+  const angle = i => -Math.PI/2 + (i/n)*Math.PI*2;
+  // Grid rings
+  for (let r = 0.25; r <= 1.01; r+=0.25) {
+    ctx.strokeStyle = `rgba(255,255,255,${r===1?0.08:0.04})`;
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    entries.forEach((_,i)=>{
+      const a=angle(i); const x=cx+Math.cos(a)*R*r, y=cy+Math.sin(a)*R*r;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.closePath(); ctx.stroke();
+  }
+  // Spokes
+  entries.forEach((_,i)=>{
+    const a=angle(i);
+    ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=0.7;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*R, cy+Math.sin(a)*R); ctx.stroke();
+  });
+  // Data polygon
+  ctx.beginPath();
+  entries.forEach(([,v],i)=>{
+    const a=angle(i), r2=v*R; const x=cx+Math.cos(a)*r2, y=cy+Math.sin(a)*r2;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle='rgba(255,184,108,0.12)'; ctx.fill();
+  ctx.strokeStyle='rgba(255,184,108,0.65)'; ctx.lineWidth=1.5; ctx.stroke();
+  // Dots + labels
+  entries.forEach(([k,v],i)=>{
+    const a=angle(i), r2=v*R;
+    const dx=Math.cos(a), dy=Math.sin(a);
+    ctx.fillStyle='rgba(255,184,108,0.9)';
+    ctx.shadowColor='rgba(255,184,108,0.5)'; ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.arc(cx+dx*r2, cy+dy*r2, 3,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(176,168,152,0.7)';
+    ctx.font='8px SF Mono,monospace'; ctx.textAlign='center';
+    const lx=cx+dx*(R+10), ly=cy+dy*(R+10)+3;
+    const short=k.replace('_',' ').replace('agent','agt').replace('inference','inf').replace('result','res').slice(0,10);
+    ctx.fillText(short, lx, ly);
+  });
+  ctx.textAlign='left';
 }
 
 function renderProbeWave(hv, label) {
@@ -1606,8 +1992,15 @@ function renderMemList() {
   el.innerHTML = mems.slice(0,40).map((m,i) => {
     const sal = m.salience ?? (m.importance||0.5)*(m.decay_weight||0.5);
     const expired = m.valid_until && new Date(m.valid_until)<new Date();
+    const eid = m.entry_id || m.id || '';
     return `<div class="mem-card${expired?' expired-card':''}" onclick="selectMemoryCard(${i})" style="animation-delay:${i*30}ms">
-      <div class="mc-label">${escHtml(m.label||'—')}</div>
+      <div style="display:flex;align-items:flex-start;gap:4px;">
+        <div class="mc-label" style="flex:1;">${escHtml(m.label||'—')}</div>
+        <div class="mc-actions" onclick="event.stopPropagation()">
+          <button class="mc-act" title="reinforce" onclick="reinforceMemory(${JSON.stringify(String(eid))})">+</button>
+          <button class="mc-act mc-act-del" title="delete" onclick="deleteMemory(${JSON.stringify(String(eid))},${i})">×</button>
+        </div>
+      </div>
       <div class="mc-meta">
         <span class="src src-${m.source||'user_input'}">${m.source||'user_input'}</span>
         <span class="mc-num">↑${m.reinforcement_count||0}</span>
@@ -1629,6 +2022,70 @@ function selectMemoryCard(idx) {
     showDetailCard(S.selectedIdx);
     spawnNova(sn._sx||sn.x+W/2, sn._sy||sn.y+H/2, CLUSTER_RGB[sn.data.cluster%CLUSTER_RGB.length]);
   }
+}
+
+let _searchTimer = null;
+function searchMemories(q) {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(async () => {
+    if (!q.trim()) { await loadMemories(); return; }
+    if (S.live) {
+      try {
+        const data = await apiFetch('/memories/search', {params:{q:q.trim(),limit:40}});
+        S.memories = Array.isArray(data) ? data : (data.results || data.memories || []);
+        renderMemList();
+        return;
+      } catch { /* fall through to client-side filter */ }
+    }
+    // Offline: client-side filter
+    const lq = q.toLowerCase();
+    S.memories = S.nodes.map(n => ({
+      entry_id: n.entry_id, label: n.label,
+      source: n._source||'user_input', importance: n._importance||0.5,
+      reinforcement_count: n._reinforce||0,
+      salience: (n._importance||0.5)*(n.decay_weight||0.5),
+      decay_weight: n.decay_weight,
+    })).filter(m => (m.label||'').toLowerCase().includes(lq));
+    renderMemList();
+  }, 200);
+}
+
+async function reinforceMemory(entryId) {
+  if (!entryId || !S.live) { toast('Reinforce requires live backend', 'err'); return; }
+  try {
+    await apiFetch(`/memories/${entryId}/reinforce`, {method:'POST', body:{}});
+    toast('Reinforced +1', 'ok');
+    // Float +1 from the cosmos node
+    const sn = S.simNodes.find(n => String(n.data.entry_id)===String(entryId));
+    if (sn && sn._sx) S.reinforceFloats.push({x:sn._sx, y:sn._sy, born:performance.now()});
+    await loadMemories();
+  } catch(e) {
+    // Try alternate endpoint format
+    try {
+      await apiFetch('/memories/reinforce', {method:'POST', body:{entry_id:entryId}});
+      toast('Reinforced +1', 'ok');
+      await loadMemories();
+    } catch { toast('Reinforce: '+e.message, 'err'); }
+  }
+}
+
+async function deleteMemory(entryId, listIdx) {
+  if (!entryId) { toast('No entry id', 'err'); return; }
+  if (!S.live) {
+    // Offline: remove from sim
+    S.simNodes = S.simNodes.filter(n => String(n.data.entry_id)!==String(entryId) && n.id!==String(entryId));
+    S.nodes = S.nodes.filter(n => String(n.entry_id)!==String(entryId));
+    S.memories = S.memories.filter((_,i)=>i!==listIdx);
+    renderMemList();
+    toast('Removed (offline)', 'ok');
+    return;
+  }
+  try {
+    await apiFetch(`/memories/${entryId}`, {method:'DELETE'});
+    toast('Deleted', 'ok');
+    spawnNova(W/2, H/2, [255,107,138]);
+    await refreshGraph(); await loadMemories();
+  } catch(e) { toast('Delete: '+e.message, 'err'); }
 }
 
 function setMemSort(mode) {
@@ -1689,6 +2146,22 @@ function showDetailCard(idx) {
       .catch(() => renderProbeWave(encodeText(nd.label||''), nd.label));
   } else {
     renderProbeWave(nd._hv || encodeText(nd.label||''), nd.label);
+  }
+
+  // Load provenance chain
+  const provSec = document.getElementById('dcProvSection');
+  const provEl = document.getElementById('dcProvenance');
+  if (provSec) provSec.style.display = 'none';
+  if (S.live && nd.entry_id) {
+    apiFetch(`/memories/${nd.entry_id}/provenance`).then(p => {
+      const chain = p.chain || p.provenance || p.lineage || [];
+      if (chain.length && provEl && provSec) {
+        provSec.style.display = 'block';
+        provEl.innerHTML = chain.slice(0,4).map(step=>
+          `<div class="dn-item"><span class="dn-label">${escHtml((step.label||step.source||'?').slice(0,26))}</span><span class="dn-sim" style="color:var(--teal);">${step.operation||'→'}</span></div>`
+        ).join('');
+      }
+    }).catch(()=>{});
   }
 
   const card = document.getElementById('detailCard');
@@ -1798,6 +2271,8 @@ function switchTab(name) {
   document.querySelectorAll('.dock-pane').forEach(p=>p.classList.toggle('active',p.id==='pane'+name.charAt(0).toUpperCase()+name.slice(1)));
   if (!dockOpen) { dockOpen=true; document.getElementById('dock').className='expanded'; document.getElementById('dockToggleBtn').textContent='↓ collapse'; }
   if (name==='conflicts') loadConflicts();
+  if (name==='timeline') loadTimeline();
+  if (name==='heatmap') renderHeatmap();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1915,6 +2390,8 @@ async function poll() {
   await loadMemories();
   await loadDecayCurves();
   await loadHealth();
+  await loadTrustWeights();
+  await loadConsHistory();
   pollTimer = setTimeout(poll, POLL_INTERVAL);
 }
 
@@ -1941,6 +2418,8 @@ async function boot() {
     await loadMemories();
     await loadDecayCurves();
     await loadHealth();
+    await loadTrustWeights();
+    await loadConsHistory();
     pollTimer = setTimeout(poll, POLL_INTERVAL);
   } else {
     // Offline: simulate decay chart
@@ -1953,6 +2432,9 @@ async function boot() {
     renderDecayChart(mockDecay);
     // Offline health mock
     renderHealth({health_score:.88,total_memories:og.nodes.length,stale_memories:2,duplicate_candidates:[],orphaned_memories:0,recommendations:['simulation mode — no API']});
+    // Offline trust weights
+    S.memories = og.nodes.map(n=>({label:n.label,source:n._source||'user_input',importance:n._importance||0.5,decay_weight:n.decay_weight||0.7,reinforcement_count:n._reinforce||0,salience:(n._importance||0.5)*(n.decay_weight||0.7)}));
+    await loadTrustWeights();
   }
 
   // Boot splash out
