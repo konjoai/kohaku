@@ -1,5 +1,5 @@
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Default dimensionality for hypervectors. 10,000-dimensional bipolar vectors
 /// provide near-zero expected cosine similarity (~N(0, 1/sqrt(D)) ≈ 0.01) between
@@ -36,7 +36,11 @@ impl HyperVector {
             .map(|_| {
                 let v = lcg_next(&mut state);
                 // Use the high bit as the sign: effectively uniform Bernoulli(0.5)
-                if v >> 63 == 0 { 1_i8 } else { -1_i8 }
+                if v >> 63 == 0 {
+                    1_i8
+                } else {
+                    -1_i8
+                }
             })
             .collect();
         Self { data }
@@ -54,7 +58,11 @@ impl HyperVector {
         assert!(!vectors.is_empty(), "bundle requires at least one vector");
         let dims = vectors[0].data.len();
         for v in vectors.iter() {
-            assert_eq!(v.data.len(), dims, "all vectors must have equal dimensionality");
+            assert_eq!(
+                v.data.len(),
+                dims,
+                "all vectors must have equal dimensionality"
+            );
         }
 
         let mut sums: Vec<i32> = vec![0; dims];
@@ -212,7 +220,10 @@ mod tests {
         let b = HyperVector::random(DIMS, 200);
         let sim = a.cosine_similarity(&b).abs();
         // Expected |sim| ~ 1/sqrt(10000) = 0.01; allow up to 0.05 (5-sigma)
-        assert!(sim < 0.05, "random vectors should be near-orthogonal, got {sim}");
+        assert!(
+            sim < 0.05,
+            "random vectors should be near-orthogonal, got {sim}"
+        );
     }
 
     #[test]
@@ -256,7 +267,10 @@ mod tests {
         let hv = HyperVector::random(DIMS, 5);
         let perm = hv.permute(1);
         let sim = hv.cosine_similarity(&perm).abs();
-        assert!(sim < 0.05, "permuted vector should differ from original, got {sim}");
+        assert!(
+            sim < 0.05,
+            "permuted vector should differ from original, got {sim}"
+        );
     }
 
     #[test]

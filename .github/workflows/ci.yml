@@ -32,3 +32,24 @@ jobs:
         run: python -m pytest python/tests api -q
       - name: Scaling benchmarks (informational)
         run: python benchmarks/run_benchmarks.py --quick
+
+  rust-accel:
+    # Build the Rust-accelerated wheel (maturin) and run the library suite
+    # against it, proving the Rust path matches the pure-Python baseline.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Build + install the accelerated wheel
+        run: |
+          pip install --quiet maturin pytest pytest-asyncio numpy
+          maturin build --release --out dist
+          pip install --quiet dist/kohaku-*.whl
+      - name: Confirm the Rust backend is active
+        run: python -c "import kohaku; assert kohaku._BACKEND == 'rust-accel', kohaku._BACKEND"
+      - name: Library suite against the Rust backend
+        # importlib mode imports the installed wheel, not the python/ source tree.
+        run: python -m pytest python/tests --import-mode=importlib -q -p no:cacheprovider

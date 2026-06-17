@@ -21,6 +21,9 @@ import math
 from dataclasses import dataclass
 from typing import List
 
+import numpy as np
+
+from kohaku._accel import cosine_all
 from kohaku._pure import EpisodicMemory, HyperVector
 from kohaku._query import RetrievalResult
 
@@ -74,18 +77,19 @@ def query_with_decay(
     # `_timestamp` advances on each store and is the "next" tick — the most recent
     # entry has timestamp == _timestamp - 1, so age = (_timestamp - 1) - entry.timestamp.
     now = memory._timestamp - 1
+    entries = memory.entries()
+    sims = cosine_all(query_key.data, np.stack([e.key.data for e in entries]))
     results: List[RetrievalResult] = []
-    for e in memory.entries():
+    for raw, e in zip(sims, entries):
         age = now - e.timestamp
         if age < 0:
             age = 0
-        raw = e.key.cosine_similarity(query_key)
         w = decay_weight(age, cfg)
         results.append(
             RetrievalResult(
                 entry_id=e.id,
                 label=e.label,
-                similarity=raw * w,
+                similarity=float(raw) * w,
                 value=e.value,
             )
         )

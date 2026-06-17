@@ -19,7 +19,11 @@ pub struct RetrievalResult {
 /// then returns up to `top_k` results in descending similarity order.
 ///
 /// Returns fewer than `top_k` results if the memory holds fewer entries.
-pub fn query(memory: &EpisodicMemory, query_key: &HyperVector, top_k: usize) -> Vec<RetrievalResult> {
+pub fn query(
+    memory: &EpisodicMemory,
+    query_key: &HyperVector,
+    top_k: usize,
+) -> Vec<RetrievalResult> {
     if top_k == 0 || memory.is_empty() {
         return Vec::new();
     }
@@ -108,7 +112,10 @@ mod tests {
         // Query with the exact key for item-3 (index 3)
         let results = query(&mem, &keys[3], 1);
         assert_eq!(results.len(), 1);
-        assert!(results[0].similarity > 0.99, "exact key must have similarity ≈ 1.0");
+        assert!(
+            results[0].similarity > 0.99,
+            "exact key must have similarity ≈ 1.0"
+        );
         assert_eq!(results[0].label, "item-3");
     }
 
@@ -129,7 +136,11 @@ mod tests {
     fn test_top_k_larger_than_memory() {
         let (mem, keys) = populate_memory(5, 5);
         let results = query(&mem, &keys[0], 100);
-        assert_eq!(results.len(), 5, "cannot return more results than memory size");
+        assert_eq!(
+            results.len(),
+            5,
+            "cannot return more results than memory size"
+        );
     }
 
     #[test]

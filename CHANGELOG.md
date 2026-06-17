@@ -2,6 +2,43 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.18.0] — 2026-06-17
+
+### Added — Track C1 (commit to Rust): accelerated cosine top-k
+
+The first slice of the Rust commitment — a real, built, tested accelerator,
+with pure-Python as the correctness baseline (per CLAUDE.md).
+
+- **Rust kernel** (`src/accel.rs`) — `cosine_topk` over bipolar vectors via
+  bit-packed XOR + popcount (`cosine = 1 − 2·hamming/D`), the genuine HDC win
+  over float multiply-accumulate. Exposed through PyO3 as
+  `kohaku._kohaku_rs.cosine_topk`. 6 Rust unit tests.
+- **maturin build** — root `pyproject.toml` makes `pip install .` build the
+  `kohaku._kohaku_rs` extension and bundle the Python package. `python/pyproject.toml`
+  (hatchling, pure-Python) remains the baseline install. Fixed the PyO3 bindings
+  that never actually compiled (`pybindings` was missing from `lib.rs`; `bundle`
+  signature; modern `Bound` module API).
+- **`kohaku._accel`** — the canonical `kohaku.query` and `query_with_decay` now
+  compute similarities in one batched pass through this shim instead of a
+  per-entry Python loop (a real win on *both* backends). The batch path uses
+  NumPy (`asarray` + BLAS): benchmarking showed the current PyO3 interface
+  marshals a Python list-of-lists per call, making the Rust kernel ~3× *slower*
+  for batches despite the faster math (`benchmarks/bench_backends.py`). The Rust
+  kernel stays built and parity-tested (`rust_cosine_topk`); it becomes the
+  batch default once slice 2 lands zero-copy NumPy FFI.
+- **`_BACKEND`** now reports `"rust-accel"` when the extension is loaded,
+  `"python"` otherwise. The Rust extension *accelerates*; it no longer replaces
+  the canonical pure-Python classes (which broke when the two APIs diverged).
+- **CI** — new `rust-accel` job builds the wheel with maturin and runs the
+  library suite against the Rust backend (`--import-mode=importlib`), proving
+  parity with the pure-Python path.
+- **Tests** — `python/tests/test_accel.py` (NumPy path always; Rust-vs-NumPy
+  parity + backend flag when built). Full suite: **572 passed** (pure),
+  **519 passed** (Rust backend).
+
+### Changed
+- `__init__.py` / `python/pyproject.toml` / root `pyproject.toml` — version `0.18.0`.
+
 ## [0.17.0] — 2026-06-17
 
 ### Added — Track C3: benchmarks-as-a-gate

@@ -136,7 +136,10 @@ mod tests {
 
         // The oldest entry (label "entry-0") must be gone
         let labels: Vec<&str> = mem.entries().iter().map(|e| e.label.as_str()).collect();
-        assert!(!labels.contains(&"entry-0"), "entry-0 should have been evicted");
+        assert!(
+            !labels.contains(&"entry-0"),
+            "entry-0 should have been evicted"
+        );
         assert!(labels.contains(&"entry-1"));
         assert!(labels.contains(&"entry-2"));
         assert!(labels.contains(&"entry-3"));

@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 use std::time::Instant;
 
-use kohaku::{EpisodicMemory, HyperVector, DIMS};
 use kohaku::retrieval::{query, query_threshold};
+use kohaku::{EpisodicMemory, HyperVector, DIMS};
 
 #[derive(Parser)]
 #[command(
@@ -87,9 +87,9 @@ fn run_demo() {
 
     // Five labeled memories: each key is deterministic from a seed
     let labels = [
-        ("apple",   "A round red fruit with a crisp texture"),
+        ("apple", "A round red fruit with a crisp texture"),
         ("bicycle", "A two-wheeled human-powered vehicle"),
-        ("ocean",   "A vast body of salt water covering most of Earth"),
+        ("ocean", "A vast body of salt water covering most of Earth"),
         ("library", "A building housing collections of books"),
         ("volcano", "A rupture in Earth's crust that expels lava"),
     ];
@@ -156,7 +156,10 @@ fn run_demo() {
         print_table(&["ID", "Label", "Similarity"], &rows);
         let top_labels: Vec<&str> = results.iter().take(2).map(|r| r.label.as_str()).collect();
         println!();
-        println!("  → Top-2 labels: {:?} (expected \"apple\" and \"bicycle\" in some order)", top_labels);
+        println!(
+            "  → Top-2 labels: {:?} (expected \"apple\" and \"bicycle\" in some order)",
+            top_labels
+        );
     }
 
     println!();
@@ -249,7 +252,8 @@ fn run_bench(count: usize) {
     );
 
     println!();
-    println!("  Memory footprint: {} entries × {DIMS} dims × 1 byte (i8) ≈ {:.1} MB (key+value)",
+    println!(
+        "  Memory footprint: {} entries × {DIMS} dims × 1 byte (i8) ≈ {:.1} MB (key+value)",
         count,
         (count * DIMS * 2) as f64 / 1_048_576.0
     );

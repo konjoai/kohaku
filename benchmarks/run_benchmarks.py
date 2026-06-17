@@ -110,6 +110,9 @@ def main() -> None:
     dims = 2048 if args.quick else args.dims
     queries = 20 if args.quick else args.queries
 
+    import kohaku
+
+    print(f"kohaku {kohaku.__version__} — backend: {kohaku._BACKEND}")
     retrieval = bench_retrieval(sizes, dims, queries)
     storage = bench_storage(sizes, dims)
     _print_table(f"Retrieval latency (dims={dims}, {queries} queries) — exact vs ANN", retrieval)

@@ -1,6 +1,6 @@
 use approx::assert_abs_diff_eq;
-use kohaku::{EpisodicMemory, HyperVector, DIMS};
 use kohaku::retrieval::{query, query_threshold};
+use kohaku::{EpisodicMemory, HyperVector, DIMS};
 
 // ─── Test 1: Random vectors are approximately orthogonal ─────────────────────
 
@@ -161,14 +161,21 @@ fn test_capacity_fifo_eviction() {
     let new_val = HyperVector::random(DIMS, 9998);
     mem.store(new_key, new_val, "new".to_string());
 
-    assert_eq!(mem.len(), capacity, "memory must not exceed capacity after eviction");
+    assert_eq!(
+        mem.len(),
+        capacity,
+        "memory must not exceed capacity after eviction"
+    );
 
     let labels: Vec<&str> = mem.entries().iter().map(|e| e.label.as_str()).collect();
     assert!(
         !labels.contains(&"old-0"),
         "oldest entry 'old-0' must have been evicted; labels: {labels:?}"
     );
-    assert!(labels.contains(&"new"), "newest entry 'new' must be present");
+    assert!(
+        labels.contains(&"new"),
+        "newest entry 'new' must be present"
+    );
 
     // Remaining old entries must still be present
     for i in 1..capacity as u64 {
