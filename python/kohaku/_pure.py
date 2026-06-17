@@ -111,6 +111,10 @@ class EpisodicMemory:
         self._entries: list[MemoryEntry] = []
         self._next_id: int = 1
         self._timestamp: int = 1
+        # Monotonic mutation counter for cache invalidation (see kohaku._index).
+        # Unlike _next_id/_timestamp it never resets, so clear()+restore can't
+        # alias a previous content fingerprint.
+        self._generation: int = 0
 
     def store(self, key: HyperVector, value: HyperVector, label: str) -> int:
         """Store a key-value pair. Evicts oldest if at capacity. Returns entry ID."""
@@ -126,6 +130,7 @@ class EpisodicMemory:
         self._entries.append(entry)
         self._next_id += 1
         self._timestamp += 1
+        self._generation += 1
         return entry.id
 
     def __len__(self) -> int:
@@ -142,3 +147,4 @@ class EpisodicMemory:
         self._entries.clear()
         self._next_id = 1
         self._timestamp = 1
+        self._generation += 1

@@ -29,10 +29,8 @@ try:
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python"))
 
-from kohaku._accel import HAS_RUST, _numpy_cosine_topk  # noqa: E402
-
-if HAS_RUST:
-    from kohaku import _kohaku_rs as _rs  # noqa: E402
+from kohaku._accel import HAS_RUST, _numpy_cosine_topk, rust_cosine_topk  # noqa: E402
+from kohaku import RetrievalIndex  # noqa: E402
 
 WARMUP = 5
 RUNS = 30
@@ -66,6 +64,10 @@ def _bipolar(n, dims, seed):
 
 
 def run(sizes, dims):
+    """Three paths, in-process: NumPy one-shot baseline; Rust zero-copy one-shot
+    (slice-2 FFI, re-packs keys each call); resident RetrievalIndex (slice-2
+    packed index, keys packed once then queried repeatedly — the realistic
+    repeated-probe workload, build cost excluded as it amortizes)."""
     rows = []
     for n in sizes:
         keys = _bipolar(n, dims, seed=n)
@@ -73,11 +75,13 @@ def run(sizes, dims):
         numpy_stats = _bench(lambda: _numpy_cosine_topk(query, keys, TOP_K))
         row = {"n": n, "dims": dims, "numpy_ms": numpy_stats}
         if HAS_RUST:
-            q_list = query.tolist()
-            k_list = keys.tolist()
-            rust_stats = _bench(lambda: _rs.cosine_topk(q_list, k_list, TOP_K))
-            row["rust_ms"] = rust_stats
-            row["speedup_p50"] = round(numpy_stats["p50"] / rust_stats["p50"], 2)
+            zc_stats = _bench(lambda: rust_cosine_topk(query, keys, TOP_K))
+            idx = RetrievalIndex(keys)
+            index_stats = _bench(lambda: idx.topk(query, TOP_K))
+            row["rust_zerocopy_ms"] = zc_stats
+            row["rust_index_ms"] = index_stats
+            row["zerocopy_speedup_p50"] = round(numpy_stats["p50"] / zc_stats["p50"], 2)
+            row["index_speedup_p50"] = round(numpy_stats["p50"] / index_stats["p50"], 2)
         rows.append(row)
     return rows
 
@@ -105,15 +109,19 @@ def main() -> None:
     (out_dir / "report.json").write_text(json.dumps(report, indent=2))
 
     print(f"backend has_rust={HAS_RUST}  dims={dims}  warmup={WARMUP} runs={RUNS}")
-    header = "n        numpy_p50  numpy_p95  rust_p50   rust_p95   speedup"
+    header = "n        numpy_p50  zerocopy_p50  zc_x    index_p50  index_x"
     print(header)
     print("-" * len(header))
     for r in rows:
         nps = r["numpy_ms"]
-        rs = r.get("rust_ms")
-        line = f"{r['n']:<8} {nps['p50']:<10} {nps['p95']:<10}"
-        if rs:
-            line += f" {rs['p50']:<10} {rs['p95']:<10} {r['speedup_p50']:<6}x"
+        line = f"{r['n']:<8} {nps['p50']:<10}"
+        zc = r.get("rust_zerocopy_ms")
+        idx = r.get("rust_index_ms")
+        if zc and idx:
+            line += (
+                f" {zc['p50']:<13} {r['zerocopy_speedup_p50']:<7}x"
+                f" {idx['p50']:<10} {r['index_speedup_p50']:<6}x"
+            )
         print(line)
     print(f"\nwrote {out_dir / 'report.json'}")
 

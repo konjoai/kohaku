@@ -1,0 +1,65 @@
+{
+  "timestamp": "20260617T225907Z",
+  "hardware": {
+    "platform": "Linux-6.18.5-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.11.15"
+  },
+  "config": {
+    "warmup": 5,
+    "runs": 30,
+    "top_k": 10,
+    "dims": 10000
+  },
+  "has_rust": true,
+  "rows": [
+    {
+      "n": 1000,
+      "dims": 10000,
+      "numpy_ms": {
+        "p50": 36.4212,
+        "p95": 37.5192,
+        "p99": 37.7947,
+        "stddev": 0.9012
+      },
+      "rust_zerocopy_ms": {
+        "p50": 51.6918,
+        "p95": 56.9484,
+        "p99": 57.3593,
+        "stddev": 1.8064
+      },
+      "rust_index_ms": {
+        "p50": 0.231,
+        "p95": 0.2509,
+        "p99": 0.2552,
+        "stddev": 0.0112
+      },
+      "zerocopy_speedup_p50": 0.7,
+      "index_speedup_p50": 157.67
+    },
+    {
+      "n": 5000,
+      "dims": 10000,
+      "numpy_ms": {
+        "p50": 268.4225,
+        "p95": 283.2938,
+        "p99": 284.5893,
+        "stddev": 9.7196
+      },
+      "rust_zerocopy_ms": {
+        "p50": 260.5336,
+        "p95": 266.988,
+        "p99": 271.2503,
+        "stddev": 3.3054
+      },
+      "rust_index_ms": {
+        "p50": 1.183,
+        "p95": 1.2203,
+        "p99": 1.238,
+        "stddev": 0.0239
+      },
+      "zerocopy_speedup_p50": 1.03,
+      "index_speedup_p50": 226.9
+    }
+  ]
+}

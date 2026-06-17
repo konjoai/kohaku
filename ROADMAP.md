@@ -137,11 +137,19 @@ CLI · cosmos visualizations.
     call (`keys.tolist()` ≈ 10M ints), so Rust is **~3× slower than NumPy**
     (0.33× at N=1k–5k, dims=10k). NumPy's `asarray`+BLAS wins because the win
     is destroyed by marshaling, not the math.
-  - [ ] Slice 2 (revised): **zero-copy FFI** via the `numpy`/`rust-numpy`
-    crate — accept `PyReadonlyArray2<i8>` and a resident packed index so only
-    the query crosses the boundary. This is what makes Rust actually beat NumPy.
-    Then wire the enriched/facade path and publish wheels.
-  - [ ] Slice 3: port consolidation + conflict/importance O(N²) scans.
+  - [x] Slice 2 (v0.19.0): **zero-copy FFI** via the `numpy`/`rust-numpy` crate
+    (`cosine_topk` takes `PyReadonlyArray1/2<i8>`) **+ resident packed index**
+    (`PackedIndex`, exposed as `kohaku.RetrievalIndex`); `query` /
+    `query_with_decay` route through a per-memory cached index (invalidated by a
+    monotonic `_generation` counter).
+  - **Result (`benchmarks/bench_backends.py`):** zero-copy one-shot is now
+    ~parity with NumPy (0.7–1.0×, vs 0.25× in slice 1) — re-packing every call
+    is no clear win over BLAS, so NumPy stays the one-shot default. The resident
+    index, which packs keys once, is **~160–230× faster than NumPy** on the
+    repeated-probe workload. That amortization is the real win.
+  - [ ] Slice 3: port consolidation + conflict/importance O(N²) scans onto
+    `RetrievalIndex`; wire the enriched/facade path. **Publishing wheels is
+    deferred** (out of scope for now — local/CI builds only).
 
 ## 4. Suggested first sprint
 

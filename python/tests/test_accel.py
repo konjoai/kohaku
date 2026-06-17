@@ -70,4 +70,17 @@ def test_backend_flag_reports_rust():
     assert _BACKEND == "rust-accel"
     from kohaku import _kohaku_rs
 
-    assert _kohaku_rs.cosine_topk([1, -1], [[1, -1]], 1)[0][1] == pytest.approx(1.0)
+    # Zero-copy FFI: query and keys are contiguous int8 arrays, not lists.
+    q = np.array([1, -1], dtype=np.int8)
+    keys = np.array([[1, -1]], dtype=np.int8)
+    assert _kohaku_rs.cosine_topk(q, keys, 1)[0][1] == pytest.approx(1.0)
+
+
+@pytest.mark.skipif(not HAS_RUST, reason="Rust extension not built")
+def test_cosine_topk_rejects_dim_mismatch():
+    from kohaku import _kohaku_rs
+
+    q = np.array([1, -1, 1], dtype=np.int8)
+    keys = np.array([[1, -1]], dtype=np.int8)  # dims 2 != query 3
+    with pytest.raises(ValueError):
+        _kohaku_rs.cosine_topk(q, keys, 1)
