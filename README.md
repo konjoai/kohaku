@@ -72,8 +72,83 @@ from kohaku import Memory
 
 mem = Memory()
 mem.store("User prefers Italian wine")
-mem.query("What does the user like?")
+mem.store("User is allergic to shellfish", importance=0.9, tags=["health"])
+
+hits = mem.query("What does the user like to drink?")
+for h in hits:
+    print(h.text, round(h.similarity, 3))
+# → User prefers Italian wine 0.63
+
+mem.save("user.json")          # labels + metadata; HVs re-derived on load
+mem2 = Memory.load("user.json")
 ```
+
+`Memory` is the one-line front door: store strings, get ranked `MemoryHit`
+results back (`.text`, `.similarity`, `.salience`, `.source`, `.tags`). It wraps
+the full `EnrichedMemoryStore` — temporal validity, salience, source-trust,
+tags — behind a string-in/string-out API. Reach for `EnrichedMemoryStore`,
+`MemorySystem`, and friends directly when you need provenance graphs, version
+history, or consolidation daemons.
+
+## 🧬 Semantic recall (opt-in)
+
+The default encoder bundles per-*token* hypervectors, so similarity is token
+overlap — *"the customer enjoys merlot"* won't match *"User prefers Italian
+wine"*. For meaning-based recall, plug in an `EmbeddingEncoder` that projects
+a dense embedding into HDC space (SimHash — sign of a fixed random projection,
+which approximately preserves cosine):
+
+```bash
+pip install "kohaku[semantic]"     # pulls sentence-transformers
+```
+
+```python
+from kohaku import Memory, EmbeddingEncoder
+
+enc = EmbeddingEncoder(model_name="all-MiniLM-L6-v2")   # or embed_fn=<your callable>
+mem = Memory(encoder=enc)
+mem.store("User prefers Italian wine")
+mem.query("the customer enjoys a glass of merlot")[0].text
+# → 'User prefers Italian wine'   (zero shared tokens, still matches)
+```
+
+`EmbeddingEncoder` takes any `embed_fn` (`str -> float array`) — sentence-
+transformers, OpenAI embeddings, your own — so there's no hard dependency. A
+store saved with a custom encoder must be reloaded with the same one
+(`Memory.load(path, encoder=enc)`).
+
+## ⚡ Scaling past 10⁴ memories
+
+Exact cosine retrieval is `O(N·D)` per query. Flip on the bipolar-LSH index to
+narrow each similarity query to a small candidate set before exact ranking:
+
+```python
+mem = Memory(ann=True)            # maintains a kohaku.ann.LSHIndex
+# ... store thousands of memories ...
+mem.query("...")                  # sub-linear: LSH candidates, exact re-rank
+```
+
+Results are unchanged except for the rare LSH miss — candidates are always
+scored with exact cosine, and salience/recency sorts or empty candidate sets
+fall back to a full scan. `LSHIndex` is pure NumPy (no FAISS/hnswlib) and can
+be used standalone.
+
+## 📦 Whole-system snapshots
+
+`save_system` / `load_system` persist an entire enriched setup — episodic
+hypervectors, per-memory metadata, and the provenance / version / relationship
+side stores — into one directory with a manifest:
+
+```python
+from kohaku import save_system, load_system
+
+save_system(store, "snapshot/", provenance=pg, versions=vs, relationships=rel)
+bundle = load_system("snapshot/")
+bundle.store, bundle.provenance, bundle.versions, bundle.relationships
+```
+
+SQLite side stores are copied via the backup API (so `:memory:` stores persist
+too), and recall is exact after the round-trip.
 
 ---
 

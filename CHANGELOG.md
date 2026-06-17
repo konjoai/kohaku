@@ -2,6 +2,136 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.16.0] — 2026-06-17
+
+### Added — Track B3: unified system snapshot
+
+One directory, the whole system — closing the persistence fragmentation gap
+(episodic `.hkb` here, three loose SQLite files there).
+
+- **`kohaku.system`** (`python/kohaku/system.py`) — `save_system(store, dir, *,
+  provenance=, versions=, relationships=)` writes the episodic store
+  (`memory.hkb`), the per-memory metadata table (`metadata.json`), and any
+  attached SQLite side stores (provenance / versions / relationships) into one
+  directory with a `manifest.json`. SQLite stores are copied via the sqlite
+  backup API, so even `:memory:` stores persist. Side stores default to those
+  already attached to `store`.
+- **`load_system(dir) -> SystemBundle`** — rebuilds a wired-up
+  `EnrichedMemoryStore` (recall is exact — HVs come from the packed `.hkb`,
+  metadata and reinforcement counts are restored as-is) plus the side stores,
+  re-attached for future writes.
+- **`EnrichedMemoryStore.from_state(memory, metadata, *, capacity, dims, ...)`**
+  — reconstruct a store from a loaded `EpisodicMemory` + metadata table without
+  re-storing (which would mint new ids and reset counts).
+
+- **Tests** — 7 new (`python/tests/test_system.py`): metadata + recall exact
+  round-trip, manifest contents, full provenance/versions/relationships
+  round-trip, attached-default behaviour, missing-manifest error. Full suite:
+  **562 passed**.
+
+- `__init__.py` / `pyproject.toml` — exports `save_system`, `load_system`,
+  `SystemBundle`; version `0.16.0`.
+
+## [0.15.0] — 2026-06-17
+
+### Added — Track B2: approximate nearest-neighbour retrieval
+
+Lifts the O(N·D) brute-force retrieval ceiling without adding a heavy
+dependency.
+
+- **`kohaku.ann.LSHIndex`** (`python/kohaku/ann.py`) — random-hyperplane
+  (SimHash) locality-sensitive hashing over bipolar hypervectors. Pure NumPy,
+  no FAISS/hnswlib. `add` / `remove` / `clear` / `candidates` / `query`
+  (candidate gather + **exact** cosine re-rank) / `from_memory`. Configurable
+  `num_tables` (recall) and `hash_bits` (precision).
+
+- **`Memory(ann=True)`** — the facade maintains an `LSHIndex` and narrows
+  similarity queries to LSH candidates before exact ranking. Results are
+  unchanged except for the rare LSH miss; non-similarity sorts and empty
+  candidate sets fall back to a full exact scan. Index stays consistent across
+  FIFO eviction (rebuild), `expire`, and `clear`. `Memory.load(..., ann=True)`
+  rebuilds it.
+
+- **`EnrichedMemoryStore.query(..., candidate_ids=...)`** — optional precomputed
+  candidate subset; entries outside it are skipped while every other
+  filter/ranking still applies. `None` preserves the exact full scan.
+
+- **Tests** — 12 new (`python/tests/test_ann.py`): index ops, parameter
+  validation, self-match, near-duplicate recall, `from_memory`, and facade
+  parity / eviction / expire / clear. Full suite: **555 passed**.
+
+- `__init__.py` / `pyproject.toml` — exports `LSHIndex`; version `0.15.0`.
+
+## [0.14.0] — 2026-06-17
+
+### Added — Track B1: semantic encoder
+
+The biggest quality lever from `ROADMAP.md` Track B — meaning-based recall
+instead of token overlap.
+
+- **`kohaku.semantic`** (`python/kohaku/semantic.py`) — project dense
+  embeddings into HDC space via SimHash (sign of a fixed Gaussian random
+  projection), which approximately preserves cosine similarity.
+  - `project_to_hypervector(embedding, dims, *, seed)` — the standalone
+    projection, with a per-`(embedding_dim, dims, seed)` matrix cache.
+  - `EmbeddingEncoder(*, embed_fn=None, model_name="all-MiniLM-L6-v2", dims, seed)`
+    — callable `str -> HyperVector`. Accepts any `embed_fn` (sentence-
+    transformers, OpenAI, custom) so there is **no hard dependency**; the
+    sentence-transformers path is lazily imported and raises a clear
+    `ImportError` if the optional package is missing.
+
+- **`Memory(encoder=...)`** — the facade now accepts any `str -> HyperVector`
+  encoder, defaulting to the lexical `encode_text`. `save()` records the
+  encoder kind; `Memory.load(path, encoder=...)` re-attaches it and warns on a
+  custom/none mismatch (since HVs are re-derived from labels on load).
+
+- **`[semantic]` extra** — `pip install kohaku[semantic]` pulls
+  `sentence-transformers`.
+
+- **Tests** — 11 new (`python/tests/test_semantic.py`), all using an injected
+  `embed_fn` so the suite needs no heavy dependency. Full suite: **543 passed**.
+
+- `python/kohaku/__init__.py` / `python/pyproject.toml` — version bumped to
+  `0.14.0`; exports `EmbeddingEncoder`, `project_to_hypervector`.
+
+## [0.13.0] — 2026-06-17
+
+### Added — Track A: the `Memory` facade
+
+The first slice of the `ROADMAP.md` Track A (credibility & correctness).
+
+- **`Memory` facade** (`python/kohaku/memory_facade.py`) — a string-in /
+  string-out front door over `EnrichedMemoryStore`. `Memory().store("…text…")`
+  encodes via `encode_text` and persists; `query("…text…")` returns ranked
+  `MemoryHit` rows (`.text`, `.score`, `.similarity`, `.salience`, `.source`,
+  `.tags`). Supports `source` / tag filters, salience/recency sorting,
+  reinforcement, expiry, and `save()` / `load()` (labels + metadata only —
+  hypervectors are re-derived deterministically, so the round-trip is exact).
+  Exported as `kohaku.Memory` / `kohaku.MemoryHit`. This makes the README's
+  headline example actually run for the first time.
+
+- **`enriched_meta.py` split** — `MemoryMetadata`, `EnrichedRetrievalResult`,
+  the source-trust table, and the datetime/tag helpers moved out of
+  `enriched.py` (was 521 lines, over the 500-line quality cap) into
+  `enriched_meta.py`. `enriched.py` (now 399 lines) re-exports them, so every
+  existing `from kohaku.enriched import …` path is unchanged.
+
+- **README** — the Quick Start now matches the real, working API and documents
+  `MemoryHit` plus when to reach past the facade to `EnrichedMemoryStore`.
+
+### Changed — CI actually guards Python now
+
+- `.github/workflows/ci.yml` — split into `rust` and `python` jobs. The Rust
+  job additionally runs `cargo build --features python` so the optional PyO3
+  bindings can't silently rot. The new Python job installs the package and runs
+  the real `python/tests` + `api` suites (the konjo-gate previously pointed at a
+  non-existent `tests/` path, so the Python suite never ran in CI).
+
+- **Tests** — 16 new (`python/tests/test_memory_facade.py`). Full suite green.
+
+- `python/kohaku/__init__.py` / `python/pyproject.toml` — version bumped to
+  `0.13.0`.
+
 ## [0.12.0] — 2026-05-24
 
 ### Added — Phase 15: Graphiti/Mem0 Dialects + Forgetting-Rate Overrides

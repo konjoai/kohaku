@@ -78,33 +78,39 @@ CLI · cosmos visualizations.
 
 ## 3. Plan — three tracks, prioritized
 
-### 🔴 Track A — Credibility & correctness (do first, small, high-leverage)
+### 🔴 Track A — Credibility & correctness (do first, small, high-leverage) — ✅ DONE (v0.13.0)
 
-- **A1. Fix the README** so the headline example runs, or ship the facade in A2
-  and make the example real. Until then the front door is broken.
-- **A2. Ship a `Memory` facade** (`kohaku/memory_facade.py`): `Memory()` with
-  `store(text, **meta) -> id`, `query(text, k=...) -> [hits]`, `save(path)` /
-  `load(path)`. Wraps `EnrichedMemoryStore` + `encode_text` + decay. Export it
-  as `Memory` so the README's promise becomes true. (1 module, ~150 lines.)
-- **A3. Split `enriched.py`** (521→ <500): extract `MemoryMetadata` + salience
-  math into `enriched_meta.py`. Turns CI green again.
-- **A4. Wire `maturin` + the `python` feature into CI** and decide Track C's
-  Rust question explicitly rather than letting it rot. At minimum: build
-  `--features python` in CI (it compiles today) so the binding can't silently
-  break.
+- [x] **A1. Fix the README** — Quick Start now matches the real API and the
+  headline example runs (via the A2 facade).
+- [x] **A2. Ship a `Memory` facade** (`kohaku/memory_facade.py`): `Memory()` with
+  `store(text, **meta) -> id`, `query(text, top_k=...) -> [MemoryHit]`,
+  `save(path)` / `load(path)`. Wraps `EnrichedMemoryStore` + `encode_text`.
+  Exported as `kohaku.Memory`.
+- [x] **A3. Split `enriched.py`** (521 → 399): `MemoryMetadata` + salience math
+  extracted into `enriched_meta.py`; `enriched.py` re-exports for compatibility.
+- [x] **A4. Wire the `python` feature into CI** — `ci.yml` now builds
+  `cargo build --features python` and runs the real `python/tests` + `api`
+  suites in a dedicated Python job. Full maturin wheel publishing remains part
+  of C1 (the Rust-story decision).
 
 ### 🟠 Track B — Scale & semantics (the next real capability jump)
 
-- **B1. Semantic encoder (opt-in).** `EmbeddingEncoder` that projects a
-  sentence-transformer embedding into HDC space (random-projection / level-HVs),
-  gated behind an extra so the zero-dependency lexical path stays the default.
-  This is the single biggest quality lever for real LLM-memory use.
-- **B2. ANN index for retrieval.** Replace the O(n²) scan with an optional
-  index (FAISS/hnswlib, or a native bipolar-LSH bucketed by sign-projection).
-  Keep the brute-force path as the correctness baseline. Lifts the ~10⁴ ceiling.
-- **B3. Unified persistence.** One `save_system(dir)` / `load_system(dir)` that
-  snapshots episodic `.hkb` + metadata + provenance + versions + relationships
-  together, with a manifest and a round-trip test.
+- [x] **B1. Semantic encoder (opt-in).** ✅ (v0.14.0) `kohaku.semantic` —
+  `EmbeddingEncoder` projects a dense embedding into HDC space via SimHash
+  (sign of a fixed random projection), gated behind the `[semantic]` extra so
+  the zero-dependency lexical path stays the default. `Memory(encoder=...)`
+  wires it in. Accepts any `embed_fn`, so it composes with OpenAI embeddings
+  too. This is the single biggest quality lever for real LLM-memory use.
+- [x] **B2. ANN index for retrieval.** ✅ (v0.15.0) `kohaku.ann.LSHIndex` —
+  native bipolar-LSH (random-hyperplane SimHash), pure NumPy, no FAISS/hnswlib.
+  `Memory(ann=True)` narrows similarity queries to LSH candidates then re-ranks
+  with exact cosine (brute force stays the correctness baseline via
+  `candidate_ids=None`). Lifts the ~10⁴ ceiling.
+- [x] **B3. Unified persistence.** ✅ (v0.16.0) `kohaku.system.save_system` /
+  `load_system` snapshot episodic `.hkb` + metadata + provenance + versions +
+  relationships into one directory with a `manifest.json` (SQLite stores copied
+  via the backup API, so `:memory:` persists too). `SystemBundle` carries the
+  rebuilt store + side stores; recall is exact after the round-trip.
 
 ### 🟡 Track C — Strategic positioning (decide, then commit)
 
@@ -125,3 +131,7 @@ Track A in full (A1–A4) — it is all low-risk, makes the front door honest,
 turns CI green, and unblocks the facade everything else benefits from — plus
 **B1 (semantic encoder)** as the headline feature. Defer B2/B3 and the Rust
 decision (C1) to a dedicated follow-up once A is merged.
+
+**Update:** Tracks A and B are now complete (v0.13.0 → v0.16.0). The remaining
+work is all Track C — the strategic positioning decisions (C1 Rust story, C2
+demo consolidation, C3 benchmarks-as-a-gate).
