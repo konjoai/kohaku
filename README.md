@@ -60,9 +60,11 @@ There is no true **memory system**.
   correctness baseline and works with zero native dependencies.
 * 🦀 **Rust accelerator** (optional) — bit-packed XOR + popcount cosine top-k
   behind a PyO3 extension. `pip install .` (from the repo root, via maturin)
-  builds `kohaku._kohaku_rs`; retrieval then runs the Rust kernel transparently
-  (`kohaku._BACKEND == "rust-accel"`). Without it, the same results come from a
-  NumPy batch. Build/CI proves the two paths agree.
+  builds `kohaku._kohaku_rs` (`kohaku._BACKEND == "rust-accel"`). The kernel is
+  built, parity-tested against NumPy in CI, and reachable today; batch retrieval
+  currently uses the NumPy path because the present list-marshaling FFI is
+  slower than `asarray`+BLAS (see `benchmarks/bench_backends.py`). Zero-copy
+  NumPy FFI (next slice) flips the hot path to Rust.
 
 ```bash
 pip install ./python    # pure-Python baseline

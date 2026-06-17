@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from kohaku import _BACKEND
-from kohaku._accel import HAS_RUST, cosine_topk
+from kohaku._accel import HAS_RUST, cosine_topk, rust_cosine_topk
 from kohaku._accel import _numpy_cosine_topk
 from kohaku._pure import HyperVector
 
@@ -58,7 +58,7 @@ def test_rust_matches_numpy_exactly():
     keys = _bipolar(50, 512, 3)
     for qi in (0, 11, 49):
         q = keys[qi]
-        rust = cosine_topk(q, keys, 10)
+        rust = rust_cosine_topk(q, keys, 10)
         numpy = _numpy_cosine_topk(q, keys, 10)
         assert [i for i, _ in rust] == [i for i, _ in numpy]
         for (_, rs), (_, ns) in zip(rust, numpy):

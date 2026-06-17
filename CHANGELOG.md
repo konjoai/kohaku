@@ -18,10 +18,14 @@ with pure-Python as the correctness baseline (per CLAUDE.md).
   (hatchling, pure-Python) remains the baseline install. Fixed the PyO3 bindings
   that never actually compiled (`pybindings` was missing from `lib.rs`; `bundle`
   signature; modern `Bound` module API).
-- **`kohaku._accel`** — `cosine_topk` / `cosine_all` dispatch to Rust when the
-  extension is present, else a NumPy matmul. The canonical `kohaku.query` and
-  `query_with_decay` now compute similarities in one batched pass through this
-  shim instead of a per-entry Python loop.
+- **`kohaku._accel`** — the canonical `kohaku.query` and `query_with_decay` now
+  compute similarities in one batched pass through this shim instead of a
+  per-entry Python loop (a real win on *both* backends). The batch path uses
+  NumPy (`asarray` + BLAS): benchmarking showed the current PyO3 interface
+  marshals a Python list-of-lists per call, making the Rust kernel ~3× *slower*
+  for batches despite the faster math (`benchmarks/bench_backends.py`). The Rust
+  kernel stays built and parity-tested (`rust_cosine_topk`); it becomes the
+  batch default once slice 2 lands zero-copy NumPy FFI.
 - **`_BACKEND`** now reports `"rust-accel"` when the extension is loaded,
   `"python"` otherwise. The Rust extension *accelerates*; it no longer replaces
   the canonical pure-Python classes (which broke when the two APIs diverged).
