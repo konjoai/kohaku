@@ -21,9 +21,7 @@ import math
 from dataclasses import dataclass
 from typing import List
 
-import numpy as np
-
-from kohaku._accel import cosine_all
+from kohaku._index import index_for
 from kohaku._pure import EpisodicMemory, HyperVector
 from kohaku._query import RetrievalResult
 
@@ -78,7 +76,7 @@ def query_with_decay(
     # entry has timestamp == _timestamp - 1, so age = (_timestamp - 1) - entry.timestamp.
     now = memory._timestamp - 1
     entries = memory.entries()
-    sims = cosine_all(query_key.data, np.stack([e.key.data for e in entries]))
+    sims = index_for(memory, entries).all_scores(query_key.data)
     results: List[RetrievalResult] = []
     for raw, e in zip(sims, entries):
         age = now - e.timestamp

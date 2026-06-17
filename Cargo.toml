@@ -22,12 +22,13 @@ serde_json = "1"
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 pyo3 = { version = "0.21", features = ["extension-module"], optional = true }
+numpy = { version = "0.21", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
 
 [features]
-python = ["pyo3"]
+python = ["pyo3", "numpy"]
 
 [profile.release]
 opt-level = 3

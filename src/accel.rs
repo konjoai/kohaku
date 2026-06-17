@@ -36,6 +36,21 @@ fn cosine_from_bits(a: &[u64], b: &[u64], dims: usize) -> f32 {
     1.0 - 2.0 * (ham as f32) / (dims as f32)
 }
 
+/// Rank `(index, similarity)` pairs and keep the top `top_k`.
+///
+/// Sort is by similarity descending, ties broken by ascending index — a stable
+/// ordering shared by every accel entry point so they agree bit-for-bit with the
+/// pure-Python path.
+fn rank(mut scored: Vec<(usize, f32)>, top_k: usize) -> Vec<(usize, f32)> {
+    scored.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
+    });
+    scored.truncate(top_k);
+    scored
+}
+
 /// Top-`k` cosine over a set of bipolar key vectors.
 ///
 /// Returns `(index, similarity)` pairs sorted by similarity descending, with
@@ -48,18 +63,93 @@ pub fn cosine_topk(query: &[i8], keys: &[Vec<i8>], top_k: usize) -> Vec<(usize, 
     }
     let dims = query.len();
     let q = pack(query);
-    let mut scored: Vec<(usize, f32)> = keys
+    let scored: Vec<(usize, f32)> = keys
         .iter()
         .enumerate()
         .map(|(i, k)| (i, cosine_from_bits(&q, &pack(k), dims)))
         .collect();
-    scored.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(a.0.cmp(&b.0))
-    });
-    scored.truncate(top_k);
-    scored
+    rank(scored, top_k)
+}
+
+/// Top-`k` cosine over a row-major `(n_rows, dims)` bipolar buffer (one-shot).
+///
+/// Equivalent to building a [`PackedIndex`] and querying it once, but without
+/// retaining it. This is the zero-copy batch FFI path: callers hand over a
+/// contiguous NumPy `int8` view, so no per-element Python marshaling occurs.
+pub fn cosine_topk_rows(
+    query: &[i8],
+    keys: &[i8],
+    n_rows: usize,
+    dims: usize,
+    top_k: usize,
+) -> Vec<(usize, f32)> {
+    PackedIndex::from_rows(keys, n_rows, dims).topk(query, top_k)
+}
+
+/// A resident bit-packed index over a fixed set of bipolar key vectors.
+///
+/// Keys are packed to one bit per component *once* at construction; each query
+/// then costs a single query-pack plus `n_rows · words` XOR+popcount words. This
+/// is the structure that lets Rust beat NumPy on repeated retrieval: BLAS must
+/// stream all `n_rows · dims` floats every call, while the packed index touches
+/// `n_rows · dims / 64` words and only the query crosses the FFI boundary.
+pub struct PackedIndex {
+    bits: Vec<u64>, // row-major, `words` u64s per row
+    n_rows: usize,
+    dims: usize,
+    words: usize,
+}
+
+impl PackedIndex {
+    /// Build from a row-major `(n_rows, dims)` bipolar buffer.
+    ///
+    /// `keys` must hold exactly `n_rows * dims` components; the bit for component
+    /// `c` is set when `c > 0`. Trailing padding bits in each row's final word
+    /// stay zero in every row, so they never contribute to a Hamming distance.
+    pub fn from_rows(keys: &[i8], n_rows: usize, dims: usize) -> Self {
+        let words = dims.div_ceil(64);
+        let mut bits = vec![0u64; n_rows.saturating_mul(words)];
+        for r in 0..n_rows {
+            let src = &keys[r * dims..r * dims + dims];
+            let dst = &mut bits[r * words..r * words + words];
+            for (i, &c) in src.iter().enumerate() {
+                if c > 0 {
+                    dst[i / 64] |= 1u64 << (i % 64);
+                }
+            }
+        }
+        Self {
+            bits,
+            n_rows,
+            dims,
+            words,
+        }
+    }
+
+    /// Number of indexed rows.
+    pub fn len(&self) -> usize {
+        self.n_rows
+    }
+
+    /// Whether the index holds no rows.
+    pub fn is_empty(&self) -> bool {
+        self.n_rows == 0
+    }
+
+    /// Top-`k` cosine of `query` against every packed row.
+    pub fn topk(&self, query: &[i8], top_k: usize) -> Vec<(usize, f32)> {
+        if top_k == 0 || self.n_rows == 0 || self.dims == 0 {
+            return Vec::new();
+        }
+        let q = pack(query);
+        let scored: Vec<(usize, f32)> = (0..self.n_rows)
+            .map(|r| {
+                let row = &self.bits[r * self.words..r * self.words + self.words];
+                (r, cosine_from_bits(&q, row, self.dims))
+            })
+            .collect();
+        rank(scored, top_k)
+    }
 }
 
 #[cfg(test)]
@@ -120,5 +210,51 @@ mod tests {
         let q: Vec<i8> = (0..130).map(|i| if i % 2 == 0 { 1 } else { -1 }).collect();
         let out = cosine_topk(&q, &[q.clone()], 1);
         approx(out[0].1, 1.0);
+    }
+
+    #[test]
+    fn rows_path_matches_vec_path() {
+        let q = vec![1i8, 1, 1, 1];
+        let rows = vec![
+            vec![1i8, 1, 1, 1],
+            vec![-1i8, -1, -1, -1],
+            vec![1i8, 1, -1, -1],
+            vec![1i8, 1, 1, 1],
+        ];
+        let flat: Vec<i8> = rows.iter().flatten().copied().collect();
+        let via_vec = cosine_topk(&q, &rows, 4);
+        let via_rows = cosine_topk_rows(&q, &flat, 4, 4, 4);
+        assert_eq!(via_vec, via_rows);
+    }
+
+    #[test]
+    fn rows_path_empty_when_zero_k_or_no_rows() {
+        let q = vec![1i8, -1, 1];
+        let flat = vec![1i8, -1, 1];
+        assert!(cosine_topk_rows(&q, &flat, 1, 3, 0).is_empty());
+        assert!(cosine_topk_rows(&q, &[], 0, 3, 5).is_empty());
+    }
+
+    #[test]
+    fn packed_index_reports_len_and_emptiness() {
+        let keys = vec![1i8, -1, 1, -1, 1, -1]; // 2 rows of dims 3
+        let idx = PackedIndex::from_rows(&keys, 2, 3);
+        assert_eq!(idx.len(), 2);
+        assert!(!idx.is_empty());
+        assert!(PackedIndex::from_rows(&[], 0, 3).is_empty());
+    }
+
+    #[test]
+    fn packed_index_topk_matches_one_shot_rows() {
+        let dims = 130; // spans 3 words
+        let q: Vec<i8> = (0..dims).map(|i| if i % 2 == 0 { 1 } else { -1 }).collect();
+        let mut flat: Vec<i8> = Vec::new();
+        for r in 0..5 {
+            for i in 0..dims {
+                flat.push(if (i + r) % 3 == 0 { 1 } else { -1 });
+            }
+        }
+        let idx = PackedIndex::from_rows(&flat, 5, dims);
+        assert_eq!(idx.topk(&q, 3), cosine_topk_rows(&q, &flat, 5, dims, 3));
     }
 }

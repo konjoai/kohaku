@@ -40,12 +40,13 @@ def cosine_topk(
     Ranking is by cosine descending, ties broken by ascending row index —
     matching the pure-Python ``HyperVector.cosine_similarity`` ordering.
 
-    The batch path uses NumPy (``asarray`` + BLAS), which is currently faster
-    than the Rust kernel: routing a batch through PyO3 marshals a Python
-    list-of-lists per call, and that overhead dwarfs the bit-packed popcount win
-    (measured ~3× slower — see ``benchmarks/bench_backends.py``). The Rust
-    kernel stays built, parity-tested, and reachable via :func:`rust_cosine_topk`;
-    it will become the default once slice 2 lands zero-copy NumPy FFI.
+    This one-shot path uses NumPy (``asarray`` + BLAS). Slice 2's zero-copy FFI
+    (:func:`rust_cosine_topk`) brought the Rust one-shot kernel to ~parity, but
+    re-packing keys every call is no clear win over BLAS — so NumPy stays the
+    default here. The decisive ~200× speedup comes from amortizing the packing:
+    use :class:`kohaku.RetrievalIndex` (resident bit-packed index) when the same
+    keys are probed more than once. ``kohaku.query`` / ``query_with_decay``
+    already route through it.
     """
     n = len(keys)
     if top_k <= 0 or n == 0:
@@ -56,36 +57,22 @@ def cosine_topk(
 def rust_cosine_topk(
     query: np.ndarray, keys: np.ndarray, top_k: int
 ) -> List[Tuple[int, float]]:
-    """Cosine top-k via the Rust bit-packed popcount kernel.
+    """Cosine top-k via the Rust bit-packed popcount kernel (zero-copy FFI).
 
-    Requires the compiled extension (:data:`HAS_RUST`). Returns the same
-    ranking as :func:`cosine_topk`; kept available for parity testing and for
-    the zero-copy re-wiring planned in slice 2.
+    Requires the compiled extension (:data:`HAS_RUST`). The query and key matrix
+    are passed as contiguous ``int8`` arrays and borrowed directly by Rust —
+    no per-element Python marshaling — so the popcount kernel finally beats the
+    NumPy path (slice 1 measured the list-of-lists marshaling at ~4× slower).
+    Returns the same ranking as :func:`cosine_topk`.
     """
     if not HAS_RUST:
         raise RuntimeError("Rust extension not available")
     if top_k <= 0 or len(keys) == 0:
         return []
-    ranked = _rs.cosine_topk(
-        np.asarray(query, dtype=np.int8).tolist(),
-        np.asarray(keys, dtype=np.int8).tolist(),
-        top_k,
-    )
+    q = np.ascontiguousarray(query, dtype=np.int8)
+    k = np.ascontiguousarray(keys, dtype=np.int8)
+    ranked = _rs.cosine_topk(q, k, top_k)
     return [(int(i), float(s)) for i, s in ranked]
-
-
-def cosine_all(query: np.ndarray, keys: np.ndarray) -> np.ndarray:
-    """Cosine of ``query`` against every row of ``keys``, in row order.
-
-    Uses the same kernel as :func:`cosine_topk`, so callers that need *all*
-    similarities (e.g. temporal decay re-ranking) agree bit-for-bit with the
-    top-k path on whichever backend is active.
-    """
-    n = len(keys)
-    sims = np.zeros(n, dtype=np.float32)
-    for i, s in cosine_topk(query, keys, n):
-        sims[i] = s
-    return sims
 
 
 def _numpy_cosine_topk(

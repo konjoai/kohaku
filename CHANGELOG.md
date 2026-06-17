@@ -2,6 +2,45 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.19.0] — 2026-06-17
+
+### Added — Track C1 slice 2: zero-copy FFI + resident packed index
+
+Slice 1 proved the bit-packed kernel was correct but ~4× *slower* than NumPy,
+because every batch call marshaled a Python list-of-lists across PyO3. Slice 2
+removes that overhead and delivers the real Rust win.
+
+- **Zero-copy FFI** (`numpy`/`rust-numpy` crate) — `kohaku._kohaku_rs.cosine_topk`
+  now takes borrowed `PyReadonlyArray1/2<i8>` instead of `Vec<Vec<i8>>`. No
+  per-element boxing; the one-shot kernel is now ~parity with NumPy
+  (0.7–1.0×) instead of ~4× slower.
+- **Resident packed index** (`src/accel.rs::PackedIndex`, exposed as
+  `kohaku._kohaku_rs.PackedIndex`) — packs the keys to one bit per component
+  **once**, so each query marshals only the probe and costs `n·dims/64`
+  XOR+popcount words. Measured **~160–230× faster than NumPy** for the
+  repeated-probe workload (`benchmarks/bench_backends.py`).
+- **`kohaku.RetrievalIndex`** — public Python wrapper over the resident index
+  (Rust when built, cached `float32` matrix + NumPy otherwise; identical
+  rankings). The canonical `kohaku.query` / `query_with_decay` now route through
+  a per-memory cached index, so repeated retrieval against an unchanged memory
+  skips re-packing the keys. The cache is invalidated by a monotonic
+  `EpisodicMemory._generation` counter (bumped on every `store`/`clear`).
+- **Tests** — `python/tests/test_index.py` (ranking parity vs NumPy, cache
+  reuse/invalidation, weak eviction, dim-mismatch guard) + 4 new Rust unit
+  tests for `cosine_topk_rows` / `PackedIndex`.
+
+### Changed
+- Default one-shot batch path stays NumPy: zero-copy re-packing every call is
+  not a clear win over BLAS (the ~200× win requires amortizing the packing via
+  `RetrievalIndex`), so making Rust the unconditional default would regress
+  small-N retrieval (benchmarking gate: >5% p95 = hard stop).
+- `_accel.cosine_all` folded into `RetrievalIndex.all_scores`; `decay` and
+  `_query` now route through the cached index.
+- `benchmarks/bench_backends.py` now reports NumPy vs zero-copy vs resident index.
+- `__init__.py` / `python/pyproject.toml` / root `pyproject.toml` — version `0.19.0`.
+
+> Wheels are intentionally **not** published in this slice (local/CI builds only).
+
 ## [0.18.0] — 2026-06-17
 
 ### Added — Track C1 (commit to Rust): accelerated cosine top-k

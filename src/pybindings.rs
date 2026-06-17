@@ -1,9 +1,11 @@
 //! PyO3 Python bindings for kohaku.
 //! Build with: maturin develop --features python
 #![cfg(feature = "python")]
-use crate::accel::cosine_topk as rust_cosine_topk;
+use crate::accel::{cosine_topk_rows, PackedIndex};
 use crate::retrieval::query;
 use crate::{EpisodicMemory, HyperVector, DIMS};
+use numpy::{PyReadonlyArray1, PyReadonlyArray2};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
@@ -94,20 +96,75 @@ impl PyEpisodicMemory {
     }
 }
 
-/// Bit-packed cosine top-k over a batch of bipolar key vectors.
+/// Validate that a `(n_rows, dims)` key matrix matches a query of length `qlen`.
+fn check_dims(qlen: usize, cols: usize) -> PyResult<()> {
+    if cols != qlen {
+        return Err(PyValueError::new_err(format!(
+            "query length {qlen} != key dims {cols}"
+        )));
+    }
+    Ok(())
+}
+
+/// Bit-packed cosine top-k over a batch of bipolar key vectors (zero-copy).
 ///
-/// `query` and each row of `keys` are `+1`/`-1` component lists. Returns
-/// `(index, similarity)` pairs sorted by similarity descending, ties by index.
+/// `query` is a 1-D `int8` array of length `D`; `keys` is a C-contiguous
+/// `(N, D)` `int8` array. Both are borrowed as Rust slices with no per-element
+/// marshaling — the win that lets the popcount kernel beat the list-of-lists
+/// path. Returns `(index, similarity)` pairs sorted by similarity descending,
+/// ties broken by ascending index.
 #[pyfunction]
 #[pyo3(name = "cosine_topk")]
-fn py_cosine_topk(query: Vec<i8>, keys: Vec<Vec<i8>>, top_k: usize) -> Vec<(usize, f32)> {
-    rust_cosine_topk(&query, &keys, top_k)
+fn py_cosine_topk(
+    query: PyReadonlyArray1<i8>,
+    keys: PyReadonlyArray2<i8>,
+    top_k: usize,
+) -> PyResult<Vec<(usize, f32)>> {
+    let q = query.as_slice()?;
+    let view = keys.as_array();
+    let (n_rows, cols) = (view.nrows(), view.ncols());
+    check_dims(q.len(), cols)?;
+    let k = keys.as_slice()?;
+    Ok(cosine_topk_rows(q, k, n_rows, cols, top_k))
+}
+
+/// Resident bit-packed index over a fixed set of bipolar key vectors.
+///
+/// Pack the keys once, then query repeatedly: each call marshals only the query
+/// across the FFI boundary, so amortized retrieval beats re-streaming every
+/// float through BLAS.
+#[pyclass(name = "PackedIndex")]
+pub struct PyPackedIndex {
+    inner: PackedIndex,
+}
+
+#[pymethods]
+impl PyPackedIndex {
+    #[new]
+    fn new(keys: PyReadonlyArray2<i8>) -> PyResult<Self> {
+        let view = keys.as_array();
+        let (n_rows, dims) = (view.nrows(), view.ncols());
+        let k = keys.as_slice()?;
+        Ok(Self {
+            inner: PackedIndex::from_rows(k, n_rows, dims),
+        })
+    }
+
+    /// Top-`k` cosine of `query` against every indexed row.
+    fn topk(&self, query: PyReadonlyArray1<i8>, top_k: usize) -> PyResult<Vec<(usize, f32)>> {
+        Ok(self.inner.topk(query.as_slice()?, top_k))
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 #[pymodule]
 pub fn _kohaku_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyHyperVector>()?;
     m.add_class::<PyEpisodicMemory>()?;
+    m.add_class::<PyPackedIndex>()?;
     m.add_function(wrap_pyfunction!(py_cosine_topk, m)?)?;
     Ok(())
 }
