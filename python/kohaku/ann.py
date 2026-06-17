@@ -30,8 +30,11 @@ import numpy as np
 
 from kohaku._pure import DIMS, EpisodicMemory, HyperVector
 
-DEFAULT_NUM_TABLES = 8
-DEFAULT_HASH_BITS = 16
+# Defaults favour recall over precision: because every candidate is re-ranked
+# with exact cosine, extra candidates are cheap, but a missed bucket is a lost
+# result. More tables + fewer bits per table widen recall (≈0.9 at 5% noise).
+DEFAULT_NUM_TABLES = 16
+DEFAULT_HASH_BITS = 12
 DEFAULT_SEED = 0x1071_5EED
 
 

@@ -2,6 +2,29 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.17.0] — 2026-06-17
+
+### Added — Track C3: benchmarks-as-a-gate
+
+- **`benchmarks/run_benchmarks.py`** — reproducible scaling bench: retrieval
+  latency (exact vs ANN), ANN top-1 agreement, and on-disk size (`.hkb` vs
+  JSON). `--quick` for CI logs, `--json` to persist results. Runs straight from
+  a checkout.
+- **`python/tests/test_benchmarks.py`** — six performance *invariants* that gate
+  CI (stable, not wall-clock): ANN recall@10 ≥ 0.8, candidate-set pruning,
+  `.hkb` ≥ 5× smaller than JSON, exact binary round-trip recall, facade ANN
+  top-1 parity, and a bench-script smoke test.
+- **CI** — the `python` job now runs the gate tests and prints the quick bench.
+
+### Changed
+
+- **ANN default params retuned for recall** (`kohaku.ann`) — `num_tables`
+  8 → **16**, `hash_bits` 16 → **12**. Because every LSH candidate is re-ranked
+  with exact cosine, extra candidates are cheap but a missed bucket is a lost
+  result; the new defaults lift recall@10 from ~0.73 to ~0.9 at 5% query noise.
+  (Surfaced by the new recall gate.)
+- `__init__.py` / `pyproject.toml` — version `0.17.0`.
+
 ## [0.16.0] — 2026-06-17
 
 ### Added — Track B3: unified system snapshot

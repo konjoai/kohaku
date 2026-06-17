@@ -122,8 +122,15 @@ CLI · cosmos visualizations.
   deliver. Pick one; the current limbo is the worst option.
 - **C2. Consolidate the demos** into one maintained `kohaku-live.html` and move
   the rest to an `demo/archive/` so the product surface stops fragmenting.
-- **C3. Benchmarks as a gate.** A reproducible bench (recall@k vs memory size,
-  latency, `.hkb` size) checked into CI, so scaling regressions are visible.
+- [x] **C3. Benchmarks as a gate.** ✅ (v0.17.0) `benchmarks/run_benchmarks.py`
+  (latency exact vs ANN, ANN agreement, `.hkb` vs JSON size) + six invariant
+  gates in `test_benchmarks.py` run in CI. Surfaced + fixed an ANN default that
+  favoured precision over recall (recall@10 ~0.73 → ~0.9).
+
+- [ ] **C1. Resolve the Rust story → decision: commit to Rust.** Port the hot
+  O(N·D) loops (cosine retrieval, consolidation, conflict/importance scans) to
+  Rust behind the existing `python` feature flag and publish maturin wheels.
+  *In progress.*
 
 ## 4. Suggested first sprint
 
