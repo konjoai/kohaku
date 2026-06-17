@@ -127,10 +127,14 @@ CLI · cosmos visualizations.
   gates in `test_benchmarks.py` run in CI. Surfaced + fixed an ANN default that
   favoured precision over recall (recall@10 ~0.73 → ~0.9).
 
-- [ ] **C1. Resolve the Rust story → decision: commit to Rust.** Port the hot
-  O(N·D) loops (cosine retrieval, consolidation, conflict/importance scans) to
-  Rust behind the existing `python` feature flag and publish maturin wheels.
-  *In progress.*
+- [~] **C1. Resolve the Rust story → decision: commit to Rust.** *In progress.*
+  - [x] Slice 1 (v0.18.0): Rust `cosine_topk` (bit-packed popcount) behind the
+    `python` feature flag, exposed via PyO3; maturin build (`pip install .`);
+    `kohaku._accel` dispatch with NumPy baseline; canonical `query` /
+    `query_with_decay` batched through it; CI `rust-accel` job proving parity.
+  - [ ] Slice 2: resident Rust index (avoid per-query key copies) + wire the
+    enriched/facade retrieval path; publish wheels to PyPI.
+  - [ ] Slice 3: port consolidation + conflict/importance O(N²) scans.
 
 ## 4. Suggested first sprint
 

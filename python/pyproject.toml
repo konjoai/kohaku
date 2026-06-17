@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kohaku"
-version = "0.17.0"
+version = "0.18.0"
 description = "HDC episodic memory engine — pip-installable Python package"
 license = { text = "BUSL-1.1" }
 requires-python = ">=3.9"

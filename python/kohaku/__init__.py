@@ -1,13 +1,17 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.17.0"
+__version__ = "0.18.0"
+
+# Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
+# The optional Rust extension *accelerates* hot loops (see kohaku._accel); it
+# does not replace these classes.
+from kohaku._pure import HyperVector, EpisodicMemory
 
 try:
-    from kohaku._kohaku_rs import HyperVector, EpisodicMemory  # compiled Rust ext
-    _BACKEND = "rust"
+    import kohaku._kohaku_rs  # noqa: F401 — presence flips the accelerated path on
+    _BACKEND = "rust-accel"
 except ImportError:
-    from kohaku._pure import HyperVector, EpisodicMemory  # pure Python fallback
     _BACKEND = "python"
 
 from kohaku.memory_facade import Memory, MemoryHit

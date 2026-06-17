@@ -1,5 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
+
+import numpy as np
+
+from kohaku._accel import cosine_topk
 from kohaku._pure import HyperVector, EpisodicMemory
 
 
@@ -12,20 +16,26 @@ class RetrievalResult:
 
 
 def query(memory: EpisodicMemory, query_key: HyperVector, top_k: int) -> list[RetrievalResult]:
-    """Return top_k entries by cosine similarity, descending."""
+    """Return top_k entries by cosine similarity, descending.
+
+    Similarities are computed in one batched pass (Rust bit-packed popcount when
+    the extension is present, NumPy matmul otherwise) instead of a per-entry
+    Python loop.
+    """
     if top_k <= 0 or memory.is_empty:
         return []
-    results = [
+    entries = memory.entries()
+    keys = np.stack([e.key.data for e in entries])
+    ranked = cosine_topk(query_key.data, keys, top_k)
+    return [
         RetrievalResult(
-            entry_id=e.id,
-            label=e.label,
-            similarity=e.key.cosine_similarity(query_key),
-            value=e.value,
+            entry_id=entries[i].id,
+            label=entries[i].label,
+            similarity=sim,
+            value=entries[i].value,
         )
-        for e in memory.entries()
+        for i, sim in ranked
     ]
-    results.sort(key=lambda r: r.similarity, reverse=True)
-    return results[:top_k]
 
 
 def query_threshold(

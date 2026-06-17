@@ -1,0 +1,28 @@
+# Rust-accelerated build (maturin). `pip install .` from the repo root builds
+# the `kohaku._kohaku_rs` extension and bundles the pure-Python package from
+# `python/`. The pure-Python-only install lives at `python/pyproject.toml`
+# (hatchling) and remains the correctness baseline — both ship the same
+# `kohaku` package; this one just adds the compiled accelerator.
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "kohaku"
+version = "0.18.0"
+description = "HDC episodic memory engine — Rust-accelerated build"
+license = { text = "BUSL-1.1" }
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.24.0"]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.100.0", "uvicorn[standard]>=0.22.0"]
+semantic = ["sentence-transformers>=2.2.0"]
+
+[project.scripts]
+kohaku = "kohaku.cli:main"
+
+[tool.maturin]
+python-source = "python"
+module-name = "kohaku._kohaku_rs"
+features = ["python"]

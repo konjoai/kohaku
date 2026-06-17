@@ -56,8 +56,18 @@ There is no true **memory system**.
 
 ## ⚙️ Architecture
 
-* 🦀 Rust core — high-performance HDC engine
-* 🐍 Python API — LLM integration
+* 🐍 **Python** — the full engine and API; the pure-Python path is the
+  correctness baseline and works with zero native dependencies.
+* 🦀 **Rust accelerator** (optional) — bit-packed XOR + popcount cosine top-k
+  behind a PyO3 extension. `pip install .` (from the repo root, via maturin)
+  builds `kohaku._kohaku_rs`; retrieval then runs the Rust kernel transparently
+  (`kohaku._BACKEND == "rust-accel"`). Without it, the same results come from a
+  NumPy batch. Build/CI proves the two paths agree.
+
+```bash
+pip install ./python    # pure-Python baseline
+pip install .           # + Rust accelerator (needs a Rust toolchain + maturin)
+```
 
 ---
 
