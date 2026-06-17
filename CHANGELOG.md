@@ -2,6 +2,36 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.15.0] — 2026-06-17
+
+### Added — Track B2: approximate nearest-neighbour retrieval
+
+Lifts the O(N·D) brute-force retrieval ceiling without adding a heavy
+dependency.
+
+- **`kohaku.ann.LSHIndex`** (`python/kohaku/ann.py`) — random-hyperplane
+  (SimHash) locality-sensitive hashing over bipolar hypervectors. Pure NumPy,
+  no FAISS/hnswlib. `add` / `remove` / `clear` / `candidates` / `query`
+  (candidate gather + **exact** cosine re-rank) / `from_memory`. Configurable
+  `num_tables` (recall) and `hash_bits` (precision).
+
+- **`Memory(ann=True)`** — the facade maintains an `LSHIndex` and narrows
+  similarity queries to LSH candidates before exact ranking. Results are
+  unchanged except for the rare LSH miss; non-similarity sorts and empty
+  candidate sets fall back to a full exact scan. Index stays consistent across
+  FIFO eviction (rebuild), `expire`, and `clear`. `Memory.load(..., ann=True)`
+  rebuilds it.
+
+- **`EnrichedMemoryStore.query(..., candidate_ids=...)`** — optional precomputed
+  candidate subset; entries outside it are skipped while every other
+  filter/ranking still applies. `None` preserves the exact full scan.
+
+- **Tests** — 12 new (`python/tests/test_ann.py`): index ops, parameter
+  validation, self-match, near-duplicate recall, `from_memory`, and facade
+  parity / eviction / expire / clear. Full suite: **555 passed**.
+
+- `__init__.py` / `pyproject.toml` — exports `LSHIndex`; version `0.15.0`.
+
 ## [0.14.0] — 2026-06-17
 
 ### Added — Track B1: semantic encoder

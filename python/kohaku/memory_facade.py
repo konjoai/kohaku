@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Callable, List, Optional, Sequence
 
 from kohaku._pure import DIMS, HyperVector
+from kohaku.ann import LSHIndex
 from kohaku.attention import encode_text
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.enriched_meta import DEFAULT_HALF_LIFE_DAYS, DEFAULT_IMPORTANCE, SortMode
@@ -94,6 +95,13 @@ class Memory:
         :class:`kohaku.semantic.EmbeddingEncoder` for meaning-based recall.
         A store written with a custom encoder must be reloaded with the same
         one (see :meth:`load`).
+    ann:
+        When True, maintain a bipolar-LSH index (:class:`kohaku.ann.LSHIndex`)
+        and use it to narrow similarity queries to a candidate set before exact
+        ranking — sub-linear retrieval past ~10⁴ memories. Exact cosine still
+        ranks the candidates, so results are unchanged except for the rare LSH
+        miss; salience/recency sorts and empty candidate sets fall back to a
+        full scan.
     """
 
     def __init__(
@@ -103,6 +111,7 @@ class Memory:
         dims: int = DIMS,
         half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
         encoder: Optional[Encoder] = None,
+        ann: bool = False,
     ) -> None:
         self._dims = dims
         self._capacity = capacity
@@ -110,6 +119,18 @@ class Memory:
         self._store = EnrichedMemoryStore(
             capacity=capacity, dims=dims, half_life_days=half_life_days
         )
+        self._index = LSHIndex(dims) if ann else None
+
+    @property
+    def ann_enabled(self) -> bool:
+        return self._index is not None
+
+    def _rebuild_index(self) -> None:
+        if self._index is None:
+            return
+        self._index.clear()
+        for e in self._store.episodic.entries():
+            self._index.add(e.id, e.key)
 
     def _encode(self, text: str) -> HyperVector:
         if self._encoder is not None:
@@ -135,7 +156,8 @@ class Memory:
         if not text or not text.strip():
             raise ValueError("cannot store empty text")
         hv = self._encode(text)
-        return self._store.store(
+        n_before = len(self._store)
+        eid = self._store.store(
             hv,
             hv,
             text,
@@ -145,6 +167,14 @@ class Memory:
             valid_until=valid_until,
             forgetting_rate=forgetting_rate,
         )
+        if self._index is not None:
+            # len not growing means a FIFO eviction fired — rebuild from the
+            # live entries so the evicted id leaves the index too.
+            if len(self._store) <= n_before:
+                self._rebuild_index()
+            else:
+                self._index.add(eid, hv)
+        return eid
 
     # ── read ────────────────────────────────────────────────────────────────
     def query(
@@ -168,6 +198,13 @@ class Memory:
         if not text or not text.strip():
             raise ValueError("cannot query with empty text")
         hv = self._encode(text)
+        # ANN narrows the scan for similarity queries; empty candidate sets and
+        # non-similarity sorts fall back to a full exact scan (candidate_ids=None).
+        candidate_ids = None
+        if self._index is not None and sort == "similarity":
+            cand = self._index.candidates(hv)
+            if cand:
+                candidate_ids = cand
         results = self._store.query(
             hv,
             top_k=top_k,
@@ -177,6 +214,7 @@ class Memory:
             tags_any=list(tags_any) if tags_any is not None else None,
             tags_all=list(tags_all) if tags_all is not None else None,
             reinforce_hits=reinforce,
+            candidate_ids=candidate_ids,
         )
         score_key = "salience" if sort == "salience" else "similarity"
         return [
@@ -200,10 +238,16 @@ class Memory:
 
     def expire(self, *, now: Optional[datetime] = None) -> List[int]:
         """Drop memories past their ``valid_until``. Returns the dropped ids."""
-        return self._store.expire_old(now=now)
+        dropped = self._store.expire_old(now=now)
+        if dropped and self._index is not None:
+            for eid in dropped:
+                self._index.remove(eid)
+        return dropped
 
     def clear(self) -> None:
         self._store.clear()
+        if self._index is not None:
+            self._index.clear()
 
     @property
     def store_(self) -> EnrichedMemoryStore:
@@ -250,13 +294,16 @@ class Memory:
         os.replace(tmp, path)
 
     @classmethod
-    def load(cls, path: str, *, encoder: Optional[Encoder] = None) -> "Memory":
+    def load(
+        cls, path: str, *, encoder: Optional[Encoder] = None, ann: bool = False
+    ) -> "Memory":
         """Reconstruct a :class:`Memory` previously written by :meth:`save`.
 
         Hypervectors are re-derived by re-encoding the stored labels, so a
         store saved with a custom ``encoder`` must be reloaded with the same
         one — otherwise similarity scores won't match the original. A mismatch
         (custom-saved store, no encoder supplied) is logged as a warning.
+        ``ann`` rebuilds the LSH index as entries are re-stored.
         """
         with open(path, encoding="utf-8") as fh:
             payload = json.load(fh)
@@ -271,6 +318,7 @@ class Memory:
             dims=int(payload.get("dims", DIMS)),
             half_life_days=float(payload.get("half_life_days", DEFAULT_HALF_LIFE_DAYS)),
             encoder=encoder,
+            ann=ann,
         )
         for rec in payload.get("records", []):
             eid = mem.store(

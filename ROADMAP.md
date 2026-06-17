@@ -101,9 +101,11 @@ CLI · cosmos visualizations.
   the zero-dependency lexical path stays the default. `Memory(encoder=...)`
   wires it in. Accepts any `embed_fn`, so it composes with OpenAI embeddings
   too. This is the single biggest quality lever for real LLM-memory use.
-- **B2. ANN index for retrieval.** Replace the O(n²) scan with an optional
-  index (FAISS/hnswlib, or a native bipolar-LSH bucketed by sign-projection).
-  Keep the brute-force path as the correctness baseline. Lifts the ~10⁴ ceiling.
+- [x] **B2. ANN index for retrieval.** ✅ (v0.15.0) `kohaku.ann.LSHIndex` —
+  native bipolar-LSH (random-hyperplane SimHash), pure NumPy, no FAISS/hnswlib.
+  `Memory(ann=True)` narrows similarity queries to LSH candidates then re-ranks
+  with exact cosine (brute force stays the correctness baseline via
+  `candidate_ids=None`). Lifts the ~10⁴ ceiling.
 - **B3. Unified persistence.** One `save_system(dir)` / `load_system(dir)` that
   snapshots episodic `.hkb` + metadata + provenance + versions + relationships
   together, with a manifest and a round-trip test.

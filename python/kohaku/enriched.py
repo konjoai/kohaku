@@ -235,12 +235,17 @@ class EnrichedMemoryStore:
         reinforce_hits: bool = True,
         tags_any: Optional[List[str]] = None,
         tags_all: Optional[List[str]] = None,
+        candidate_ids: Optional[set] = None,
     ) -> List[EnrichedRetrievalResult]:
         """Return up to ``top_k`` matches, filtered by validity and (optionally)
         source, ranked by ``sort``.
 
         ``reinforce_hits=True`` increments ``reinforcement_count`` for every
         result returned — that's the engine of the salience feedback loop.
+
+        ``candidate_ids`` restricts scoring to a precomputed subset of entry
+        ids (e.g. from an ANN index). Entries outside the set are skipped; all
+        other filters/ranking still apply. ``None`` scans every entry (exact).
         """
         if top_k <= 0:
             return []
@@ -250,6 +255,8 @@ class EnrichedMemoryStore:
 
         scored: List[EnrichedRetrievalResult] = []
         for e in self._mem.entries():
+            if candidate_ids is not None and e.id not in candidate_ids:
+                continue
             meta = self._meta.get(e.id)
             if meta is None:
                 continue

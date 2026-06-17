@@ -117,6 +117,22 @@ transformers, OpenAI embeddings, your own — so there's no hard dependency. A
 store saved with a custom encoder must be reloaded with the same one
 (`Memory.load(path, encoder=enc)`).
 
+## ⚡ Scaling past 10⁴ memories
+
+Exact cosine retrieval is `O(N·D)` per query. Flip on the bipolar-LSH index to
+narrow each similarity query to a small candidate set before exact ranking:
+
+```python
+mem = Memory(ann=True)            # maintains a kohaku.ann.LSHIndex
+# ... store thousands of memories ...
+mem.query("...")                  # sub-linear: LSH candidates, exact re-rank
+```
+
+Results are unchanged except for the rare LSH miss — candidates are always
+scored with exact cosine, and salience/recency sorts or empty candidate sets
+fall back to a full scan. `LSHIndex` is pure NumPy (no FAISS/hnswlib) and can
+be used standalone.
+
 ---
 
 ## 💾 Persistence (v0.4.0)
