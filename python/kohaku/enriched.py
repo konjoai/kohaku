@@ -128,6 +128,35 @@ class EnrichedMemoryStore:
     def __contains__(self, entry_id: int) -> bool:
         return entry_id in self._meta
 
+    @classmethod
+    def from_state(
+        cls,
+        memory: EpisodicMemory,
+        metadata: Dict[int, MemoryMetadata],
+        *,
+        capacity: int,
+        dims: int,
+        half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
+        reinforcement_k: float = DEFAULT_REINFORCEMENT_K,
+        trust_weights: Optional[Dict[str, float]] = None,
+    ) -> "EnrichedMemoryStore":
+        """Rebuild a store from a loaded ``EpisodicMemory`` + metadata table.
+
+        Used by :mod:`kohaku.system` to restore a persisted snapshot without
+        re-storing (which would mint new ids and reset reinforcement counts).
+        The metadata keys must match the loaded entries' ids.
+        """
+        store = cls(
+            capacity=capacity,
+            dims=dims,
+            half_life_days=half_life_days,
+            reinforcement_k=reinforcement_k,
+            trust_weights=trust_weights,
+        )
+        store._mem = memory
+        store._meta = dict(metadata)
+        return store
+
     # ── store ──────────────────────────────────────────────────────────────
     def store(
         self,

@@ -2,6 +2,36 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.16.0] — 2026-06-17
+
+### Added — Track B3: unified system snapshot
+
+One directory, the whole system — closing the persistence fragmentation gap
+(episodic `.hkb` here, three loose SQLite files there).
+
+- **`kohaku.system`** (`python/kohaku/system.py`) — `save_system(store, dir, *,
+  provenance=, versions=, relationships=)` writes the episodic store
+  (`memory.hkb`), the per-memory metadata table (`metadata.json`), and any
+  attached SQLite side stores (provenance / versions / relationships) into one
+  directory with a `manifest.json`. SQLite stores are copied via the sqlite
+  backup API, so even `:memory:` stores persist. Side stores default to those
+  already attached to `store`.
+- **`load_system(dir) -> SystemBundle`** — rebuilds a wired-up
+  `EnrichedMemoryStore` (recall is exact — HVs come from the packed `.hkb`,
+  metadata and reinforcement counts are restored as-is) plus the side stores,
+  re-attached for future writes.
+- **`EnrichedMemoryStore.from_state(memory, metadata, *, capacity, dims, ...)`**
+  — reconstruct a store from a loaded `EpisodicMemory` + metadata table without
+  re-storing (which would mint new ids and reset counts).
+
+- **Tests** — 7 new (`python/tests/test_system.py`): metadata + recall exact
+  round-trip, manifest contents, full provenance/versions/relationships
+  round-trip, attached-default behaviour, missing-manifest error. Full suite:
+  **562 passed**.
+
+- `__init__.py` / `pyproject.toml` — exports `save_system`, `load_system`,
+  `SystemBundle`; version `0.16.0`.
+
 ## [0.15.0] — 2026-06-17
 
 ### Added — Track B2: approximate nearest-neighbour retrieval

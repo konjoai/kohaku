@@ -106,9 +106,11 @@ CLI · cosmos visualizations.
   `Memory(ann=True)` narrows similarity queries to LSH candidates then re-ranks
   with exact cosine (brute force stays the correctness baseline via
   `candidate_ids=None`). Lifts the ~10⁴ ceiling.
-- **B3. Unified persistence.** One `save_system(dir)` / `load_system(dir)` that
-  snapshots episodic `.hkb` + metadata + provenance + versions + relationships
-  together, with a manifest and a round-trip test.
+- [x] **B3. Unified persistence.** ✅ (v0.16.0) `kohaku.system.save_system` /
+  `load_system` snapshot episodic `.hkb` + metadata + provenance + versions +
+  relationships into one directory with a `manifest.json` (SQLite stores copied
+  via the backup API, so `:memory:` persists too). `SystemBundle` carries the
+  rebuilt store + side stores; recall is exact after the round-trip.
 
 ### 🟡 Track C — Strategic positioning (decide, then commit)
 
@@ -129,3 +131,7 @@ Track A in full (A1–A4) — it is all low-risk, makes the front door honest,
 turns CI green, and unblocks the facade everything else benefits from — plus
 **B1 (semantic encoder)** as the headline feature. Defer B2/B3 and the Rust
 decision (C1) to a dedicated follow-up once A is merged.
+
+**Update:** Tracks A and B are now complete (v0.13.0 → v0.16.0). The remaining
+work is all Track C — the strategic positioning decisions (C1 Rust story, C2
+demo consolidation, C3 benchmarks-as-a-gate).

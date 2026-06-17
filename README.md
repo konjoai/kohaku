@@ -133,6 +133,23 @@ scored with exact cosine, and salience/recency sorts or empty candidate sets
 fall back to a full scan. `LSHIndex` is pure NumPy (no FAISS/hnswlib) and can
 be used standalone.
 
+## 📦 Whole-system snapshots
+
+`save_system` / `load_system` persist an entire enriched setup — episodic
+hypervectors, per-memory metadata, and the provenance / version / relationship
+side stores — into one directory with a manifest:
+
+```python
+from kohaku import save_system, load_system
+
+save_system(store, "snapshot/", provenance=pg, versions=vs, relationships=rel)
+bundle = load_system("snapshot/")
+bundle.store, bundle.provenance, bundle.versions, bundle.relationships
+```
+
+SQLite side stores are copied via the backup API (so `:memory:` stores persist
+too), and recall is exact after the round-trip.
+
 ---
 
 ## 💾 Persistence (v0.4.0)
