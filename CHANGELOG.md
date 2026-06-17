@@ -2,6 +2,44 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.13.0] — 2026-06-17
+
+### Added — Track A: the `Memory` facade
+
+The first slice of the `ROADMAP.md` Track A (credibility & correctness).
+
+- **`Memory` facade** (`python/kohaku/memory_facade.py`) — a string-in /
+  string-out front door over `EnrichedMemoryStore`. `Memory().store("…text…")`
+  encodes via `encode_text` and persists; `query("…text…")` returns ranked
+  `MemoryHit` rows (`.text`, `.score`, `.similarity`, `.salience`, `.source`,
+  `.tags`). Supports `source` / tag filters, salience/recency sorting,
+  reinforcement, expiry, and `save()` / `load()` (labels + metadata only —
+  hypervectors are re-derived deterministically, so the round-trip is exact).
+  Exported as `kohaku.Memory` / `kohaku.MemoryHit`. This makes the README's
+  headline example actually run for the first time.
+
+- **`enriched_meta.py` split** — `MemoryMetadata`, `EnrichedRetrievalResult`,
+  the source-trust table, and the datetime/tag helpers moved out of
+  `enriched.py` (was 521 lines, over the 500-line quality cap) into
+  `enriched_meta.py`. `enriched.py` (now 399 lines) re-exports them, so every
+  existing `from kohaku.enriched import …` path is unchanged.
+
+- **README** — the Quick Start now matches the real, working API and documents
+  `MemoryHit` plus when to reach past the facade to `EnrichedMemoryStore`.
+
+### Changed — CI actually guards Python now
+
+- `.github/workflows/ci.yml` — split into `rust` and `python` jobs. The Rust
+  job additionally runs `cargo build --features python` so the optional PyO3
+  bindings can't silently rot. The new Python job installs the package and runs
+  the real `python/tests` + `api` suites (the konjo-gate previously pointed at a
+  non-existent `tests/` path, so the Python suite never ran in CI).
+
+- **Tests** — 16 new (`python/tests/test_memory_facade.py`). Full suite green.
+
+- `python/kohaku/__init__.py` / `python/pyproject.toml` — version bumped to
+  `0.13.0`.
+
 ## [0.12.0] — 2026-05-24
 
 ### Added — Phase 15: Graphiti/Mem0 Dialects + Forgetting-Rate Overrides

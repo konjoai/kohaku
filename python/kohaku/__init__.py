@@ -1,7 +1,7 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 try:
     from kohaku._kohaku_rs import HyperVector, EpisodicMemory  # compiled Rust ext
@@ -10,6 +10,7 @@ except ImportError:
     from kohaku._pure import HyperVector, EpisodicMemory  # pure Python fallback
     _BACKEND = "python"
 
+from kohaku.memory_facade import Memory, MemoryHit
 from kohaku._async import AsyncEpisodicMemory
 from kohaku._query import RetrievalResult, query, query_threshold
 from kohaku.context import ContextConfig, ContextMemoryManager
@@ -118,6 +119,8 @@ except ImportError:
     _SERVER_AVAILABLE = False
 
 __all__ = [
+    "Memory",
+    "MemoryHit",
     "HyperVector",
     "EpisodicMemory",
     "AsyncEpisodicMemory",

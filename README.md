@@ -72,8 +72,23 @@ from kohaku import Memory
 
 mem = Memory()
 mem.store("User prefers Italian wine")
-mem.query("What does the user like?")
+mem.store("User is allergic to shellfish", importance=0.9, tags=["health"])
+
+hits = mem.query("What does the user like to drink?")
+for h in hits:
+    print(h.text, round(h.similarity, 3))
+# → User prefers Italian wine 0.63
+
+mem.save("user.json")          # labels + metadata; HVs re-derived on load
+mem2 = Memory.load("user.json")
 ```
+
+`Memory` is the one-line front door: store strings, get ranked `MemoryHit`
+results back (`.text`, `.similarity`, `.salience`, `.source`, `.tags`). It wraps
+the full `EnrichedMemoryStore` — temporal validity, salience, source-trust,
+tags — behind a string-in/string-out API. Reach for `EnrichedMemoryStore`,
+`MemorySystem`, and friends directly when you need provenance graphs, version
+history, or consolidation daemons.
 
 ---
 

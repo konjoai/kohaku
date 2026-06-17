@@ -78,20 +78,20 @@ CLI · cosmos visualizations.
 
 ## 3. Plan — three tracks, prioritized
 
-### 🔴 Track A — Credibility & correctness (do first, small, high-leverage)
+### 🔴 Track A — Credibility & correctness (do first, small, high-leverage) — ✅ DONE (v0.13.0)
 
-- **A1. Fix the README** so the headline example runs, or ship the facade in A2
-  and make the example real. Until then the front door is broken.
-- **A2. Ship a `Memory` facade** (`kohaku/memory_facade.py`): `Memory()` with
-  `store(text, **meta) -> id`, `query(text, k=...) -> [hits]`, `save(path)` /
-  `load(path)`. Wraps `EnrichedMemoryStore` + `encode_text` + decay. Export it
-  as `Memory` so the README's promise becomes true. (1 module, ~150 lines.)
-- **A3. Split `enriched.py`** (521→ <500): extract `MemoryMetadata` + salience
-  math into `enriched_meta.py`. Turns CI green again.
-- **A4. Wire `maturin` + the `python` feature into CI** and decide Track C's
-  Rust question explicitly rather than letting it rot. At minimum: build
-  `--features python` in CI (it compiles today) so the binding can't silently
-  break.
+- [x] **A1. Fix the README** — Quick Start now matches the real API and the
+  headline example runs (via the A2 facade).
+- [x] **A2. Ship a `Memory` facade** (`kohaku/memory_facade.py`): `Memory()` with
+  `store(text, **meta) -> id`, `query(text, top_k=...) -> [MemoryHit]`,
+  `save(path)` / `load(path)`. Wraps `EnrichedMemoryStore` + `encode_text`.
+  Exported as `kohaku.Memory`.
+- [x] **A3. Split `enriched.py`** (521 → 399): `MemoryMetadata` + salience math
+  extracted into `enriched_meta.py`; `enriched.py` re-exports for compatibility.
+- [x] **A4. Wire the `python` feature into CI** — `ci.yml` now builds
+  `cargo build --features python` and runs the real `python/tests` + `api`
+  suites in a dedicated Python job. Full maturin wheel publishing remains part
+  of C1 (the Rust-story decision).
 
 ### 🟠 Track B — Scale & semantics (the next real capability jump)
 
