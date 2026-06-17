@@ -90,6 +90,33 @@ tags — behind a string-in/string-out API. Reach for `EnrichedMemoryStore`,
 `MemorySystem`, and friends directly when you need provenance graphs, version
 history, or consolidation daemons.
 
+## 🧬 Semantic recall (opt-in)
+
+The default encoder bundles per-*token* hypervectors, so similarity is token
+overlap — *"the customer enjoys merlot"* won't match *"User prefers Italian
+wine"*. For meaning-based recall, plug in an `EmbeddingEncoder` that projects
+a dense embedding into HDC space (SimHash — sign of a fixed random projection,
+which approximately preserves cosine):
+
+```bash
+pip install "kohaku[semantic]"     # pulls sentence-transformers
+```
+
+```python
+from kohaku import Memory, EmbeddingEncoder
+
+enc = EmbeddingEncoder(model_name="all-MiniLM-L6-v2")   # or embed_fn=<your callable>
+mem = Memory(encoder=enc)
+mem.store("User prefers Italian wine")
+mem.query("the customer enjoys a glass of merlot")[0].text
+# → 'User prefers Italian wine'   (zero shared tokens, still matches)
+```
+
+`EmbeddingEncoder` takes any `embed_fn` (`str -> float array`) — sentence-
+transformers, OpenAI embeddings, your own — so there's no hard dependency. A
+store saved with a custom encoder must be reloaded with the same one
+(`Memory.load(path, encoder=enc)`).
+
 ---
 
 ## 💾 Persistence (v0.4.0)

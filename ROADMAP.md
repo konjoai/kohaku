@@ -95,10 +95,12 @@ CLI · cosmos visualizations.
 
 ### 🟠 Track B — Scale & semantics (the next real capability jump)
 
-- **B1. Semantic encoder (opt-in).** `EmbeddingEncoder` that projects a
-  sentence-transformer embedding into HDC space (random-projection / level-HVs),
-  gated behind an extra so the zero-dependency lexical path stays the default.
-  This is the single biggest quality lever for real LLM-memory use.
+- [x] **B1. Semantic encoder (opt-in).** ✅ (v0.14.0) `kohaku.semantic` —
+  `EmbeddingEncoder` projects a dense embedding into HDC space via SimHash
+  (sign of a fixed random projection), gated behind the `[semantic]` extra so
+  the zero-dependency lexical path stays the default. `Memory(encoder=...)`
+  wires it in. Accepts any `embed_fn`, so it composes with OpenAI embeddings
+  too. This is the single biggest quality lever for real LLM-memory use.
 - **B2. ANN index for retrieval.** Replace the O(n²) scan with an optional
   index (FAISS/hnswlib, or a native bipolar-LSH bucketed by sign-projection).
   Keep the brute-force path as the correctness baseline. Lifts the ~10⁴ ceiling.

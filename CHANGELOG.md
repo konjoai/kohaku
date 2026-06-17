@@ -2,6 +2,38 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.14.0] — 2026-06-17
+
+### Added — Track B1: semantic encoder
+
+The biggest quality lever from `ROADMAP.md` Track B — meaning-based recall
+instead of token overlap.
+
+- **`kohaku.semantic`** (`python/kohaku/semantic.py`) — project dense
+  embeddings into HDC space via SimHash (sign of a fixed Gaussian random
+  projection), which approximately preserves cosine similarity.
+  - `project_to_hypervector(embedding, dims, *, seed)` — the standalone
+    projection, with a per-`(embedding_dim, dims, seed)` matrix cache.
+  - `EmbeddingEncoder(*, embed_fn=None, model_name="all-MiniLM-L6-v2", dims, seed)`
+    — callable `str -> HyperVector`. Accepts any `embed_fn` (sentence-
+    transformers, OpenAI, custom) so there is **no hard dependency**; the
+    sentence-transformers path is lazily imported and raises a clear
+    `ImportError` if the optional package is missing.
+
+- **`Memory(encoder=...)`** — the facade now accepts any `str -> HyperVector`
+  encoder, defaulting to the lexical `encode_text`. `save()` records the
+  encoder kind; `Memory.load(path, encoder=...)` re-attaches it and warns on a
+  custom/none mismatch (since HVs are re-derived from labels on load).
+
+- **`[semantic]` extra** — `pip install kohaku[semantic]` pulls
+  `sentence-transformers`.
+
+- **Tests** — 11 new (`python/tests/test_semantic.py`), all using an injected
+  `embed_fn` so the suite needs no heavy dependency. Full suite: **543 passed**.
+
+- `python/kohaku/__init__.py` / `python/pyproject.toml` — version bumped to
+  `0.14.0`; exports `EmbeddingEncoder`, `project_to_hypervector`.
+
 ## [0.13.0] — 2026-06-17
 
 ### Added — Track A: the `Memory` facade

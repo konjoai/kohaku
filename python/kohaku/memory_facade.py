@@ -22,15 +22,20 @@ disk.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence
 
-from kohaku._pure import DIMS
+from kohaku._pure import DIMS, HyperVector
 from kohaku.attention import encode_text
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.enriched_meta import DEFAULT_HALF_LIFE_DAYS, DEFAULT_IMPORTANCE, SortMode
+
+logger = logging.getLogger(__name__)
+
+Encoder = Callable[[str], HyperVector]
 
 __all__ = ["Memory", "MemoryHit"]
 
@@ -83,6 +88,12 @@ class Memory:
         Hypervector dimensionality (must match across save/load).
     half_life_days:
         Recency half-life used by salience scoring.
+    encoder:
+        Optional ``str -> HyperVector`` callable. Defaults to the lexical
+        :func:`kohaku.encode_text` (token-overlap similarity). Pass a
+        :class:`kohaku.semantic.EmbeddingEncoder` for meaning-based recall.
+        A store written with a custom encoder must be reloaded with the same
+        one (see :meth:`load`).
     """
 
     def __init__(
@@ -91,12 +102,19 @@ class Memory:
         *,
         dims: int = DIMS,
         half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
+        encoder: Optional[Encoder] = None,
     ) -> None:
         self._dims = dims
         self._capacity = capacity
+        self._encoder = encoder
         self._store = EnrichedMemoryStore(
             capacity=capacity, dims=dims, half_life_days=half_life_days
         )
+
+    def _encode(self, text: str) -> HyperVector:
+        if self._encoder is not None:
+            return self._encoder(text)
+        return encode_text(text, dims=self._dims)
 
     # ── write ───────────────────────────────────────────────────────────────
     def store(
@@ -116,7 +134,7 @@ class Memory:
         """
         if not text or not text.strip():
             raise ValueError("cannot store empty text")
-        hv = encode_text(text, dims=self._dims)
+        hv = self._encode(text)
         return self._store.store(
             hv,
             hv,
@@ -149,7 +167,7 @@ class Memory:
         """
         if not text or not text.strip():
             raise ValueError("cannot query with empty text")
-        hv = encode_text(text, dims=self._dims)
+        hv = self._encode(text)
         results = self._store.query(
             hv,
             top_k=top_k,
@@ -223,6 +241,7 @@ class Memory:
             "dims": self._dims,
             "capacity": self._capacity,
             "half_life_days": self._store.half_life_days,
+            "encoder": "custom" if self._encoder is not None else "lexical",
             "records": records,
         }
         tmp = f"{path}.tmp"
@@ -231,14 +250,27 @@ class Memory:
         os.replace(tmp, path)
 
     @classmethod
-    def load(cls, path: str) -> "Memory":
-        """Reconstruct a :class:`Memory` previously written by :meth:`save`."""
+    def load(cls, path: str, *, encoder: Optional[Encoder] = None) -> "Memory":
+        """Reconstruct a :class:`Memory` previously written by :meth:`save`.
+
+        Hypervectors are re-derived by re-encoding the stored labels, so a
+        store saved with a custom ``encoder`` must be reloaded with the same
+        one — otherwise similarity scores won't match the original. A mismatch
+        (custom-saved store, no encoder supplied) is logged as a warning.
+        """
         with open(path, encoding="utf-8") as fh:
             payload = json.load(fh)
+        if payload.get("encoder") == "custom" and encoder is None:
+            logger.warning(
+                "loading a store saved with a custom encoder but none was "
+                "supplied; re-encoding with the default lexical encoder — "
+                "similarity scores will differ from the original."
+            )
         mem = cls(
             capacity=int(payload.get("capacity", 1000)),
             dims=int(payload.get("dims", DIMS)),
             half_life_days=float(payload.get("half_life_days", DEFAULT_HALF_LIFE_DAYS)),
+            encoder=encoder,
         )
         for rec in payload.get("records", []):
             eid = mem.store(
