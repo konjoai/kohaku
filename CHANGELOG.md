@@ -2,6 +2,63 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.24.0] — 2026-06-18
+
+### Added — Track D3: compositional & robust recall
+
+Recall is often multi-constraint and fragmentary; the HDC substrate handles that
+natively, with no model call:
+
+- `kohaku.compose(cues)` — bundle several cue hypervectors into one composite
+  query (a soft conjunction; the memory closest to *all* cues ranks highest).
+- `kohaku.complete_cue(cue, keys)` — Hopfield pattern-completion that pulls a
+  noisy/partial cue toward the nearest stored attractor.
+- `Memory.recall_composite(cues, *, cleanup=False, ...)` — front-door
+  multi-cue retrieval. e.g. the single cue "Italian" is ambiguous, but
+  `["Italian", "wine", "Tuscany"]` decisively surfaces the Tuscan-wine memory
+  (0.51 vs 0.17 for the next match). `cleanup=True` adds Hopfield completion at
+  `O(N·D)` cost.
+
+Honest characterization (`benchmarks/bench_compositional.py`): at 10k-D, plain
+cosine recall is already **near-perfect even at ~48% cue corruption** — the
+dimensionality gives a large margin "for free". Hopfield cleanup therefore adds
+only a marginal lift, and only for *correlated* memories under extreme noise
+(clustered regime: 0.84 → 0.85 at 48%). So `recall_composite`'s value is the
+multi-cue composition; `cleanup` is an opt-in tool for the hard corner, not a
+default. The takeaway — kohaku's high-D memory is inherently noise-robust.
+
+- New: `python/kohaku/compositional.py`, `python/tests/test_compositional.py`
+  (12 tests), `benchmarks/bench_compositional.py`, `examples/compositional_demo.py`.
+- `memory_facade.query` refactored to share a `_query_hv` core with
+  `recall_composite` (no duplicated retrieval path). Exports `compose`,
+  `complete_cue`. Version `0.24.0`.
+
+> Wheels remain unpublished (local/CI builds only).
+
+## [0.23.0] — 2026-06-18
+
+### Added — Track D2: relational reasoning in the `Memory` facade
+
+The algebra-over-memory capability is now reachable from the front door, not
+just the standalone `AnalogicalMemory`:
+
+- `Memory.add_record(name, {attribute: value})` — store a structured record
+  alongside the free-text episodic memory.
+- `Memory.attribute(name, attr)` — recall a field (`-> AnalogyResult`).
+- `Memory.analogy(source, target, value)` — relational transfer
+  (`Memory().analogy("USA", "Mexico", "dollar").value == "peso"`).
+- `Memory.analogical` — the underlying `AnalogicalMemory` for full access
+  (lazily created).
+- **Persisted** by `Memory.save`/`load` via `AnalogicalMemory.to_dict`/`from_dict`
+  (only the field maps are written; symbol vectors re-derive deterministically
+  from the stable hash, like the rest of the facade's label-only round-trip).
+  Older save files without an `analogical` key load fine (defaults to none).
+
+New tests: facade attribute/analogy, save→load preserves records, and the
+`to_dict`/`from_dict` roundtrip. Version `0.23.0`.
+
+> Wheels remain unpublished (local/CI builds only).
+
 ## [0.22.0] — 2026-06-18
 
 ### Added — Track D: reasoning over memory (`AnalogicalMemory`)

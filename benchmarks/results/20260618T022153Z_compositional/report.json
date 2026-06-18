@@ -1,0 +1,87 @@
+{
+  "timestamp": "20260618T022153Z",
+  "hardware": {
+    "platform": "Linux-6.18.5-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.11.15"
+  },
+  "config": {
+    "trials": 200,
+    "n_keys": 50,
+    "dims": 10000
+  },
+  "rows": [
+    {
+      "regime": "orthogonal",
+      "noise": 0.1,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "orthogonal",
+      "noise": 0.2,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "orthogonal",
+      "noise": 0.3,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "orthogonal",
+      "noise": 0.4,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "orthogonal",
+      "noise": 0.45,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "orthogonal",
+      "noise": 0.48,
+      "baseline_hit@1": 0.995,
+      "cleanup_hit@1": 0.995
+    },
+    {
+      "regime": "clustered",
+      "noise": 0.1,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "clustered",
+      "noise": 0.2,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "clustered",
+      "noise": 0.3,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "clustered",
+      "noise": 0.4,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "clustered",
+      "noise": 0.45,
+      "baseline_hit@1": 1.0,
+      "cleanup_hit@1": 1.0
+    },
+    {
+      "regime": "clustered",
+      "noise": 0.48,
+      "baseline_hit@1": 0.84,
+      "cleanup_hit@1": 0.85
+    }
+  ]
+}

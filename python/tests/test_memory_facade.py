@@ -164,3 +164,40 @@ def test_memory_hit_to_dict():
     hit = mem.query("serialise", reinforce=False)[0]
     d = hit.to_dict()
     assert set(d) >= {"id", "text", "score", "similarity", "salience", "source", "tags"}
+
+
+# ── relational reasoning via the facade (Track D2) ───────────────────────────
+
+
+def _countries_facade() -> Memory:
+    mem = Memory()
+    mem.add_record("USA", {"currency": "dollar", "capital": "washington"})
+    mem.add_record("Mexico", {"currency": "peso", "capital": "mexico_city"})
+    return mem
+
+
+def test_facade_attribute_and_analogy():
+    mem = _countries_facade()
+    assert mem.attribute("USA", "currency").value == "dollar"
+    assert mem.analogy("USA", "Mexico", "dollar").value == "peso"
+
+
+def test_facade_analogical_records_survive_save_load(tmp_path):
+    mem = _countries_facade()
+    mem.store("episodic memory still works")  # episodic + analogical coexist
+    path = str(tmp_path / "mem.json")
+    mem.save(path)
+
+    restored = Memory.load(path)
+    assert restored.analogy("USA", "Mexico", "dollar").value == "peso"
+    assert restored.attribute("Mexico", "capital").value == "mexico_city"
+    assert len(restored) == 1  # episodic entry preserved too
+
+
+def test_facade_without_records_saves_and_loads(tmp_path):
+    mem = Memory()
+    mem.store("just episodic, no records")
+    path = str(tmp_path / "m.json")
+    mem.save(path)
+    restored = Memory.load(path)
+    assert len(restored) == 1

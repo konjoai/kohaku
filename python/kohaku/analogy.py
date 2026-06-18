@@ -106,6 +106,18 @@ class AnalogicalMemory:
         self._require(name)
         return dict(self._fields[name])
 
+    def to_dict(self) -> Dict[str, object]:
+        """Serialise to the field maps; vectors re-derive deterministically."""
+        return {"dims": self.dims, "records": {n: dict(f) for n, f in self._fields.items()}}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, object]) -> "AnalogicalMemory":
+        """Rebuild from :meth:`to_dict` output (symbols are hash-deterministic)."""
+        mem = cls(dims=int(data.get("dims", DIMS)))  # type: ignore[arg-type]
+        for name, fields in dict(data.get("records", {})).items():  # type: ignore[arg-type]
+            mem.add_record(name, fields)
+        return mem
+
     # ── construction ─────────────────────────────────────────────────────────
     def add_record(self, name: str, fields: Mapping[str, str]) -> None:
         """Store ``name`` as a superposition of its bound attribute/value pairs.

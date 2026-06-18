@@ -29,8 +29,10 @@ from datetime import datetime
 from typing import Callable, List, Optional, Sequence
 
 from kohaku._pure import DIMS, HyperVector
+from kohaku.analogy import AnalogicalMemory, AnalogyResult
 from kohaku.ann import LSHIndex
 from kohaku.attention import encode_text
+from kohaku.compositional import complete_cue, compose
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.enriched_meta import DEFAULT_HALF_LIFE_DAYS, DEFAULT_IMPORTANCE, SortMode
 
@@ -120,10 +122,41 @@ class Memory:
             capacity=capacity, dims=dims, half_life_days=half_life_days
         )
         self._index = LSHIndex(dims) if ann else None
+        self._analogical: Optional[AnalogicalMemory] = None
 
     @property
     def ann_enabled(self) -> bool:
         return self._index is not None
+
+    # ── relational reasoning (Track D) ───────────────────────────────────────
+    @property
+    def analogical(self) -> AnalogicalMemory:
+        """The structured :class:`AnalogicalMemory` for relational reasoning.
+
+        Lazily created. Records are kept alongside the episodic store and
+        persisted by :meth:`save`. This is the algebra-over-memory surface that
+        plain cosine retrieval can't provide.
+        """
+        if self._analogical is None:
+            self._analogical = AnalogicalMemory(dims=self._dims)
+        return self._analogical
+
+    def add_record(self, name: str, fields: dict) -> None:
+        """Store a structured record (``{attribute: value}``) for reasoning.
+
+        Distinct from :meth:`store` (free-text episodic memory): records power
+        :meth:`attribute` (recall a field) and :meth:`analogy` (relational
+        transfer), e.g. ``analogy("USA", "Mexico", "dollar") -> "peso"``.
+        """
+        self.analogical.add_record(name, fields)
+
+    def attribute(self, name: str, attribute: str) -> AnalogyResult:
+        """Recall the value of ``attribute`` in record ``name`` (unbind + cleanup)."""
+        return self.analogical.get(name, attribute)
+
+    def analogy(self, source: str, target: str, value: str) -> AnalogyResult:
+        """Analogical transfer: "the ``value`` of ``source`` is to ``target`` as…"."""
+        return self.analogical.analogy(source, target, value)
 
     def _rebuild_index(self) -> None:
         if self._index is None:
@@ -198,6 +231,69 @@ class Memory:
         if not text or not text.strip():
             raise ValueError("cannot query with empty text")
         hv = self._encode(text)
+        return self._query_hv(
+            hv,
+            top_k,
+            sort=sort,
+            source=source,
+            include_expired=include_expired,
+            tags_any=tags_any,
+            tags_all=tags_all,
+            reinforce=reinforce,
+        )
+
+    def recall_composite(
+        self,
+        cues: Sequence[str],
+        top_k: int = 5,
+        *,
+        cleanup: bool = False,
+        sort: SortMode = "similarity",
+        source: Optional[str] = None,
+        include_expired: bool = False,
+        tags_any: Optional[Sequence[str]] = None,
+        tags_all: Optional[Sequence[str]] = None,
+        reinforce: bool = True,
+    ) -> List[MemoryHit]:
+        """Retrieve memories matching *all* of several cues (a soft conjunction).
+
+        Each cue is encoded and bundled into one composite query, so the memory
+        closest to the combination ranks highest — multi-constraint recall in a
+        single pass. With ``cleanup=True`` the composite is first pulled toward
+        the nearest stored memory by a Hopfield associator (pattern completion),
+        which makes recall robust to noisy or partial cues at ``O(N·D)`` cost.
+        """
+        texts = [c for c in cues if c and c.strip()]
+        if not texts:
+            raise ValueError("recall_composite requires at least one non-empty cue")
+        composite = compose([self._encode(t) for t in texts])
+        if cleanup:
+            keys = [e.key for e in self._store.episodic.entries()]
+            composite = complete_cue(composite, keys)
+        return self._query_hv(
+            composite,
+            top_k,
+            sort=sort,
+            source=source,
+            include_expired=include_expired,
+            tags_any=tags_any,
+            tags_all=tags_all,
+            reinforce=reinforce,
+        )
+
+    def _query_hv(
+        self,
+        hv: HyperVector,
+        top_k: int,
+        *,
+        sort: SortMode,
+        source: Optional[str],
+        include_expired: bool,
+        tags_any: Optional[Sequence[str]],
+        tags_all: Optional[Sequence[str]],
+        reinforce: bool,
+    ) -> List[MemoryHit]:
+        """Shared retrieval core: ANN-narrow, score, and wrap as ``MemoryHit``s."""
         # ANN narrows the scan for similarity queries; empty candidate sets and
         # non-similarity sorts fall back to a full exact scan (candidate_ids=None).
         candidate_ids = None
@@ -287,6 +383,7 @@ class Memory:
             "half_life_days": self._store.half_life_days,
             "encoder": "custom" if self._encoder is not None else "lexical",
             "records": records,
+            "analogical": self._analogical.to_dict() if self._analogical else None,
         }
         tmp = f"{path}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
@@ -339,6 +436,9 @@ class Memory:
                 valid_from = _parse_dt(rec.get("valid_from"))
                 if valid_from is not None:
                     meta.valid_from = valid_from
+        analogical = payload.get("analogical")
+        if analogical:
+            mem._analogical = AnalogicalMemory.from_dict(analogical)
         return mem
 
 
