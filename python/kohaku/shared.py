@@ -18,10 +18,14 @@ from typing import Dict, Iterable, List, Optional
 from ._pure import EpisodicMemory, HyperVector
 from ._query import query as query_topk
 from .persistence import PathLike, save_namespaces, load_namespaces
+from .validation import RateLimit, ValidationResult, WriteValidator
 
 logger = logging.getLogger(__name__)
 
 _FORMAT = "kohaku-shared-pool"
+_ACCEPTED = ValidationResult(
+    accepted=True, reason="accepted", nearest_similarity=0.0, nearest_label=""
+)
 
 
 @dataclass(frozen=True)
@@ -42,16 +46,43 @@ class SharedMemoryPool:
     fans out across the selected namespaces, merges the per-agent top-k hits,
     and returns the global top-k tagged with the originating ``agent_id``.
     Unknown agents are auto-provisioned on first write.
+
+    **Poisoning defense (optional).** Pass ``duplicate_threshold`` and/or
+    ``rate_limit`` to gate writes through a per-agent :class:`WriteValidator`,
+    so one misbehaving agent can't flood the pool with near-duplicate clones or
+    a burst of writes. Each agent is validated against *its own* namespace, so
+    legitimate cross-agent overlap of the same true fact is never blocked — only
+    an agent re-spamming its own space is. ``write`` then returns a
+    :class:`ValidationResult` (rejections are logged and do not store). Validation
+    is a runtime policy, not persisted state; a pool loaded via :meth:`load`
+    starts unvalidated unless reconstructed with these arguments.
     """
 
-    def __init__(self, dimension: int, default_capacity: int = 1000):
+    def __init__(
+        self,
+        dimension: int,
+        default_capacity: int = 1000,
+        *,
+        duplicate_threshold: Optional[float] = None,
+        rate_limit: Optional[RateLimit] = None,
+    ):
         if dimension < 1:
             raise ValueError("dimension must be >= 1")
         if default_capacity < 1:
             raise ValueError("default_capacity must be >= 1")
+        if duplicate_threshold is not None and not (0.0 < duplicate_threshold <= 1.0):
+            raise ValueError("duplicate_threshold must be in (0, 1]")
         self._dimension = dimension
         self._default_capacity = default_capacity
+        self._duplicate_threshold = duplicate_threshold
+        self._rate_limit = rate_limit
         self._agents: Dict[str, EpisodicMemory] = {}
+        self._validators: Dict[str, WriteValidator] = {}
+
+    @property
+    def validation_enabled(self) -> bool:
+        """Whether writes are gated by novelty and/or rate-limit checks."""
+        return self._duplicate_threshold is not None or self._rate_limit is not None
 
     @property
     def agent_ids(self) -> List[str]:
@@ -70,11 +101,57 @@ class SharedMemoryPool:
             logger.info("SharedMemoryPool: provisioned agent '%s'", agent_id)
         return self._agents[agent_id]
 
+    def _validator_for(self, agent_id: str) -> Optional[WriteValidator]:
+        """Lazily build the per-agent validator bound to its namespace.
+
+        Returns ``None`` when validation is disabled. Built on demand so agents
+        provisioned directly (e.g. via :meth:`load`) still get a validator on
+        their first write.
+        """
+        if not self.validation_enabled:
+            return None
+        validator = self._validators.get(agent_id)
+        if validator is None:
+            validator = WriteValidator(
+                self._agents[agent_id],
+                # threshold 1.0 (exact-duplicate only) when novelty isn't
+                # configured but a rate limit is.
+                duplicate_threshold=self._duplicate_threshold
+                if self._duplicate_threshold is not None
+                else 1.0,
+                rate_limits={agent_id: self._rate_limit}
+                if self._rate_limit is not None
+                else None,
+            )
+            self._validators[agent_id] = validator
+        return validator
+
     def write(
         self, agent_id: str, key: HyperVector, value: HyperVector, label: str = ""
-    ) -> None:
-        """Store a memory into the given agent's write namespace."""
-        self._get_or_create(agent_id).store(key, value, label)
+    ) -> ValidationResult:
+        """Store a memory into the given agent's write namespace.
+
+        When poisoning defense is enabled (see the class docstring) the write is
+        gated by the agent's :class:`WriteValidator`: a near-duplicate or
+        rate-limit violation is rejected (logged, not stored). Returns the
+        :class:`ValidationResult`; with validation disabled the write always
+        succeeds and an ``accepted`` result is returned.
+        """
+        mem = self._get_or_create(agent_id)
+        validator = self._validator_for(agent_id)
+        if validator is None:
+            mem.store(key, value, label)
+            return _ACCEPTED
+        result, _ = validator.validate_and_store(key, value, label, source=agent_id)
+        if not result.accepted:
+            logger.warning(
+                "SharedMemoryPool: rejected write to '%s' (%s; nearest=%.3f '%s')",
+                agent_id,
+                result.reason,
+                result.nearest_similarity,
+                result.nearest_label,
+            )
+        return result
 
     def _read_scope(self, agents: Optional[Iterable[str]]) -> List[str]:
         """Resolve the set of agent namespaces a query reads from.
@@ -133,9 +210,10 @@ class SharedMemoryPool:
         return sum(len(mem) for mem in self._agents.values())
 
     def drop_agent(self, agent_id: str) -> bool:
-        """Remove an agent's namespace. Returns True if it existed."""
+        """Remove an agent's namespace (and its validator). True if it existed."""
         if agent_id in self._agents:
             del self._agents[agent_id]
+            self._validators.pop(agent_id, None)
             logger.info("SharedMemoryPool: dropped agent '%s'", agent_id)
             return True
         return False
