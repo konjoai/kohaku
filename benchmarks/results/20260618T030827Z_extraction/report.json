@@ -1,0 +1,26 @@
+{
+  "timestamp": "20260618T030827Z",
+  "hardware": {
+    "platform": "Linux-6.18.5-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.11.15"
+  },
+  "result": {
+    "n_sentences": 26,
+    "n_positives": 19,
+    "n_negatives": 7,
+    "true_positives": 15,
+    "false_positives": 0,
+    "false_negatives": 4,
+    "true_negatives": 7,
+    "precision": 1.0,
+    "recall": 0.789,
+    "f1": 0.882,
+    "misses": [
+      "MISS: 'Paris, the capital of France, is lovely' -> None (want ('france', 'capital', 'paris'))",
+      "MISS: 'She lives in Berlin' -> None (want ('she', 'lives_in', 'berlin'))",
+      "MISS: 'John works as a teacher' -> None (want ('john', 'occupation', 'teacher'))",
+      "MISS: 'Water boils at 100 degrees' -> None (want ('water', 'boiling_point', '100 degrees'))"
+    ]
+  }
+}

@@ -37,6 +37,7 @@ import numpy as np
 
 from kohaku._index import RetrievalIndex
 from kohaku._pure import DIMS, HyperVector
+from kohaku.extraction import Triple, extract_triples
 
 
 def _stable_seed(symbol: str) -> int:
@@ -136,6 +137,25 @@ class AnalogicalMemory:
             pairs.append(self._symbol(a).bind(self._symbol(v)))
         self._records[name] = HyperVector.bundle_all(pairs)
         self._fields[name] = normalised
+
+    def learn(self, text: str) -> List[Triple]:
+        """Extract ``(subject, attribute, value)`` triples from free text and
+        fold them into records keyed by subject — so analogical reasoning works
+        on what the agent *read*, not just hand-built records.
+
+        New attributes merge into an existing subject's record (later mentions
+        overwrite the same attribute). Returns the triples learned, which is
+        ``[]`` when nothing parsed — the extractor never fabricates structure.
+        See :mod:`kohaku.extraction` for the patterns recognised.
+        """
+        triples = extract_triples(text)
+        by_subject: Dict[str, Dict[str, str]] = {}
+        for triple in triples:
+            by_subject.setdefault(triple.subject, {})[triple.attribute] = triple.value
+        for subject, fields in by_subject.items():
+            merged = {**self._fields.get(subject, {}), **fields}
+            self.add_record(subject, merged)
+        return triples
 
     # ── queries ──────────────────────────────────────────────────────────────
     def get(self, name: str, attribute: str, *, top_k: int = 3) -> AnalogyResult:

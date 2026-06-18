@@ -44,6 +44,7 @@ python -m pytest tests/ -x                       # Python test suite
 | `python/kohaku/persistence.py` | JSON + `.hkb` binary save/load |
 | `python/kohaku/consolidation.py` | Greedy semantic clustering into centroid memories |
 | `python/kohaku/decay.py` | `DecayConfig` + `query_with_decay` — exponential temporal decay |
+| `python/kohaku/extraction.py` | Heuristic free-text → `(subject, attribute, value)` triples; feeds `AnalogicalMemory.learn` / `Memory.learn` |
 
 ## Planning Docs
 - `PLAN.md` — current phase state and version history

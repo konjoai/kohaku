@@ -26,10 +26,11 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence, Tuple
 
 from kohaku._pure import DIMS, HyperVector
 from kohaku.analogy import AnalogicalMemory, AnalogyResult
+from kohaku.extraction import Triple
 from kohaku.ann import LSHIndex
 from kohaku.attention import encode_text
 from kohaku.compositional import complete_cue, compose
@@ -157,6 +158,25 @@ class Memory:
     def analogy(self, source: str, target: str, value: str) -> AnalogyResult:
         """Analogical transfer: "the ``value`` of ``source`` is to ``target`` as…"."""
         return self.analogical.analogy(source, target, value)
+
+    def learn(
+        self,
+        text: str,
+        *,
+        source: str = "user_input",
+        importance: float = DEFAULT_IMPORTANCE,
+        tags: Optional[Sequence[str]] = None,
+    ) -> Tuple[int, List[Triple]]:
+        """Ingest ``text`` as both episodic memory *and* structured knowledge.
+
+        Stores the prose verbatim (like :meth:`store`) and, in the same call,
+        extracts ``(subject, attribute, value)`` triples into the analogical
+        store — so a single "learn this" feeds both free-text recall and
+        relational reasoning. Returns ``(memory_id, triples_learned)``; the
+        triple list is empty when nothing parsed (no fabricated structure).
+        """
+        eid = self.store(text, source=source, importance=importance, tags=tags)
+        return eid, self.analogical.learn(text)
 
     def _rebuild_index(self) -> None:
         if self._index is None:
