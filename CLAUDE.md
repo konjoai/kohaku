@@ -58,7 +58,8 @@ Three walls against AI slop — all enforced by CI.
 cargo check, clippy, ruff lint, ruff format, DRY check, TODO scan. Blocks the commit.
 
 **Wall 2 — CI gate** (`.github/workflows/konjo-gate.yml`):
-Coverage ≥ 80% · mutation survival ≤ 10% · complexity ≤ 15 · file ≤ 500L · zero DRY violations. Blocks the merge.
+Target spec — coverage ≥ 80% · mutation survival ≤ 10% · complexity ≤ 15 · file ≤ 500L · zero DRY violations.
+*Phased arming:* the gate fails the merge only on **armed** steps (currently `cargo fmt`, `ruff lint`, `DRY` — verified clean repo-wide). The rest run **warn-only** (`continue-on-error`) while pre-existing debt is cleared — clippy::pedantic, ruff format, mypy strict, file size, complexity, coverage threshold, mutation — and are armed one at a time as each is cleaned. See the header comment in the workflow.
 
 **Wall 3 — Adversarial review** (local only — disabled in CI):
 `git diff HEAD~1 | python3 .konjo/scripts/konjo_review.py`
