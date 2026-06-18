@@ -2,6 +2,57 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.27.0] — 2026-06-18
+
+### Added — Cross-agent memory sharing (P3 strategic)
+
+`SharedMemoryPool` — the dual of `TenantMemoryStore`. Where a tenant store
+isolates *both* reads and writes per tenant, a shared pool isolates only
+*writes* into per-agent namespaces and unions every namespace on *read*, so a
+fleet of agents can pool what they learn. Together the two span the
+privacy/collaboration axis.
+
+- `SharedMemoryPool(dimension, default_capacity=1000)` — auto-provisions an
+  isolated `EpisodicMemory` per agent on first `write(agent_id, key, value,
+  label)`.
+- `query(query_key, top_k=1, agents=None)` fans out across the selected
+  namespaces, merges each agent's top-k, re-ranks by similarity, and returns the
+  global top-k as `SharedRetrievalResult(agent_id, entry_id, label, similarity,
+  value)` — every hit tagged with the agent that produced it.
+- Read scoping: pass `agents=[...]` to narrow the union to a subset of
+  namespaces (unknown agents are skipped silently); `agents=[]` reads nothing.
+- `size(agent_id)`, `total_size()`, `agent_ids`, `agents_count()`,
+  `drop_agent(agent_id)` round out the lifecycle, mirroring `TenantMemoryStore`.
+
+Library-only, matching the tenant store precedent (no REST surface). Exports
+`SharedMemoryPool`, `SharedRetrievalResult`. New: `python/tests/test_shared.py`
+(19 tests). Version `0.27.0`.
+
+## [0.26.0] — 2026-06-18
+
+### Added — Track D: passive fact mining in the OpenAI-compatible middleware
+
+The extraction bridge (v0.25.0) becomes *passive*: `MemoryMiddleware` now learns
+structured facts from the conversation as it flows, so an agent accumulates
+reasoning-ready records during normal chat — no explicit `learn()` calls.
+
+- `MemoryMiddleware(manager, *, analogical=None, learn_facts_from="user")` — pass
+  an `AnalogicalMemory` and `learn_from_exchange` extracts `(subject, attribute,
+  value)` triples into it alongside the existing episodic storage of replies.
+- `learn_facts_from` selects the trustworthy source: `"user"` (default — the
+  user is the source of truth about their own preferences/world), `"assistant"`,
+  or `"both"`. Extracting from the user only, by default, keeps model-generated
+  text out of the reasoning store.
+- `learn_from_exchange` now returns `list[Triple]` (the facts mined this call;
+  empty when no analogical store is attached or nothing parsed) — previously
+  returned `None`, so existing callers are unaffected.
+
+High-precision extraction means unparseable chatter ("hey, how's it going?")
+contributes nothing — no fabricated facts leak into reasoning.
+
+- New: `python/tests/test_openai_compat.py` (8 tests). `openai_compat.py` gains
+  the optional analogical wiring; no new dependencies. Version `0.26.0`.
+
 ## [0.25.0] — 2026-06-18
 
 ### Added — Track D: free-text → triple extraction (the prose→reasoning bridge)
