@@ -32,6 +32,7 @@ from kohaku._pure import DIMS, HyperVector
 from kohaku.analogy import AnalogicalMemory, AnalogyResult
 from kohaku.ann import LSHIndex
 from kohaku.attention import encode_text
+from kohaku.compositional import complete_cue, compose
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.enriched_meta import DEFAULT_HALF_LIFE_DAYS, DEFAULT_IMPORTANCE, SortMode
 
@@ -230,6 +231,69 @@ class Memory:
         if not text or not text.strip():
             raise ValueError("cannot query with empty text")
         hv = self._encode(text)
+        return self._query_hv(
+            hv,
+            top_k,
+            sort=sort,
+            source=source,
+            include_expired=include_expired,
+            tags_any=tags_any,
+            tags_all=tags_all,
+            reinforce=reinforce,
+        )
+
+    def recall_composite(
+        self,
+        cues: Sequence[str],
+        top_k: int = 5,
+        *,
+        cleanup: bool = False,
+        sort: SortMode = "similarity",
+        source: Optional[str] = None,
+        include_expired: bool = False,
+        tags_any: Optional[Sequence[str]] = None,
+        tags_all: Optional[Sequence[str]] = None,
+        reinforce: bool = True,
+    ) -> List[MemoryHit]:
+        """Retrieve memories matching *all* of several cues (a soft conjunction).
+
+        Each cue is encoded and bundled into one composite query, so the memory
+        closest to the combination ranks highest — multi-constraint recall in a
+        single pass. With ``cleanup=True`` the composite is first pulled toward
+        the nearest stored memory by a Hopfield associator (pattern completion),
+        which makes recall robust to noisy or partial cues at ``O(N·D)`` cost.
+        """
+        texts = [c for c in cues if c and c.strip()]
+        if not texts:
+            raise ValueError("recall_composite requires at least one non-empty cue")
+        composite = compose([self._encode(t) for t in texts])
+        if cleanup:
+            keys = [e.key for e in self._store.episodic.entries()]
+            composite = complete_cue(composite, keys)
+        return self._query_hv(
+            composite,
+            top_k,
+            sort=sort,
+            source=source,
+            include_expired=include_expired,
+            tags_any=tags_any,
+            tags_all=tags_all,
+            reinforce=reinforce,
+        )
+
+    def _query_hv(
+        self,
+        hv: HyperVector,
+        top_k: int,
+        *,
+        sort: SortMode,
+        source: Optional[str],
+        include_expired: bool,
+        tags_any: Optional[Sequence[str]],
+        tags_all: Optional[Sequence[str]],
+        reinforce: bool,
+    ) -> List[MemoryHit]:
+        """Shared retrieval core: ANN-narrow, score, and wrap as ``MemoryHit``s."""
         # ANN narrows the scan for similarity queries; empty candidate sets and
         # non-similarity sorts fall back to a full exact scan (candidate_ids=None).
         candidate_ids = None

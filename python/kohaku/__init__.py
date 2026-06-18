@@ -1,7 +1,7 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 
 # Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
 # The optional Rust extension *accelerates* hot loops (see kohaku._accel); it
@@ -33,6 +33,7 @@ from kohaku.persistence import (
     load_binary,
 )
 from kohaku.analogy import AnalogicalMemory, AnalogyResult
+from kohaku.compositional import complete_cue, compose
 from kohaku.consolidation import Cluster, consolidate, consolidate_to_memory
 from kohaku.decay import DecayConfig, decay_weight, query_with_decay
 from kohaku.learning import ItemMemory, Prototype
@@ -157,6 +158,8 @@ __all__ = [
     "load_binary",
     "AnalogicalMemory",
     "AnalogyResult",
+    "compose",
+    "complete_cue",
     "Cluster",
     "consolidate",
     "consolidate_to_memory",

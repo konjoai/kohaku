@@ -182,9 +182,13 @@ memory** via the HDC binding/bundling substrate. Retrieval is table stakes;
   the main front door, persisted by `Memory.save`/`load`. *(Still open: deriving
   records automatically from free-text episodic memories via role/attribute
   extraction — needs an extractor; tracked under D3.)*
-- [ ] **D3. Compositional / multi-cue queries** — combine binding with the
-  existing `chain_query` and Hopfield cleanup for "reason across N hops with
-  denoising" — relational questions answered in-substrate, no model call.
+- [x] **D3. Compositional & robust recall.** ✅ (v0.24.0) `compose` (bundle many
+  cues into one soft-conjunction query) + `complete_cue` (Hopfield pattern
+  completion), surfaced as `Memory.recall_composite(cues, cleanup=...)`.
+  Benchmarked honestly (`benchmarks/bench_compositional.py`): 10k-D recall is
+  already near-perfect to ~48% cue noise, so cleanup is an opt-in tool for the
+  correlated/high-noise corner, not a default. *(Still open: chaining binding
+  with `chain_query` for multi-hop relational reasoning.)*
 - [ ] **D4. Sequence & schema encoding** — permutation-based ordered records
   (event sequences, recipes) and schema templates, so structured episodes are
   first-class.
