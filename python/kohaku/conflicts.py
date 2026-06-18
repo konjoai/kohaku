@@ -208,12 +208,12 @@ def detect_conflicts(
 
     entries = store.episodic.entries()
     out: List[ConflictPair] = []
-    # Batched cosine: score each pivot row against all others in one pass; the
-    # heuristic text scoring still runs per candidate pair.
-    idx = index_over(entries)
+    # One batched all-pairs cosine pass (packed popcount in Rust, single MMᵀ in
+    # NumPy); the heuristic text scoring still runs per candidate pair.
+    sim_matrix = index_over(entries).all_pairs()
     for i in range(len(entries)):
         ei = entries[i]
-        sims = idx.all_scores(ei.key.data)
+        sims = sim_matrix[i]
         for j in range(i + 1, len(entries)):
             ej = entries[j]
             sim = float(sims[j])

@@ -2,6 +2,24 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.28.0] — 2026-06-18
+
+### Changed — Batched all-pairs cosine for conflict & duplicate scans
+
+The all-pairs similarity scans (`detect_conflicts`, `MemoryHealthAnalyzer`
+duplicate detection) previously called `RetrievalIndex.all_scores` once per
+pivot row — `N` FFI crossings, each running a full top-`N` sort just to read
+back every score. They now make a single batched pass.
+
+- New `RetrievalIndex.all_pairs()` returns the full symmetric `(N, N)` cosine
+  matrix. On the Rust backend it is one packed XOR+popcount kernel over the
+  upper triangle (`PackedIndex::all_pairs`); on the NumPy baseline it is one
+  `MMᵀ`. Both agree bit-for-bit for ±1 inputs (parity tests).
+- `conflicts.detect_conflicts` and `memory_health._duplicate_pairs` now consume
+  the matrix directly — **~6× faster** all-pairs scans at 500–1500 entries, with
+  identical results.
+- No API change for callers; the heuristic per-pair text scoring is unchanged.
+
 ## [0.27.0] — 2026-06-18
 
 ### Added — Cross-agent memory sharing (P3 strategic)
