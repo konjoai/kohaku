@@ -17,8 +17,11 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional
 from ._pure import EpisodicMemory, HyperVector
 from ._query import query as query_topk
+from .persistence import PathLike, save_namespaces, load_namespaces
 
 logger = logging.getLogger(__name__)
+
+_FORMAT = "kohaku-shared-pool"
 
 
 @dataclass(frozen=True)
@@ -139,3 +142,30 @@ class SharedMemoryPool:
 
     def agents_count(self) -> int:
         return len(self._agents)
+
+    def save(self, directory: PathLike) -> None:
+        """Persist every agent namespace to ``directory`` (one ``.hkb`` each).
+
+        Round-trips exactly via :meth:`load`: each agent's pooled memories and
+        id counters are preserved, so a fleet's shared memory survives a restart.
+        """
+        save_namespaces(
+            self._agents,
+            directory,
+            fmt=_FORMAT,
+            config={
+                "dimension": self._dimension,
+                "default_capacity": self._default_capacity,
+            },
+        )
+
+    @classmethod
+    def load(cls, directory: PathLike) -> "SharedMemoryPool":
+        """Reconstruct a pool written by :meth:`save`."""
+        config, namespaces = load_namespaces(directory, fmt=_FORMAT)
+        pool = cls(
+            dimension=int(config["dimension"]),
+            default_capacity=int(config.get("default_capacity", 1000)),
+        )
+        pool._agents = namespaces
+        return pool

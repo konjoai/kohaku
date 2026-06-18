@@ -226,3 +226,73 @@ def load(path: PathLike) -> EpisodicMemory:
     if suffix == ".hkb":
         return load_binary(path)
     raise ValueError(f"Unknown extension {suffix!r}; use .json or .hkb")
+
+
+# ---------------------------------------------------------------------------
+# Namespaced stores (TenantMemoryStore / SharedMemoryPool)
+# ---------------------------------------------------------------------------
+#
+# Both stores are a ``{namespace_id: EpisodicMemory}`` registry plus a little
+# config. They persist as a *directory*: one packed ``.hkb`` per namespace (via
+# :func:`save_binary`) plus a ``manifest.json`` that records the store config and
+# maps each namespace id to its file. This mirrors :mod:`kohaku.system` and reuses
+# the single-memory codec wholesale, so there is no second binary format to keep
+# in round-trip parity. Namespace ids are *never* used as filenames (they may
+# contain path separators or unicode) — files are index-named and the real id
+# lives in the manifest.
+
+_NS_MANIFEST = "manifest.json"
+
+
+def save_namespaces(
+    namespaces: dict[str, EpisodicMemory],
+    directory: PathLike,
+    *,
+    fmt: str,
+    config: dict,
+) -> None:
+    """Write a ``{id: EpisodicMemory}`` registry to ``directory``.
+
+    ``fmt`` is a format tag stored in the manifest and checked on load (so a
+    tenant directory can't be loaded as a shared pool). ``config`` carries the
+    store-level fields (dimension, capacity, …) to restore on load.
+    """
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    records = []
+    for i, (ns_id, mem) in enumerate(namespaces.items()):
+        fname = f"ns_{i}.hkb"
+        save_binary(mem, directory / fname)
+        records.append({"id": ns_id, "file": fname})
+    manifest = {
+        "format": fmt,
+        "version": _VERSION,
+        "config": config,
+        "namespaces": records,
+    }
+    (directory / _NS_MANIFEST).write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2)
+    )
+
+
+def load_namespaces(
+    directory: PathLike, *, fmt: str
+) -> tuple[dict, dict[str, EpisodicMemory]]:
+    """Read back a registry written by :func:`save_namespaces`.
+
+    Returns ``(config, namespaces)``. Raises ``FileNotFoundError`` if the
+    manifest is missing and ``ValueError`` if its format tag doesn't match
+    ``fmt``.
+    """
+    directory = Path(directory)
+    manifest_path = directory / _NS_MANIFEST
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"no {_NS_MANIFEST} in {directory}")
+    manifest = json.loads(manifest_path.read_text())
+    found = manifest.get("format")
+    if found != fmt:
+        raise ValueError(f"expected format {fmt!r}, got {found!r} in {directory}")
+    namespaces: dict[str, EpisodicMemory] = {}
+    for rec in manifest.get("namespaces", []):
+        namespaces[str(rec["id"])] = load_binary(directory / rec["file"])
+    return manifest.get("config", {}), namespaces

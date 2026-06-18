@@ -5,8 +5,11 @@ import logging
 from typing import Dict, Optional, List
 from ._pure import EpisodicMemory, HyperVector
 from ._query import RetrievalResult, query
+from .persistence import PathLike, save_namespaces, load_namespaces
 
 logger = logging.getLogger(__name__)
+
+_FORMAT = "kohaku-tenant-store"
 
 
 class TenantMemoryStore:
@@ -77,3 +80,34 @@ class TenantMemoryStore:
 
     def tenants_count(self) -> int:
         return len(self._tenants)
+
+    def save(self, directory: PathLike) -> None:
+        """Persist every tenant namespace to ``directory`` (one ``.hkb`` each).
+
+        Round-trips exactly via :meth:`load`: each tenant's memories, capacity,
+        and id counters are preserved.
+        """
+        save_namespaces(
+            self._tenants,
+            directory,
+            fmt=_FORMAT,
+            config={
+                "dimension": self._dimension,
+                "capacity": self._capacity,
+                "default_capacity": self._default_capacity,
+            },
+        )
+
+    @classmethod
+    def load(cls, directory: PathLike) -> "TenantMemoryStore":
+        """Reconstruct a store written by :meth:`save`."""
+        config, namespaces = load_namespaces(directory, fmt=_FORMAT)
+        store = cls(
+            dimension=int(config["dimension"]),
+            capacity=int(config.get("capacity", 1000)),
+            default_capacity=int(
+                config.get("default_capacity", config.get("capacity", 1000))
+            ),
+        )
+        store._tenants = namespaces
+        return store
