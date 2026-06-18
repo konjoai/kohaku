@@ -2,6 +2,29 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.30.0] — 2026-06-18
+
+### Added — Poisoning defense for SharedMemoryPool
+
+A shared pool unions every agent's namespace on read, so one misbehaving agent
+could poison the whole fleet's recall with near-duplicate clones or a write
+flood. `SharedMemoryPool` can now gate writes through a **per-agent**
+`WriteValidator`.
+
+- `SharedMemoryPool(..., duplicate_threshold=None, rate_limit=None)` — opt in to
+  novelty and/or rate-limit gating. Each agent is validated against *its own*
+  namespace, so legitimate cross-agent overlap of the same true fact is never
+  blocked — only an agent re-spamming its own space is.
+- `write(...)` now returns a `ValidationResult`; a rejected write is logged and
+  not stored. With validation disabled (the default) it always accepts, so
+  existing callers are unaffected.
+- `validation_enabled` property; validators are built lazily per agent (so agents
+  provisioned via `load` still get gated) and dropped with `drop_agent`.
+- Validation is a runtime policy, not persisted state: a pool restored via
+  `load` starts unvalidated unless reconstructed with these arguments.
+
+New tests in `python/tests/test_shared.py` (7 added). Version `0.30.0`.
+
 ## [0.29.0] — 2026-06-18
 
 ### Added — Persistence for the namespaced stores

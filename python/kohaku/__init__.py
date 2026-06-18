@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.29.0"
+__version__ = "0.30.0"
 
 # Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
 # The optional Rust extension *accelerates* hot loops (see kohaku._accel); it

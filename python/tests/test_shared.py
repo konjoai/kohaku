@@ -224,3 +224,91 @@ def test_many_agents_pooled_and_retrievable() -> None:
     results = pool.query(_hv(seed=4 * 7 + 1), top_k=1)
     assert results[0].agent_id == "agent_4"
     assert results[0].label == "agent_4"
+
+
+# ---------------------------------------------------------------------------
+# poisoning defense (WriteValidator hardening)
+# ---------------------------------------------------------------------------
+
+
+def test_validation_disabled_by_default() -> None:
+    pool = _pool()
+    assert pool.validation_enabled is False
+    result = pool.write("a", _hv(1), _hv(2), label="x")
+    assert result.accepted and result.reason == "accepted"
+
+
+def test_novelty_rejects_near_duplicate_in_same_namespace() -> None:
+    pool = SharedMemoryPool(
+        dimension=DIMS, default_capacity=50, duplicate_threshold=0.99
+    )
+    assert pool.validation_enabled is True
+    first = pool.write("a", _hv(1), _hv(2), label="orig")
+    assert first.accepted
+    # Same key again → cosine 1.0 ≥ 0.99 → rejected, not stored.
+    dup = pool.write("a", _hv(1), _hv(3), label="clone")
+    assert not dup.accepted
+    assert dup.reason == "near_duplicate"
+    assert dup.nearest_similarity == pytest.approx(1.0, abs=1e-6)
+    assert pool.size("a") == 1
+
+
+def test_novelty_is_per_agent_cross_agent_overlap_allowed() -> None:
+    # The same true fact learned independently by two agents must NOT be blocked.
+    pool = SharedMemoryPool(
+        dimension=DIMS, default_capacity=50, duplicate_threshold=0.99
+    )
+    assert pool.write("a", _hv(1), _hv(2), label="fact").accepted
+    assert pool.write("b", _hv(1), _hv(2), label="fact").accepted  # other namespace
+    assert pool.size("a") == 1 and pool.size("b") == 1
+
+
+def test_rate_limit_rejects_burst() -> None:
+    from kohaku.validation import RateLimit
+
+    pool = SharedMemoryPool(
+        dimension=DIMS,
+        default_capacity=50,
+        rate_limit=RateLimit(max_stores=2, window_seconds=60.0),
+    )
+    assert pool.write("a", _hv(1), _hv(101), label="1").accepted
+    assert pool.write("a", _hv(2), _hv(102), label="2").accepted
+    third = pool.write("a", _hv(3), _hv(103), label="3")
+    assert not third.accepted
+    assert third.reason == "rate_limit_exceeded"
+    assert pool.size("a") == 2
+    # The limit is per-agent: a different agent is unaffected.
+    assert pool.write("b", _hv(4), _hv(104), label="b").accepted
+
+
+def test_constructor_rejects_bad_threshold() -> None:
+    with pytest.raises(ValueError, match="duplicate_threshold"):
+        SharedMemoryPool(dimension=DIMS, duplicate_threshold=1.5)
+
+
+def test_drop_agent_clears_validator_state() -> None:
+    from kohaku.validation import RateLimit
+
+    pool = SharedMemoryPool(
+        dimension=DIMS,
+        default_capacity=50,
+        rate_limit=RateLimit(max_stores=1, window_seconds=60.0),
+    )
+    assert pool.write("a", _hv(1), _hv(2), label="1").accepted
+    assert not pool.write("a", _hv(3), _hv(4), label="2").accepted  # over limit
+    # Dropping resets the namespace and its rate-limit window.
+    assert pool.drop_agent("a")
+    assert pool.write("a", _hv(5), _hv(6), label="fresh").accepted
+    assert pool.size("a") == 1
+
+
+def test_validated_pool_memories_round_trip(tmp_path) -> None:
+    pool = SharedMemoryPool(
+        dimension=DIMS, default_capacity=50, duplicate_threshold=0.99
+    )
+    pool.write("a", _hv(1), _hv(2), label="kept")
+    pool.save(tmp_path / "p")
+    # Reconstruct WITH the same policy; memories persist, validation re-applies.
+    loaded = SharedMemoryPool.load(tmp_path / "p")
+    assert loaded.size("a") == 1
+    assert loaded.validation_enabled is False  # policy is runtime, not persisted
