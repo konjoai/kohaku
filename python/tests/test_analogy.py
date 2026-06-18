@@ -121,3 +121,11 @@ def test_single_field_record_attribute_query():
     m = AnalogicalMemory()
     m.add_record("solo", {"color": "blue"})
     assert m.get("solo", "color").value == "blue"
+
+
+def test_to_dict_from_dict_roundtrip():
+    m = _countries()
+    rebuilt = AnalogicalMemory.from_dict(m.to_dict())
+    assert set(rebuilt.records()) == set(m.records())
+    assert rebuilt.analogy("USA", "Mexico", "dollar").value == "peso"
+    assert rebuilt.get("France", "capital").value == "paris"

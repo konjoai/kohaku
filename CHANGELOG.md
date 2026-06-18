@@ -2,6 +2,30 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.23.0] — 2026-06-18
+
+### Added — Track D2: relational reasoning in the `Memory` facade
+
+The algebra-over-memory capability is now reachable from the front door, not
+just the standalone `AnalogicalMemory`:
+
+- `Memory.add_record(name, {attribute: value})` — store a structured record
+  alongside the free-text episodic memory.
+- `Memory.attribute(name, attr)` — recall a field (`-> AnalogyResult`).
+- `Memory.analogy(source, target, value)` — relational transfer
+  (`Memory().analogy("USA", "Mexico", "dollar").value == "peso"`).
+- `Memory.analogical` — the underlying `AnalogicalMemory` for full access
+  (lazily created).
+- **Persisted** by `Memory.save`/`load` via `AnalogicalMemory.to_dict`/`from_dict`
+  (only the field maps are written; symbol vectors re-derive deterministically
+  from the stable hash, like the rest of the facade's label-only round-trip).
+  Older save files without an `analogical` key load fine (defaults to none).
+
+New tests: facade attribute/analogy, save→load preserves records, and the
+`to_dict`/`from_dict` roundtrip. Version `0.23.0`.
+
+> Wheels remain unpublished (local/CI builds only).
+
 ## [0.22.0] — 2026-06-18
 
 ### Added — Track D: reasoning over memory (`AnalogicalMemory`)

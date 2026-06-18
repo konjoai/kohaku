@@ -177,10 +177,11 @@ memory** via the HDC binding/bundling substrate. Retrieval is table stakes;
   `RetrievalIndex`, confidence + margin on every answer. Capacity benchmarked
   (`benchmarks/bench_analogy.py`): exact attribute recall past 40 attrs/record;
   analogy ≥95% to ~16 pairs/record at 10k-D.
-- [ ] **D2. Analogy over the live episodic store** — derive records from
-  enriched memories (role/attribute extraction) so `analogy` works on what the
-  agent actually remembered, not just hand-built records. Wire into the `Memory`
-  facade (`Memory.analogy(...)`).
+- [x] **D2. Reasoning in the `Memory` facade.** ✅ (v0.23.0) `Memory.add_record`
+  / `attribute` / `analogy` / `analogical` put the relational reasoning behind
+  the main front door, persisted by `Memory.save`/`load`. *(Still open: deriving
+  records automatically from free-text episodic memories via role/attribute
+  extraction — needs an extractor; tracked under D3.)*
 - [ ] **D3. Compositional / multi-cue queries** — combine binding with the
   existing `chain_query` and Hopfield cleanup for "reason across N hops with
   denoising" — relational questions answered in-substrate, no model call.
