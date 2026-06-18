@@ -1,7 +1,7 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.26.0"
+__version__ = "0.27.0"
 
 # Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
 # The optional Rust extension *accelerates* hot loops (see kohaku._accel); it
@@ -43,6 +43,7 @@ from kohaku.memory_system import CombinedRecall, MemorySystem
 from kohaku.streaming import StreamingConsolidator
 from kohaku.compaction import find_duplicates, deduplicate, compact
 from kohaku.tenant import TenantMemoryStore
+from kohaku.shared import SharedMemoryPool, SharedRetrievalResult
 from kohaku.kyro_bridge import HDCRetriever, RetrievedChunk
 from kohaku.graph_export import (
     GraphExportConfig,
@@ -181,6 +182,8 @@ __all__ = [
     "deduplicate",
     "compact",
     "TenantMemoryStore",
+    "SharedMemoryPool",
+    "SharedRetrievalResult",
     "HDCRetriever",
     "RetrievedChunk",
     "GraphExportConfig",

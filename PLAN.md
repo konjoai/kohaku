@@ -322,3 +322,25 @@ that lets it run on what an agent actually read.
   optional `AnalogicalMemory`, so reasoning-ready facts accumulate during normal
   chat. `learn_facts_from` ∈ {`user` (default, trustworthy source), `assistant`,
   `both`}; returns `list[Triple]`. 8 tests (`test_openai_compat.py`). v0.26.0.
+
+## Phase 17: Cross-agent memory sharing (v0.27.0) ✅
+
+The remaining well-scoped P3 strategic item. (Neuromorphic spike encoding is
+deferred — it can't be benchmarked honestly without Loihi 2 hardware;
+forgetting-curve fine-tuning already shipped in Phase 15.)
+
+- [x] `python/kohaku/shared.py` — `SharedMemoryPool`, the **dual** of
+  `TenantMemoryStore`. A tenant store isolates both reads and writes per tenant;
+  a shared pool isolates only *writes* into per-agent namespaces and unions every
+  namespace on *read*. `write(agent_id, key, value, label)` auto-provisions an
+  isolated `EpisodicMemory` per agent. `query(query_key, top_k, agents=None)`
+  fans out across the selected namespaces, merges per-agent top-k, re-ranks by
+  similarity, and returns the global top-k as `SharedRetrievalResult` tagged with
+  the originating `agent_id`. Read scoping via `agents=[...]` (unknown agents
+  skipped; `[]` reads nothing). `size` / `total_size` / `agent_ids` /
+  `agents_count` / `drop_agent` mirror the tenant lifecycle.
+- [x] Library-only — no REST surface, matching the `TenantMemoryStore`
+  precedent (which is likewise not exposed via the API).
+- [x] `__init__.py` exports `SharedMemoryPool`, `SharedRetrievalResult`.
+- [x] Tests: **19 new** (`test_shared.py`). Version bumped to `0.27.0` in
+  `__init__.py` and `pyproject.toml`.
