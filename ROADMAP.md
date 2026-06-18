@@ -147,9 +147,15 @@ CLI · cosmos visualizations.
     is no clear win over BLAS, so NumPy stays the one-shot default. The resident
     index, which packs keys once, is **~160–230× faster than NumPy** on the
     repeated-probe workload. That amortization is the real win.
-  - [ ] Slice 3: port consolidation + conflict/importance O(N²) scans onto
-    `RetrievalIndex`; wire the enriched/facade path. **Publishing wheels is
-    deferred** (out of scope for now — local/CI builds only).
+  - [x] Slice 3 (v0.20.0): ported the O(n²) similarity scans onto
+    `RetrievalIndex` — uniqueness (importance), duplicate detection
+    (compaction + memory-health), conflict detection, consolidation's
+    entry-vs-centroid scan, and the enriched/facade query path (cached index).
+    New `index_over` helper. **~15–22× faster** than the naive Python loop on
+    the all-pairs uniqueness scan (`benchmarks/bench_scans.py`). Also fixed a
+    slice-2 latent bug: direct `_entries` deletes now bump `_generation` so the
+    index cache can't go stale.
+  - **Publishing wheels remains deferred** (out of scope — local/CI builds only).
 
 ## 4. Suggested first sprint
 

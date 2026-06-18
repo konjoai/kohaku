@@ -32,8 +32,9 @@ import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
+from kohaku._index import index_over
 from kohaku.enriched import EnrichedMemoryStore
 
 logger = logging.getLogger(__name__)
@@ -249,17 +250,15 @@ class ImportanceScorer:
         n = len(entries)
         if n < 2:
             return {e.id: 1.0 for e in entries}
+        # One batched cosine pass per row over a resident index instead of the
+        # O(n²) Python double loop (Rust popcount when built, else NumPy matmul).
+        idx = index_over(entries)
         scores: Dict[int, float] = {}
         for i, ei in enumerate(entries):
-            best = -1.0
-            for j, ej in enumerate(entries):
-                if j == i:
-                    continue
-                sim = float(ei.key.cosine_similarity(ej.key))
-                if sim > best:
-                    best = sim
+            sims = idx.all_scores(ei.key.data)
+            sims[i] = -1.0  # exclude self before taking the max-other
             # Bipolar cosine ∈ [-1, 1]; clamp to [0, 1] for the signal.
-            best_clamped = max(0.0, best)
+            best_clamped = max(0.0, float(sims.max()))
             scores[ei.id] = 1.0 - best_clamped
         return scores
 

@@ -18,7 +18,7 @@ rankings are identical either way (proven by the parity tests).
 from __future__ import annotations
 
 import weakref
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -84,6 +84,19 @@ class RetrievalIndex:
 # index is rebuilt the moment the memory changes.
 _INDEX_CACHE: "weakref.WeakKeyDictionary[EpisodicMemory, Tuple[int, RetrievalIndex]]"
 _INDEX_CACHE = weakref.WeakKeyDictionary()
+
+
+def index_over(entries: Sequence) -> RetrievalIndex:
+    """Build a one-off :class:`RetrievalIndex` over the keys of ``entries``.
+
+    For all-pairs / batch similarity scans (consolidation, conflict, importance,
+    duplicate detection) where the key set is fixed for the duration of the
+    scan: pack once, then call ``all_scores`` / ``topk`` per row. Not cached —
+    use :func:`index_for` for the repeated single-memory query path.
+    """
+    if not entries:
+        return RetrievalIndex(np.empty((0, 0), dtype=np.int8))
+    return RetrievalIndex(np.stack([e.key.data for e in entries]))
 
 
 def index_for(memory: EpisodicMemory, entries: list) -> RetrievalIndex:

@@ -24,11 +24,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from kohaku.enriched import EnrichedMemoryStore
-from kohaku.portability import ExportBundle, _memory_records, export_csv, export_markdown
+from kohaku.portability import ExportBundle, export_csv, export_markdown
 from kohaku.portability import export_json as _portability_export_json
 from kohaku.versions import VersionStore, update_memory
 
@@ -145,6 +145,8 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
     kept = [e for e in store.episodic._entries if e.id not in target]
     removed = len(store.episodic._entries) - len(kept)
     store.episodic._entries = kept
+    if removed:
+        store.episodic._mark_mutated()  # invalidate the retrieval-index cache
     for eid in target:
         store._meta.pop(eid, None)
         if store.provenance is not None:

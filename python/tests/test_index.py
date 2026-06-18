@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from kohaku._accel import HAS_RUST, _numpy_cosine_topk
-from kohaku._index import RetrievalIndex, _INDEX_CACHE, index_for
+from kohaku._index import RetrievalIndex, _INDEX_CACHE, index_for, index_over
 from kohaku._pure import EpisodicMemory, HyperVector
 
 
@@ -109,3 +109,63 @@ def test_packed_index_len_via_class():
 
     packed = _kohaku_rs.PackedIndex(np.ascontiguousarray(keys, dtype=np.int8))
     assert len(packed) == 7
+
+
+# ── slice 3: batch-scan helper + direct-mutation cache safety ────────────────
+
+
+def test_index_over_matches_numpy_ranking():
+    mem = EpisodicMemory(capacity=100)
+    keys = _bipolar(25, 128, 11)
+    for i in range(25):
+        hv = HyperVector(keys[i])
+        mem.store(hv, hv, f"e{i}")
+    idx = index_over(mem.entries())
+    for qi in (0, 12, 24):
+        got = idx.topk(keys[qi], 8)
+        want = _numpy_cosine_topk(keys[qi], keys, 8)
+        assert [i for i, _ in got] == [i for i, _ in want]
+
+
+def test_index_over_empty():
+    assert len(index_over([])) == 0
+    assert index_over([]).topk(np.ones(4, dtype=np.int8), 3) == []
+
+
+def test_mark_mutated_invalidates_cache():
+    mem = EpisodicMemory(capacity=100)
+    for s in range(6):
+        hv = HyperVector(_bipolar(1, 64, s)[0])
+        mem.store(hv, hv, f"e{s}")
+    first = index_for(mem, mem.entries())
+    # Simulate a direct _entries delete (as compaction/conflicts/bulk do).
+    mem._entries[:] = mem._entries[:3]
+    mem._mark_mutated()
+    second = index_for(mem, mem.entries())
+    assert second is not first
+    assert len(second) == 3
+
+
+def test_query_reflects_deletion_after_compaction():
+    """Regression: a delete via compaction must not leave query() on a stale
+    cached index (would point at removed rows / raise IndexError)."""
+    from kohaku import query as core_query
+    from kohaku.compaction import deduplicate
+
+    mem = EpisodicMemory(capacity=100)
+    dup = HyperVector(_bipolar(1, 128, 1)[0])
+    mem.store(dup, dup, "dup-a")
+    mem.store(dup, dup, "dup-b")  # identical key → cosine 1.0
+    for s in range(2, 6):
+        hv = HyperVector(_bipolar(1, 128, s)[0])
+        mem.store(hv, hv, f"e{s}")
+
+    probe = HyperVector(_bipolar(1, 128, 2)[0])
+    core_query(mem, probe, 5)  # populate the per-memory index cache
+    removed = deduplicate(mem, similarity_threshold=0.99)
+    assert removed == 1  # one of the identical pair dropped
+
+    res = core_query(mem, probe, 10)  # must use a rebuilt index
+    live = {e.id for e in mem.entries()}
+    assert {r.entry_id for r in res} <= live
+    assert len(res) == len(live)
