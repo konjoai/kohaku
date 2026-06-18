@@ -2,6 +2,30 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.29.0] — 2026-06-18
+
+### Added — Persistence for the namespaced stores
+
+`TenantMemoryStore` and `SharedMemoryPool` were the only stores with no
+persistence — a fleet's pooled memory or a tenant's namespaces evaporated on
+restart. Both now save and load.
+
+- `store.save(directory)` / `TenantMemoryStore.load(directory)` and
+  `pool.save(directory)` / `SharedMemoryPool.load(directory)` — round-trip exact:
+  every namespace's memories, ids, timestamps, and capacity are preserved, and
+  retrieval (with tenant isolation / agent tagging / read scoping) works
+  unchanged after load.
+- On-disk layout mirrors `save_system`: a directory with one packed `.hkb` per
+  namespace (reusing the existing single-memory codec — no second binary format
+  to keep in parity) plus a `manifest.json` recording store config and the
+  id→file map. Namespace ids are never used as filenames (they may contain path
+  separators or unicode); files are index-named and the real id lives in the
+  manifest. A `format` tag guards against loading a tenant directory as a shared
+  pool (and vice versa).
+- New low-level helpers `save_namespaces` / `load_namespaces` (exported) back
+  both stores; new `python/tests/test_store_persistence.py` (9 tests). Version
+  `0.29.0`.
+
 ## [0.28.0] — 2026-06-18
 
 ### Changed — Batched all-pairs cosine for conflict & duplicate scans

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.28.0"
+__version__ = "0.29.0"
 
 # Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
 # The optional Rust extension *accelerates* hot loops (see kohaku._accel); it
@@ -33,6 +33,8 @@ from kohaku.persistence import (
     load_json,
     save_binary,
     load_binary,
+    save_namespaces,
+    load_namespaces,
 )
 from kohaku.analogy import AnalogicalMemory, AnalogyResult
 from kohaku.compositional import complete_cue, compose
@@ -161,6 +163,8 @@ __all__ = [
     "load_json",
     "save_binary",
     "load_binary",
+    "save_namespaces",
+    "load_namespaces",
     "AnalogicalMemory",
     "AnalogyResult",
     "Triple",
