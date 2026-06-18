@@ -1,4 +1,5 @@
 """Attention-guided HDC encoding — weight token hypervectors by attention scores."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,6 +17,7 @@ from kohaku._pure import (
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _hash_token(token: str) -> int:
     """Stable 64-bit hash for a token string."""
@@ -39,6 +41,7 @@ def _token_to_hv(token: str, dims: int) -> HyperVector:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def attention_weighted_encode(
     tokens: list[str],

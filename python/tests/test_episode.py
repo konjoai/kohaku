@@ -1,4 +1,5 @@
 """Tests for kohaku.episode — single-shot episodic role binding."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,11 +10,13 @@ from kohaku.episode import EpisodeStore, _ROLE_SEEDS
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _hv(seed: int) -> HyperVector:
     return HyperVector.random(DIMS, seed=seed)
 
 
 # ── construction ─────────────────────────────────────────────────────────────
+
 
 def test_dims_zero_raises():
     with pytest.raises(ValueError, match="dims"):
@@ -26,6 +29,7 @@ def test_capacity_zero_raises():
 
 
 # ── store_episode ─────────────────────────────────────────────────────────────
+
 
 def test_store_no_roles_raises():
     store = EpisodeStore()
@@ -48,6 +52,7 @@ def test_len_tracks_episodes():
 
 
 # ── query_episode ─────────────────────────────────────────────────────────────
+
 
 def test_query_no_roles_raises():
     store = EpisodeStore()
@@ -114,6 +119,7 @@ def test_single_role_episode_roundtrip():
 
 # ── unbind_role ───────────────────────────────────────────────────────────────
 
+
 def test_unbind_role_returns_original_hv():
     store = EpisodeStore()
     who = _hv(10)
@@ -142,6 +148,7 @@ def test_unbind_role_invalid_name_raises():
 
 # ── role HV determinism ───────────────────────────────────────────────────────
 
+
 def test_role_hvs_are_deterministic():
     """Two independent EpisodeStore instances must share identical role HVs."""
     s1 = EpisodeStore()
@@ -156,4 +163,6 @@ def test_role_hvs_are_distinct():
     for i in range(len(roles)):
         for j in range(i + 1, len(roles)):
             sim = store._role_hvs[roles[i]].cosine_similarity(store._role_hvs[roles[j]])
-            assert abs(sim) < 0.1, f"Role HVs {roles[i]} and {roles[j]} too similar: {sim}"
+            assert abs(sim) < 0.1, (
+                f"Role HVs {roles[i]} and {roles[j]} too similar: {sim}"
+            )

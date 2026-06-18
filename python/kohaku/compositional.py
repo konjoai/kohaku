@@ -14,6 +14,7 @@ last quarter". The HDC substrate handles this natively:
 Both are pure-Python, deterministic, and need no model call. ``complete_cue`` is
 ``O(N·D)`` in the number of stored keys, so it is opt-in.
 """
+
 from __future__ import annotations
 
 from typing import Sequence

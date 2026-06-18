@@ -23,11 +23,12 @@ BUCKETS = {
     "hour": 3600,
     "day": 86400,
     "week": 604800,
-    "month": 2592000,   # 30-day approximation; consistent with the dashboard
+    "month": 2592000,  # 30-day approximation; consistent with the dashboard
 }
 
 
 # ──────────────────────────── parsing ──────────────────────────────────────
+
 
 def _parse_iso(value: Union[str, datetime, None]) -> Optional[datetime]:
     """Accept ISO 8601 (``Z`` suffix permitted), :class:`datetime`, or ``None``.
@@ -73,6 +74,7 @@ def _to_dt(value: Any) -> Optional[datetime]:
 
 # ──────────────────────────── filter ───────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TimeFilter:
     """Window ``[valid_after, valid_before]`` against which a memory's
@@ -81,6 +83,7 @@ class TimeFilter:
     Either endpoint may be ``None`` to leave that side unbounded. An empty
     filter (``TimeFilter()``) matches every memory.
     """
+
     valid_after: Optional[datetime] = None
     valid_before: Optional[datetime] = None
 
@@ -163,9 +166,11 @@ def _attr(obj: Any, name: str) -> Any:
 
 # ──────────────────────────── timeline ─────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class TimelineBucket:
     """One row in a timeline aggregation."""
+
     bucket_start: datetime
     bucket_end: datetime
     count: int
@@ -229,8 +234,9 @@ def bucket_timeline(
         if e is not None and vf > e:
             continue
         b_start = _floor_to_bucket(vf, width)
-        binned.setdefault(b_start, []).append(_preview_memory(m, text_field,
-                                                               id_field, truncate))
+        binned.setdefault(b_start, []).append(
+            _preview_memory(m, text_field, id_field, truncate)
+        )
 
     # Stage 2: walk start → end in fixed-width strides, emitting one bucket
     # per stride (empty or not). If start/end are unset, emit only the
@@ -240,18 +246,27 @@ def bucket_timeline(
         for b_start in sorted(binned):
             b_end = b_start + timedelta(seconds=width)
             mems = binned[b_start][:preview_per_bucket]
-            out.append(TimelineBucket(bucket_start=b_start, bucket_end=b_end,
-                                       count=len(binned[b_start]), memories=mems))
+            out.append(
+                TimelineBucket(
+                    bucket_start=b_start,
+                    bucket_end=b_end,
+                    count=len(binned[b_start]),
+                    memories=mems,
+                )
+            )
         return out
     cur = _floor_to_bucket(s, width)
     while cur <= e:
         b_end = cur + timedelta(seconds=width)
         mems = binned.get(cur, [])
-        out.append(TimelineBucket(
-            bucket_start=cur, bucket_end=b_end,
-            count=len(mems),
-            memories=mems[:preview_per_bucket],
-        ))
+        out.append(
+            TimelineBucket(
+                bucket_start=cur,
+                bucket_end=b_end,
+                count=len(mems),
+                memories=mems[:preview_per_bucket],
+            )
+        )
         cur = b_end
     return out
 
@@ -274,6 +289,7 @@ def _safe_iso(value: Any) -> Optional[str]:
 
 
 # ──────────────────────────── recent ───────────────────────────────────────
+
 
 def filter_recent(
     memories: Iterable[Any],

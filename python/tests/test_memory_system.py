@@ -1,4 +1,5 @@
 """Tests for kohaku.memory_system — combined episodic + semantic stores."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -110,8 +111,9 @@ def test_recall_with_decay_uses_provided_config() -> None:
     assert plain[0].similarity == pytest.approx(1.0, abs=1e-6)
 
     # Heavily-decayed recall
-    decayed = ms.recall(cat, top_k=1, use_decay=True,
-                        decay_config=DecayConfig(half_life=2.0))
+    decayed = ms.recall(
+        cat, top_k=1, use_decay=True, decay_config=DecayConfig(half_life=2.0)
+    )
     assert decayed[0].similarity < plain[0].similarity
 
 

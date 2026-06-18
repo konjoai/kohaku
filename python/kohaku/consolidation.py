@@ -21,6 +21,7 @@ For bipolar ±1 vectors this is the maximum-likelihood estimate of the latent pr
 under independent symmetric noise. Cosine similarity to the centroid concentrates as
 n grows (Johnson-Lindenstrauss-style concentration in 10k-D).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -99,8 +100,12 @@ def consolidate(
             member_keys[best_idx].append(entry.key)
             member_vals[best_idx].append(entry.value)
             clusters[best_idx].member_ids.append(entry.id)
-            clusters[best_idx].centroid_key = HyperVector.bundle_all(member_keys[best_idx])
-            clusters[best_idx].centroid_value = HyperVector.bundle_all(member_vals[best_idx])
+            clusters[best_idx].centroid_key = HyperVector.bundle_all(
+                member_keys[best_idx]
+            )
+            clusters[best_idx].centroid_value = HyperVector.bundle_all(
+                member_vals[best_idx]
+            )
 
     return clusters
 

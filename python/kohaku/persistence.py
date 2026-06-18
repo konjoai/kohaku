@@ -25,6 +25,7 @@ Two formats are supported:
 The bit-packing assumes dims % 8 == 0 (default 10_000 is *not* divisible by 8, so we pad
 to the next multiple of 8 and store the original `dims` in the header to truncate on load).
 """
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,9 @@ PathLike = Union[str, Path]
 
 _MAGIC = b"KHKU"
 _VERSION = 1
-_HEADER_FMT = "<4sHIIQQI"  # magic, version, dims, capacity, next_id, timestamp, num_entries
+_HEADER_FMT = (
+    "<4sHIIQQI"  # magic, version, dims, capacity, next_id, timestamp, num_entries
+)
 _HEADER_SIZE = struct.calcsize(_HEADER_FMT)
 _ENTRY_HDR_FMT = "<QQH"  # id, timestamp, label_len
 _ENTRY_HDR_SIZE = struct.calcsize(_ENTRY_HDR_FMT)
@@ -49,6 +52,7 @@ _ENTRY_HDR_SIZE = struct.calcsize(_ENTRY_HDR_FMT)
 # ---------------------------------------------------------------------------
 # JSON
 # ---------------------------------------------------------------------------
+
 
 def save_json(memory: EpisodicMemory, path: PathLike) -> None:
     """Serialize an EpisodicMemory to JSON at *path*."""
@@ -100,11 +104,14 @@ def load_json(path: PathLike) -> EpisodicMemory:
 # Binary .hkb
 # ---------------------------------------------------------------------------
 
+
 def _pack_bipolar(vec: np.ndarray, padded_dims: int) -> bytes:
     """Pack ±1 int8 array → bits (1 for +1, 0 for -1), zero-padded to padded_dims."""
     bits = np.where(vec > 0, 1, 0).astype(np.uint8)
     if bits.shape[0] < padded_dims:
-        bits = np.concatenate([bits, np.zeros(padded_dims - bits.shape[0], dtype=np.uint8)])
+        bits = np.concatenate(
+            [bits, np.zeros(padded_dims - bits.shape[0], dtype=np.uint8)]
+        )
     packed = np.packbits(bits, bitorder="big")
     return packed.tobytes()
 
@@ -124,16 +131,18 @@ def save_binary(memory: EpisodicMemory, path: PathLike) -> None:
     bytes_per_vec = padded_dims // 8
 
     with Path(path).open("wb") as f:
-        f.write(struct.pack(
-            _HEADER_FMT,
-            _MAGIC,
-            _VERSION,
-            dims,
-            memory._capacity,
-            memory._next_id,
-            memory._timestamp,
-            len(entries),
-        ))
+        f.write(
+            struct.pack(
+                _HEADER_FMT,
+                _MAGIC,
+                _VERSION,
+                dims,
+                memory._capacity,
+                memory._next_id,
+                memory._timestamp,
+                len(entries),
+            )
+        )
         for e in entries:
             label_bytes = e.label.encode("utf-8")
             if len(label_bytes) > 0xFFFF:
@@ -178,10 +187,14 @@ def load_binary(path: PathLike) -> EpisodicMemory:
             raise ValueError("truncated .hkb file (vector payload)")
         key = HyperVector(_unpack_bipolar(data[offset : offset + bytes_per_vec], dims))
         offset += bytes_per_vec
-        value = HyperVector(_unpack_bipolar(data[offset : offset + bytes_per_vec], dims))
+        value = HyperVector(
+            _unpack_bipolar(data[offset : offset + bytes_per_vec], dims)
+        )
         offset += bytes_per_vec
         mem._entries.append(
-            MemoryEntry(id=int(eid), key=key, value=value, label=label, timestamp=int(ets))
+            MemoryEntry(
+                id=int(eid), key=key, value=value, label=label, timestamp=int(ets)
+            )
         )
 
     mem._next_id = int(next_id)
@@ -192,6 +205,7 @@ def load_binary(path: PathLike) -> EpisodicMemory:
 # ---------------------------------------------------------------------------
 # Convenience dispatch by file extension
 # ---------------------------------------------------------------------------
+
 
 def save(memory: EpisodicMemory, path: PathLike) -> None:
     """Save by extension: `.json` → JSON, `.hkb` → binary. Anything else raises."""

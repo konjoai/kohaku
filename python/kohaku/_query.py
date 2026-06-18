@@ -13,7 +13,9 @@ class RetrievalResult:
     value: HyperVector
 
 
-def query(memory: EpisodicMemory, query_key: HyperVector, top_k: int) -> list[RetrievalResult]:
+def query(
+    memory: EpisodicMemory, query_key: HyperVector, top_k: int
+) -> list[RetrievalResult]:
     """Return top_k entries by cosine similarity, descending.
 
     Similarities are computed in one batched pass through a resident retrieval

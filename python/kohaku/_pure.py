@@ -1,4 +1,5 @@
 """Pure-Python HDC implementation (no Rust required). Same math as the Rust core."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,6 +23,7 @@ def _lcg_next(state: int) -> tuple[int, int]:
 
 class HyperVector:
     """Bipolar (+1/-1) hypervector of DIMS dimensions."""
+
     __slots__ = ("data",)
 
     def __init__(self, data: np.ndarray) -> None:

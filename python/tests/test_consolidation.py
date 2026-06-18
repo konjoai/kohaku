@@ -1,4 +1,5 @@
 """Tests for kohaku.consolidation — semantic clustering via bundle-of-bundles."""
+
 from __future__ import annotations
 
 import numpy as np

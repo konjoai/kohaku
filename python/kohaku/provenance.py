@@ -52,15 +52,17 @@ logger = logging.getLogger(__name__)
 # existing `kohaku.enriched` source labels (`user_input`, `tool_result`,
 # `web_search`, `agent_inference`) flow through unchanged; this set is just
 # the documented vocabulary for callers that want a hint.
-KNOWN_SOURCE_TYPES: frozenset[str] = frozenset({
-    "user_input",
-    "inference",
-    "agent_inference",
-    "consolidation",
-    "import",
-    "tool_result",
-    "web_search",
-})
+KNOWN_SOURCE_TYPES: frozenset[str] = frozenset(
+    {
+        "user_input",
+        "inference",
+        "agent_inference",
+        "consolidation",
+        "import",
+        "tool_result",
+        "web_search",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -102,7 +104,7 @@ class ProvenanceGraphResult:
     root_id: str
     ancestors: List[ProvenanceNode]
     descendants: List[ProvenanceNode]
-    edges: List[Tuple[str, str]]   # (parent_id, child_id)
+    edges: List[Tuple[str, str]]  # (parent_id, child_id)
     nodes: List[ProvenanceNode]
 
     def to_dict(self) -> dict:
@@ -198,8 +200,7 @@ class ProvenanceGraph:
                        parent_ids = excluded.parent_ids,
                        source_type = excluded.source_type,
                        metadata = excluded.metadata""",
-                (mid, json.dumps(parents), source_type,
-                 created_at, json.dumps(meta)),
+                (mid, json.dumps(parents), source_type, created_at, json.dumps(meta)),
             )
             self._conn.commit()
             return self._node_for(mid, depth=0)
@@ -292,8 +293,7 @@ class ProvenanceGraph:
     def _direct_children(self, memory_id: str) -> List[str]:
         with self._lock:
             cur = self._conn.execute(
-                "SELECT memory_id, parent_ids FROM provenance "
-                "WHERE parent_ids LIKE ?",
+                "SELECT memory_id, parent_ids FROM provenance WHERE parent_ids LIKE ?",
                 (f"%{json.dumps(memory_id)}%",),
             )
             out: List[str] = []
@@ -341,7 +341,8 @@ class ProvenanceGraph:
                     continue
                 neighbours = (
                     self._direct_parents(cur)
-                    if direction == "up" else self._direct_children(cur)
+                    if direction == "up"
+                    else self._direct_children(cur)
                 )
                 for nb in neighbours:
                     if nb in visited:

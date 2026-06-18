@@ -15,6 +15,7 @@ under low decay) and pushes old memories asymptotically toward zero.
 
 Optional `floor` clamps the decay weight to a minimum, modeling residual long-term recall.
 """
+
 from __future__ import annotations
 
 import math

@@ -1,4 +1,5 @@
 """Tests for kohaku.shared — SharedMemoryPool cross-agent read-all union."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,6 +12,7 @@ from kohaku.shared import SharedMemoryPool, SharedRetrievalResult
 # helpers
 # ---------------------------------------------------------------------------
 
+
 def _hv(seed: int) -> HyperVector:
     return HyperVector.random(DIMS, seed=seed)
 
@@ -22,6 +24,7 @@ def _pool() -> SharedMemoryPool:
 # ---------------------------------------------------------------------------
 # construction / validation
 # ---------------------------------------------------------------------------
+
 
 def test_init_defaults() -> None:
     pool = _pool()
@@ -54,6 +57,7 @@ def test_empty_agent_id_raises_on_write() -> None:
 # auto-provisioning
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_agent_auto_provisioned_on_write() -> None:
     pool = _pool()
     pool.write("alice", _hv(1), _hv(2), label="hello")
@@ -70,6 +74,7 @@ def test_unknown_agent_size_does_not_provision() -> None:
 # ---------------------------------------------------------------------------
 # read-all union (the defining behaviour)
 # ---------------------------------------------------------------------------
+
 
 def test_query_unions_across_agents() -> None:
     """A query sees memories written by *every* agent, not just one."""
@@ -129,6 +134,7 @@ def test_query_nonpositive_topk_returns_empty() -> None:
 # read scoping
 # ---------------------------------------------------------------------------
 
+
 def test_query_scoped_to_subset_of_agents() -> None:
     pool = _pool()
     pool.write("alice", _hv(1), _hv(2), label="alice-fact")
@@ -158,6 +164,7 @@ def test_query_empty_scope_returns_empty() -> None:
 # sizes
 # ---------------------------------------------------------------------------
 
+
 def test_size_and_total_size() -> None:
     pool = _pool()
     for i in range(3):
@@ -174,6 +181,7 @@ def test_size_and_total_size() -> None:
 # ---------------------------------------------------------------------------
 # drop_agent
 # ---------------------------------------------------------------------------
+
 
 def test_drop_agent_removes_namespace() -> None:
     pool = _pool()
@@ -201,10 +209,13 @@ def test_dropped_agent_excluded_from_union() -> None:
 # many agents
 # ---------------------------------------------------------------------------
 
+
 def test_many_agents_pooled_and_retrievable() -> None:
     pool = SharedMemoryPool(dimension=DIMS, default_capacity=20)
     for i in range(10):
-        pool.write(f"agent_{i}", _hv(seed=i * 7 + 1), _hv(seed=i * 7 + 2), label=f"agent_{i}")
+        pool.write(
+            f"agent_{i}", _hv(seed=i * 7 + 1), _hv(seed=i * 7 + 2), label=f"agent_{i}"
+        )
 
     assert pool.agents_count() == 10
     assert pool.total_size() == 10

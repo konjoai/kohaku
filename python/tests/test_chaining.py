@@ -1,4 +1,5 @@
 """Tests for kohaku.chaining — multi-hop associative chaining."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,6 +13,7 @@ def _hv(seed: int) -> HyperVector:
 
 
 # ── argument validation ───────────────────────────────────────────────────────
+
 
 def test_hops_zero_raises():
     mem = EpisodicMemory()
@@ -27,6 +29,7 @@ def test_hops_negative_raises():
 
 # ── empty memory ──────────────────────────────────────────────────────────────
 
+
 def test_empty_memory_returns_terminated_early():
     mem = EpisodicMemory()
     result = chain_query(mem, _hv(1), hops=3)
@@ -35,6 +38,7 @@ def test_empty_memory_returns_terminated_early():
 
 
 # ── single entry ──────────────────────────────────────────────────────────────
+
 
 def test_single_entry_hop1():
     mem = EpisodicMemory()
@@ -57,6 +61,7 @@ def test_single_entry_hop2_terminates():
 
 
 # ── chain traversal ───────────────────────────────────────────────────────────
+
 
 def test_chain_visits_distinct_entries():
     """Three entries: chain should visit distinct IDs."""
@@ -94,6 +99,7 @@ def test_hops_limit_respected():
 
 # ── min_similarity ────────────────────────────────────────────────────────────
 
+
 def test_min_similarity_stops_chain():
     """With min_similarity=1.0 only exact matches pass; after the first hop the key
     changes, so subsequent entries (random, near-orthogonal) won't reach 1.0."""
@@ -123,6 +129,7 @@ def test_min_similarity_neg_one_does_not_stop():
 
 
 # ── ChainResult helpers ───────────────────────────────────────────────────────
+
 
 def test_labels_and_similarities():
     mem = EpisodicMemory()

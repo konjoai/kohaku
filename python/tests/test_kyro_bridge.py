@@ -1,4 +1,5 @@
 """Tests for the kyro ↔ kohaku HDC retrieval bridge."""
+
 from __future__ import annotations
 
 import pytest

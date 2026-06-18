@@ -1,4 +1,5 @@
 """Tests for kohaku.sleep — sleep-phase consolidation daemon."""
+
 from __future__ import annotations
 
 import threading
@@ -20,6 +21,7 @@ def _noisy(base: HyperVector, frac: float, seed: int) -> HyperVector:
 
 # ──────────────────────── construction / validation ──────────────────────────
 
+
 def test_invalid_interval_raises() -> None:
     mem = EpisodicMemory(capacity=10)
     with pytest.raises(ValueError, match="consolidation_interval"):
@@ -35,6 +37,7 @@ def test_invalid_threshold_raises() -> None:
 
 
 # ───────────────────────────── run_once mechanics ────────────────────────────
+
 
 def test_run_once_on_empty_memory_returns_zero_report() -> None:
     mem = EpisodicMemory(capacity=10)
@@ -106,6 +109,7 @@ def test_run_count_and_reports_accumulate() -> None:
 
 # ───────────────────────────────── callback ───────────────────────────────────
 
+
 def test_on_report_callback_fires() -> None:
     mem = EpisodicMemory(capacity=10)
     received: list[SleepReport] = []
@@ -127,6 +131,7 @@ def test_callback_exception_does_not_break_run() -> None:
 
 
 # ───────────────────────────────── lifecycle ──────────────────────────────────
+
 
 def test_start_stop_lifecycle() -> None:
     mem = EpisodicMemory(capacity=10)
@@ -172,7 +177,7 @@ def test_background_thread_fires_at_short_interval() -> None:
 
     sleeper = SleepConsolidator(
         mem,
-        consolidation_interval_minutes=0.001,   # 60ms
+        consolidation_interval_minutes=0.001,  # 60ms
         similarity_threshold=0.85,
         on_report=cb,
     )
@@ -186,8 +191,10 @@ def test_background_thread_fires_at_short_interval() -> None:
 
 # ────────────────────────── SleepReport contract ─────────────────────────────
 
+
 def test_report_to_dict_is_json_serializable() -> None:
     import json
+
     mem = EpisodicMemory(capacity=10)
     hv = HyperVector.random(DIMS, seed=1)
     mem.store(hv, hv, "x")

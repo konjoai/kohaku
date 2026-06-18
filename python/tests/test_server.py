@@ -1,4 +1,5 @@
 """Tests for the Kohaku FastAPI REST server (Phase 7)."""
+
 from __future__ import annotations
 
 import pytest
@@ -14,6 +15,7 @@ from kohaku.server import create_app  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def client() -> TestClient:
     """Fresh app instance per test — avoids state bleed."""
@@ -24,6 +26,7 @@ def client() -> TestClient:
 # ---------------------------------------------------------------------------
 # Health endpoint
 # ---------------------------------------------------------------------------
+
 
 def test_health_endpoint_returns_200(client: TestClient) -> None:
     """GET /health must respond with HTTP 200."""
@@ -47,6 +50,7 @@ def test_health_response_has_version(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 # Store endpoint
 # ---------------------------------------------------------------------------
+
 
 def test_store_endpoint_returns_200_or_201(client: TestClient) -> None:
     """POST /memory/store must succeed (2xx)."""
@@ -88,6 +92,7 @@ def test_store_too_long_text_rejected(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 # Query endpoint
 # ---------------------------------------------------------------------------
+
 
 def test_query_endpoint_returns_200(client: TestClient) -> None:
     """POST /memory/query must respond with HTTP 200 on a valid request."""
@@ -140,6 +145,7 @@ def test_store_then_query_finds_entry(client: TestClient) -> None:
 # Stats endpoint
 # ---------------------------------------------------------------------------
 
+
 def test_stats_endpoint_returns_200(client: TestClient) -> None:
     """GET /memory/stats must respond with HTTP 200."""
     resp = client.get("/memory/stats")
@@ -170,6 +176,7 @@ def test_stats_utilization_between_0_and_1(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 # Clear endpoint
 # ---------------------------------------------------------------------------
+
 
 def test_clear_endpoint_returns_204(client: TestClient) -> None:
     """DELETE /memory/clear must return HTTP 204 No Content."""

@@ -15,6 +15,7 @@ Pure-Python (NumPy) stays the correctness baseline: without the extension the
 index caches a contiguous ``float32`` matrix and uses the same NumPy kernel, so
 rankings are identical either way (proven by the parity tests).
 """
+
 from __future__ import annotations
 
 import weakref

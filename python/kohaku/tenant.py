@@ -1,4 +1,5 @@
 """Multi-tenant memory isolation — scope EpisodicMemory namespaces by tenant ID."""
+
 from __future__ import annotations
 import logging
 from typing import Dict, Optional, List
@@ -43,17 +44,19 @@ class TenantMemoryStore:
         if not tenant_id:
             raise ValueError("tenant_id must be a non-empty string")
         if tenant_id not in self._tenants:
-            self._tenants[tenant_id] = EpisodicMemory(
-                capacity=self._default_capacity
-            )
+            self._tenants[tenant_id] = EpisodicMemory(capacity=self._default_capacity)
             logger.info("TenantMemoryStore: provisioned tenant '%s'", tenant_id)
         return self._tenants[tenant_id]
 
-    def store(self, tenant_id: str, key: HyperVector, value: HyperVector, label: str = "") -> None:
+    def store(
+        self, tenant_id: str, key: HyperVector, value: HyperVector, label: str = ""
+    ) -> None:
         """Store a memory for the given tenant."""
         self._get_or_create(tenant_id).store(key, value, label)
 
-    def retrieve(self, tenant_id: str, query_key: HyperVector, top_k: int = 1) -> List[RetrievalResult]:
+    def retrieve(
+        self, tenant_id: str, query_key: HyperVector, top_k: int = 1
+    ) -> List[RetrievalResult]:
         """Retrieve from the given tenant's memory."""
         mem = self._get_or_create(tenant_id)
         return query(mem, query_key, top_k)

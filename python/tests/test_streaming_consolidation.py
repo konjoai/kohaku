@@ -1,4 +1,5 @@
 """Tests for kohaku.streaming — background StreamingConsolidator."""
+
 from __future__ import annotations
 
 import time
@@ -14,6 +15,7 @@ from kohaku.streaming import StreamingConsolidator
 # helpers
 # ---------------------------------------------------------------------------
 
+
 def _mem(capacity: int = 20) -> EpisodicMemory:
     return EpisodicMemory(capacity=capacity)
 
@@ -25,6 +27,7 @@ def _hv(seed: int) -> HyperVector:
 # ---------------------------------------------------------------------------
 # construction / validation
 # ---------------------------------------------------------------------------
+
 
 def test_init_defaults() -> None:
     mem = _mem()
@@ -52,6 +55,7 @@ def test_init_bad_poll_interval() -> None:
 # ---------------------------------------------------------------------------
 # start / stop lifecycle
 # ---------------------------------------------------------------------------
+
 
 def test_start_sets_is_running() -> None:
     sc = StreamingConsolidator(_mem(), poll_interval_s=0.05)
@@ -86,6 +90,7 @@ def test_double_start_is_noop() -> None:
 # context manager
 # ---------------------------------------------------------------------------
 
+
 def test_context_manager_starts_and_stops() -> None:
     mem = _mem()
     with StreamingConsolidator(mem, poll_interval_s=0.05) as sc:
@@ -97,6 +102,7 @@ def test_context_manager_starts_and_stops() -> None:
 # thread-safe store and retrieve
 # ---------------------------------------------------------------------------
 
+
 def test_thread_safe_store_and_retrieve() -> None:
     """Concurrent stores from multiple threads must not corrupt the memory."""
     mem = _mem(capacity=200)
@@ -107,7 +113,9 @@ def test_thread_safe_store_and_retrieve() -> None:
     def worker(offset: int) -> None:
         try:
             for i in range(10):
-                sc.store(_hv(offset + i), _hv(offset + i + 1000), label=f"t{offset}-{i}")
+                sc.store(
+                    _hv(offset + i), _hv(offset + i + 1000), label=f"t{offset}-{i}"
+                )
         except Exception as e:
             errors.append(e)
 
@@ -126,13 +134,14 @@ def test_thread_safe_store_and_retrieve() -> None:
 # consolidation trigger
 # ---------------------------------------------------------------------------
 
+
 def test_consolidation_fires_when_above_trigger() -> None:
     """Fill memory past trigger_ratio; background thread should consolidate."""
     capacity = 10
     mem = EpisodicMemory(capacity=capacity)
     sc = StreamingConsolidator(
         mem,
-        trigger_ratio=0.80,   # triggers at 8/10 entries
+        trigger_ratio=0.80,  # triggers at 8/10 entries
         poll_interval_s=0.05,
         similarity_threshold=0.1,  # very permissive — everything merges
     )
@@ -140,6 +149,7 @@ def test_consolidation_fires_when_above_trigger() -> None:
     # Store 9 similar entries (90% utilization → above 80% trigger)
     base = _hv(seed=1)
     import numpy as np
+
     for i in range(9):
         rng = np.random.default_rng(i + 10)
         data = base.data.copy()
@@ -165,11 +175,12 @@ def test_consolidation_count_increments() -> None:
     mem = EpisodicMemory(capacity=capacity)
     sc = StreamingConsolidator(
         mem,
-        trigger_ratio=0.5,   # triggers at 2/4
+        trigger_ratio=0.5,  # triggers at 2/4
         poll_interval_s=0.05,
         similarity_threshold=0.1,
     )
     import numpy as np
+
     base = _hv(seed=77)
     # Pre-fill to trigger immediately
     for i in range(3):

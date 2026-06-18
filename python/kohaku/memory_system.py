@@ -21,6 +21,7 @@ This design mirrors **memory consolidation during sleep** in mammals: the
 hippocampus (episodic) replays patterns, the neocortex (semantic) integrates
 them into stable representations.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,7 +37,8 @@ from kohaku.learning import ItemMemory
 @dataclass(frozen=True)
 class CombinedRecall:
     """One row of a combined episodic + semantic recall."""
-    source: str          # "episodic" or "semantic"
+
+    source: str  # "episodic" or "semantic"
     label: str
     similarity: float
     entry_id: int

@@ -1,4 +1,5 @@
 """Tests for the pure-Python HDC implementation."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -7,6 +8,7 @@ from kohaku._query import query, query_threshold
 
 
 # ─── HyperVector tests ────────────────────────────────────────────────────────
+
 
 def test_random_vector_shape():
     """Generated vector must have exactly DIMS components."""
@@ -25,7 +27,9 @@ def test_random_deterministic():
     """Same seed must produce byte-identical vectors."""
     a = HyperVector.random(DIMS, seed=99)
     b = HyperVector.random(DIMS, seed=99)
-    assert np.array_equal(a.data, b.data), "Identical seeds must yield identical vectors"
+    assert np.array_equal(a.data, b.data), (
+        "Identical seeds must yield identical vectors"
+    )
 
 
 def test_different_seeds_orthogonal():
@@ -33,7 +37,9 @@ def test_different_seeds_orthogonal():
     a = HyperVector.random(DIMS, seed=1)
     b = HyperVector.random(DIMS, seed=2)
     sim = abs(a.cosine_similarity(b))
-    assert sim < 0.05, f"Different-seed vectors should be near-orthogonal, got |sim|={sim:.4f}"
+    assert sim < 0.05, (
+        f"Different-seed vectors should be near-orthogonal, got |sim|={sim:.4f}"
+    )
 
 
 def test_identical_similarity_is_one():
@@ -72,7 +78,9 @@ def test_permute_differs_from_original():
     hv = HyperVector.random(DIMS, seed=5)
     permuted = hv.permute(1)
     sim = abs(hv.cosine_similarity(permuted))
-    assert sim < 0.1, f"Permuted vector should differ from original, got |sim|={sim:.4f}"
+    assert sim < 0.1, (
+        f"Permuted vector should differ from original, got |sim|={sim:.4f}"
+    )
 
 
 def test_permute_invertible():
@@ -82,7 +90,9 @@ def test_permute_invertible():
     permuted = hv.permute(shift)
     recovered = permuted.permute(DIMS - shift)
     sim = hv.cosine_similarity(recovered)
-    assert abs(sim - 1.0) < 1e-5, f"Double-permute must recover original, got sim={sim:.6f}"
+    assert abs(sim - 1.0) < 1e-5, (
+        f"Double-permute must recover original, got sim={sim:.6f}"
+    )
 
 
 def test_memory_store_and_len():

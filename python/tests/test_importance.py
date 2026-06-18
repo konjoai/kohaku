@@ -15,7 +15,9 @@ from kohaku.importance import (
 )
 
 
-def _store(provenance: bool = False) -> tuple[EnrichedMemoryStore, ProvenanceGraph | None]:
+def _store(
+    provenance: bool = False,
+) -> tuple[EnrichedMemoryStore, ProvenanceGraph | None]:
     pg = ProvenanceGraph() if provenance else None
     return EnrichedMemoryStore(capacity=30, provenance=pg), pg
 
@@ -57,8 +59,13 @@ def test_frequency_signal_responds_to_reinforcement() -> None:
     s, _ = _store()
     h = encode_text("alpha")
     e1 = s.store(h, h, label="alpha", source="user_input", importance=0.5)
-    e2 = s.store(encode_text("beta"), encode_text("beta"),
-                  label="beta", source="user_input", importance=0.5)
+    e2 = s.store(
+        encode_text("beta"),
+        encode_text("beta"),
+        label="beta",
+        source="user_input",
+        importance=0.5,
+    )
     for _ in range(20):
         s.reinforce(e1)
     scorer = ImportanceScorer(s)
@@ -74,9 +81,12 @@ def test_recency_signal_decays_with_age() -> None:
     now = datetime.now(timezone.utc)
     h = encode_text("ok")
     e1 = s.store(h, h, label="ok", valid_from=now)
-    e2 = s.store(encode_text("ok2"), encode_text("ok2"),
-                  label="ok2",
-                  valid_from=now - timedelta(days=30))   # 1 half-life
+    e2 = s.store(
+        encode_text("ok2"),
+        encode_text("ok2"),
+        label="ok2",
+        valid_from=now - timedelta(days=30),
+    )  # 1 half-life
     scorer = ImportanceScorer(s, half_life_days=30.0)
     bd = scorer.compute(now=now)
     by_id = {b.entry_id: b for b in bd}
@@ -89,9 +99,12 @@ def test_uniqueness_signal_low_for_duplicates() -> None:
     h = encode_text("the cat sat on the mat")
     e1 = s.store(h, h, label="cat-1", source="user_input")
     e2 = s.store(h, h, label="cat-2", source="user_input")
-    e3 = s.store(encode_text("espresso brewed dark and bitter"),
-                  encode_text("espresso brewed dark and bitter"),
-                  label="espresso", source="user_input")
+    e3 = s.store(
+        encode_text("espresso brewed dark and bitter"),
+        encode_text("espresso brewed dark and bitter"),
+        label="espresso",
+        source="user_input",
+    )
     scorer = ImportanceScorer(s)
     bd = {b.entry_id: b for b in scorer.compute()}
     # The two duplicates have very low uniqueness; the espresso entry is high.
@@ -158,8 +171,16 @@ def test_breakdown_to_dict_shape() -> None:
     bd = ImportanceScorer(s).compute()
     assert bd
     d = bd[0].to_dict()
-    assert {"entry_id", "frequency", "recency", "uniqueness", "depth",
-            "composite", "importance_before", "importance_after"} <= d.keys()
+    assert {
+        "entry_id",
+        "frequency",
+        "recency",
+        "uniqueness",
+        "depth",
+        "composite",
+        "importance_before",
+        "importance_after",
+    } <= d.keys()
 
 
 def test_report_to_dict_includes_weights() -> None:

@@ -5,6 +5,7 @@ determinism that makes them reproducible, confidence/margin reporting, and the
 error/edge cases. The "dollar of Mexico" analogy is the canonical correctness
 check (Kanerva 2010).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -14,10 +15,18 @@ from kohaku import AnalogicalMemory, AnalogyResult
 
 def _countries() -> AnalogicalMemory:
     m = AnalogicalMemory()
-    m.add_record("USA", {"currency": "dollar", "capital": "washington", "language": "english"})
-    m.add_record("Mexico", {"currency": "peso", "capital": "mexico_city", "language": "spanish"})
-    m.add_record("France", {"currency": "euro", "capital": "paris", "language": "french"})
-    m.add_record("Japan", {"currency": "yen", "capital": "tokyo", "language": "japanese"})
+    m.add_record(
+        "USA", {"currency": "dollar", "capital": "washington", "language": "english"}
+    )
+    m.add_record(
+        "Mexico", {"currency": "peso", "capital": "mexico_city", "language": "spanish"}
+    )
+    m.add_record(
+        "France", {"currency": "euro", "capital": "paris", "language": "french"}
+    )
+    m.add_record(
+        "Japan", {"currency": "yen", "capital": "tokyo", "language": "japanese"}
+    )
     return m
 
 

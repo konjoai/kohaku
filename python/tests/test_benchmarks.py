@@ -5,6 +5,7 @@ regressions (ANN recall collapse, candidate-pruning loss, compression loss,
 inexact round-trips) without being flaky on shared CI runners. The human-facing
 timing benchmark lives in ``benchmarks/run_benchmarks.py``.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -57,7 +58,9 @@ def test_ann_prunes_candidate_set():
     for cid, hv in vectors.items():
         idx.add(cid, hv)
     avg_candidates = np.mean([len(idx.candidates(q)) for q, _ in queries])
-    assert avg_candidates < n * 0.5, f"ANN scanned {avg_candidates:.0f}/{n} — pruning lost"
+    assert avg_candidates < n * 0.5, (
+        f"ANN scanned {avg_candidates:.0f}/{n} — pruning lost"
+    )
 
 
 def test_hkb_is_smaller_than_json(tmp_path):

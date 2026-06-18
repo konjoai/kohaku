@@ -3,6 +3,7 @@
 All tests inject a deterministic ``embed_fn`` so the suite never needs the
 optional ``sentence-transformers`` dependency.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -102,8 +103,12 @@ def test_memory_with_semantic_encoder_beats_lexical_on_paraphrase():
     # Hand-built embedding space where paraphrases are close but share no tokens.
     space = {
         "User prefers Italian wine": np.array([1.0, 0.0, 0.0], dtype=np.float32),
-        "The customer enjoys a glass of merlot": np.array([0.95, 0.05, 0.0], dtype=np.float32),
-        "Quarterly revenue grew by twelve percent": np.array([0.0, 0.0, 1.0], dtype=np.float32),
+        "The customer enjoys a glass of merlot": np.array(
+            [0.95, 0.05, 0.0], dtype=np.float32
+        ),
+        "Quarterly revenue grew by twelve percent": np.array(
+            [0.0, 0.0, 1.0], dtype=np.float32
+        ),
     }
     enc = EmbeddingEncoder(embed_fn=lambda t: space[t], dims=8192)
     mem = Memory(encoder=enc)

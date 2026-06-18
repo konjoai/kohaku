@@ -212,9 +212,12 @@ if __name__ == "__main__":
 
     # Store 3 memories
     experiences = [
-        ("apple",   "A round red fruit with a crisp texture that grows on trees"),
-        ("ocean",   "A vast body of salt water covering most of the Earth surface"),
-        ("library", "A building containing organized collections of books and knowledge"),
+        ("apple", "A round red fruit with a crisp texture that grows on trees"),
+        ("ocean", "A vast body of salt water covering most of the Earth surface"),
+        (
+            "library",
+            "A building containing organized collections of books and knowledge",
+        ),
     ]
 
     for label, text in experiences:

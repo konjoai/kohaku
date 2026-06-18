@@ -26,6 +26,7 @@ runs until ``stop()`` (or the context manager exits). Manual ``run_once()``
 is always available — that's what the ``POST /consolidate`` API endpoint
 calls.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,13 +45,14 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class SleepReport:
     """Structured outcome of one consolidation run."""
+
     started_at: datetime
     run_seconds: float
     episodes_before: int
     episodes_after: int
-    episodes_consolidated: int    # entries that were absorbed into a prototype
-    prototypes_created: int        # clusters with size > 1
-    memory_freed: int              # episodes_before - episodes_after
+    episodes_consolidated: int  # entries that were absorbed into a prototype
+    prototypes_created: int  # clusters with size > 1
+    memory_freed: int  # episodes_before - episodes_after
     similarity_threshold: float
 
     def to_dict(self) -> dict:
@@ -134,8 +136,9 @@ class SleepConsolidator:
         if self.is_running:
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._loop, daemon=True,
-                                        name="kohaku-sleep-consolidator")
+        self._thread = threading.Thread(
+            target=self._loop, daemon=True, name="kohaku-sleep-consolidator"
+        )
         self._thread.start()
 
     def stop(self, timeout: float = 5.0) -> None:
@@ -181,11 +184,11 @@ class SleepConsolidator:
                 # Rebuild memory from cluster centroids, preserving FIFO order.
                 self._memory.clear()
                 for c in clusters:
-                    label = (
-                        f"{c.label} (n={c.size})" if c.size > 1 else c.label
-                    )
+                    label = f"{c.label} (n={c.size})" if c.size > 1 else c.label
                     new_id = self._memory.store(
-                        c.centroid_key, c.centroid_value, label,
+                        c.centroid_key,
+                        c.centroid_value,
+                        label,
                     )
                     # Lineage: only multi-member clusters are "consolidations".
                     # Single-member clusters are identity re-stores; not worth
@@ -229,11 +232,16 @@ class SleepConsolidator:
             try:
                 self._on_report(report)
             except Exception:  # noqa: BLE001
-                logger.warning("SleepConsolidator: on_report callback raised", exc_info=True)
+                logger.warning(
+                    "SleepConsolidator: on_report callback raised", exc_info=True
+                )
         logger.info(
             "SleepConsolidator run: %d → %d entries (%d prototypes, %d freed) in %.3fs",
-            report.episodes_before, report.episodes_after,
-            report.prototypes_created, report.memory_freed, report.run_seconds,
+            report.episodes_before,
+            report.episodes_after,
+            report.prototypes_created,
+            report.memory_freed,
+            report.run_seconds,
         )
         return report
 

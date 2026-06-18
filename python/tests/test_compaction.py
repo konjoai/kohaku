@@ -1,4 +1,5 @@
 """Tests for kohaku.compaction — find_duplicates, deduplicate, compact."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,6 +12,7 @@ from kohaku.compaction import compact, deduplicate, find_duplicates
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def _hv(seed: int) -> HyperVector:
     return HyperVector.random(DIMS, seed=seed)
@@ -26,6 +28,7 @@ def _noisy(base: HyperVector, flip_frac: float, seed: int) -> HyperVector:
 # ---------------------------------------------------------------------------
 # cosine similarity helper (tested indirectly through find_duplicates)
 # ---------------------------------------------------------------------------
+
 
 def test_identical_keys_have_similarity_one() -> None:
     """An entry compared with itself has cosine similarity 1.0."""
@@ -51,6 +54,7 @@ def test_orthogonal_keys_not_duplicates() -> None:
 # find_duplicates
 # ---------------------------------------------------------------------------
 
+
 def test_find_duplicates_returns_groups_by_id() -> None:
     """All near-identical entries land in one group; IDs match stored entries."""
     mem = EpisodicMemory(capacity=10)
@@ -75,6 +79,7 @@ def test_find_duplicates_empty_memory() -> None:
 # ---------------------------------------------------------------------------
 # deduplicate
 # ---------------------------------------------------------------------------
+
 
 def test_deduplicate_removes_near_duplicates() -> None:
     mem = EpisodicMemory(capacity=10)
@@ -113,6 +118,7 @@ def test_deduplicate_noop_when_no_duplicates() -> None:
 # ---------------------------------------------------------------------------
 # compact
 # ---------------------------------------------------------------------------
+
 
 def test_compact_bad_utilization_raises() -> None:
     mem = EpisodicMemory(capacity=10)

@@ -1,4 +1,5 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
+
 from __future__ import annotations
 
 __version__ = "0.28.0"
@@ -10,6 +11,7 @@ from kohaku._pure import HyperVector, EpisodicMemory
 
 try:
     import kohaku._kohaku_rs  # noqa: F401 — presence flips the accelerated path on
+
     _BACKEND = "rust-accel"
 except ImportError:
     _BACKEND = "python"
@@ -126,6 +128,7 @@ from kohaku.bulk_ops import (
 
 try:
     from kohaku.server import create_app, serve
+
     _SERVER_AVAILABLE = True
 except ImportError:
     _SERVER_AVAILABLE = False

@@ -10,6 +10,7 @@ Accuracy is exact (does cleanup return the planted answer?), averaged over many
 randomly-generated vocabularies. No latency claims here; this is a correctness/
 capacity curve, written under benchmarks/results/ and never overwritten.
 """
+
 from __future__ import annotations
 
 import json
@@ -59,14 +60,16 @@ def run(attr_counts, dims):
             anas += a_ok
             gconf += gc
             aconf += ac
-        rows.append({
-            "attrs_per_record": n,
-            "dims": dims,
-            "get_accuracy": round(gets / TRIALS, 3),
-            "analogy_accuracy": round(anas / TRIALS, 3),
-            "mean_get_confidence": round(gconf / TRIALS, 3),
-            "mean_analogy_confidence": round(aconf / TRIALS, 3),
-        })
+        rows.append(
+            {
+                "attrs_per_record": n,
+                "dims": dims,
+                "get_accuracy": round(gets / TRIALS, 3),
+                "analogy_accuracy": round(anas / TRIALS, 3),
+                "mean_get_confidence": round(gconf / TRIALS, 3),
+                "mean_analogy_confidence": round(aconf / TRIALS, 3),
+            }
+        )
     return rows
 
 

@@ -13,6 +13,7 @@ the raw cosine similarity and, when `half_life` is set, the decayed score.
 No hard dependency on kyro: this file imports only from `kohaku` so the
 bridge ships in this repo and kyro pulls it via `pip install kohaku`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -196,7 +197,9 @@ class HDCRetriever:
                     doc_id=doc_id,
                     text=text,
                     similarity=raw_by_id.get(r.entry_id, r.similarity),
-                    decayed_similarity=(r.similarity if half_life is not None else None),
+                    decayed_similarity=(
+                        r.similarity if half_life is not None else None
+                    ),
                     age=age,
                 )
             )

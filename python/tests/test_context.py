@@ -1,4 +1,5 @@
 """Tests for kohaku.context — ContextMemoryManager and ContextConfig."""
+
 from __future__ import annotations
 
 from kohaku.context import ContextConfig, ContextMemoryManager, _encode_text_to_hv
@@ -7,6 +8,7 @@ from kohaku.context import ContextConfig, ContextMemoryManager, _encode_text_to_
 # ---------------------------------------------------------------------------
 # 1. store + retrieve a known entry
 # ---------------------------------------------------------------------------
+
 
 def test_store_and_retrieve_known_entry():
     """Storing an entry and querying with the same key returns it."""
@@ -22,6 +24,7 @@ def test_store_and_retrieve_known_entry():
 # 2. build_context_block starts with "Relevant memories:"
 # ---------------------------------------------------------------------------
 
+
 def test_build_context_block_prefix():
     """build_context_block returns a string starting with 'Relevant memories:'."""
     mgr = ContextMemoryManager()
@@ -35,6 +38,7 @@ def test_build_context_block_prefix():
 # 3. capacity() == max_tokens // tokens_per_entry
 # ---------------------------------------------------------------------------
 
+
 def test_capacity_equals_config_ratio():
     """capacity() must equal max_tokens // tokens_per_entry from config."""
     cfg = ContextConfig(max_tokens=2000, tokens_per_entry=100)
@@ -45,6 +49,7 @@ def test_capacity_equals_config_ratio():
 # ---------------------------------------------------------------------------
 # 4. utilization() is 0.0 on empty, >0 after store
 # ---------------------------------------------------------------------------
+
 
 def test_utilization_empty_and_after_store():
     """utilization() is 0.0 when empty and positive after storing one entry."""
@@ -57,6 +62,7 @@ def test_utilization_empty_and_after_store():
 # ---------------------------------------------------------------------------
 # 5. semantic similarity — "dog food" retrieves more similar to "dog" than "spaceship"
 # ---------------------------------------------------------------------------
+
 
 def test_similar_queries_retrieve_related_entries():
     """Querying 'dog' should match 'dog food' more than 'spaceship launch'.
@@ -86,6 +92,7 @@ def test_similar_queries_retrieve_related_entries():
 # 6. FIFO eviction — oldest entry gone after capacity+1 stores
 # ---------------------------------------------------------------------------
 
+
 def test_fifo_eviction():
     """After filling to capacity+1, the oldest entry should be evicted."""
     cfg = ContextConfig(max_tokens=500, tokens_per_entry=100)  # capacity = 5
@@ -110,17 +117,22 @@ def test_fifo_eviction():
 # 7. encode_text determinism — same text → same HyperVector
 # ---------------------------------------------------------------------------
 
+
 def test_encode_text_deterministic():
     """_encode_text_to_hv must return byte-identical results for the same input."""
     import numpy as np
+
     hv1 = _encode_text_to_hv("hello world")
     hv2 = _encode_text_to_hv("hello world")
-    assert np.array_equal(hv1.data, hv2.data), "Same text must always produce the same hypervector"
+    assert np.array_equal(hv1.data, hv2.data), (
+        "Same text must always produce the same hypervector"
+    )
 
 
 # ---------------------------------------------------------------------------
 # 8. ContextConfig defaults are sane
 # ---------------------------------------------------------------------------
+
 
 def test_context_config_defaults():
     """Default ContextConfig values must match the documented spec."""

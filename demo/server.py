@@ -23,6 +23,7 @@ POST /api/reset          → wipe state, re-seed with defaults
 
 All numbers returned are computed by the live kohaku library — no mocks.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,22 +66,33 @@ STATE_JSON = DEMO_DIR / ".kohaku_demo.json"
 # kohaku.encode_text — by design).
 SEED_CONCEPTS: List[Tuple[str, str, str, str]] = [
     # (id,         label,          phrase,                               color)
-    ("cat",      "🐈 cat",       "the cat sat on the mat",              "#ffd394"),
-    ("kitten",   "😺 kitten",    "a kitten sat on the rug",             "#ffb86c"),
-    ("feline",   "🐅 feline",    "a feline rested on the mat",          "#ff9f3f"),
-    ("espresso", "☕ espresso",  "espresso brewed dark and bitter",     "#f5c542"),
-    ("coffee",   "🫖 coffee",    "iced coffee in the afternoon",        "#ffe28a"),
-    ("river",    "🌊 river",     "the river flowing toward the ocean",  "#7dd87d"),
-    ("ocean",    "🌊 ocean",     "ocean waves under the moonlight",     "#6fd2c0"),
+    ("cat", "🐈 cat", "the cat sat on the mat", "#ffd394"),
+    ("kitten", "😺 kitten", "a kitten sat on the rug", "#ffb86c"),
+    ("feline", "🐅 feline", "a feline rested on the mat", "#ff9f3f"),
+    ("espresso", "☕ espresso", "espresso brewed dark and bitter", "#f5c542"),
+    ("coffee", "🫖 coffee", "iced coffee in the afternoon", "#ffe28a"),
+    ("river", "🌊 river", "the river flowing toward the ocean", "#7dd87d"),
+    ("ocean", "🌊 ocean", "ocean waves under the moonlight", "#6fd2c0"),
 ]
 
-PALETTE = ["#ffd394", "#ffb86c", "#ff9f3f", "#f5c542", "#ffe28a",
-           "#7dd87d", "#6fd2c0", "#ff7e8a", "#ffaaaa", "#bba0ff"]
+PALETTE = [
+    "#ffd394",
+    "#ffb86c",
+    "#ff9f3f",
+    "#f5c542",
+    "#ffe28a",
+    "#7dd87d",
+    "#6fd2c0",
+    "#ff7e8a",
+    "#ffaaaa",
+    "#bba0ff",
+]
 
 
 # ────────────────────────────────────────────────────────────────────────────
 #  State
 # ────────────────────────────────────────────────────────────────────────────
+
 
 class State:
     """Thread-safe holder for the live EpisodicMemory + concept metadata."""
@@ -141,14 +153,16 @@ class State:
                     edges.append({"i": i, "j": j, "sim": round(sims[i][j], 4)})
             nodes = []
             for idx, m in enumerate(self.meta):
-                nodes.append({
-                    "index": idx,
-                    "id": m["id"],
-                    "label": m["label"],
-                    "phrase": m["phrase"],
-                    "color": m["color"],
-                    "entry_id": m["entry_id"],
-                })
+                nodes.append(
+                    {
+                        "index": idx,
+                        "id": m["id"],
+                        "label": m["label"],
+                        "phrase": m["phrase"],
+                        "color": m["color"],
+                        "entry_id": m["entry_id"],
+                    }
+                )
             return {"nodes": nodes, "edges": edges, "dims": DIMS}
 
     def query_with_decay(
@@ -168,14 +182,16 @@ class State:
                 meta = next((m for m in self.meta if m["entry_id"] == r.entry_id), None)
                 if not meta:
                     continue
-                matches.append({
-                    "entry_id": r.entry_id,
-                    "id": meta["id"],
-                    "label": meta["label"],
-                    "raw_similarity": round(float(r.similarity), 4),
-                    "decay_weight": round(w, 4),
-                    "decayed_strength": round(float(r.similarity) * w, 4),
-                })
+                matches.append(
+                    {
+                        "entry_id": r.entry_id,
+                        "id": meta["id"],
+                        "label": meta["label"],
+                        "raw_similarity": round(float(r.similarity), 4),
+                        "decay_weight": round(w, 4),
+                        "decayed_strength": round(float(r.similarity) * w, 4),
+                    }
+                )
             elapsed = (time.time() - t0) * 1000
             return {
                 "query": concept,
@@ -236,13 +252,15 @@ class State:
                     label = cid
                     phrase = cid
                     color = PALETTE[idx % len(PALETTE)]
-                self.meta.append({
-                    "entry_id": e.id,
-                    "id": cid,
-                    "label": label,
-                    "phrase": phrase,
-                    "color": color,
-                })
+                self.meta.append(
+                    {
+                        "entry_id": e.id,
+                        "id": cid,
+                        "label": label,
+                        "phrase": phrase,
+                        "color": color,
+                    }
+                )
             return {
                 "loaded_from": str(STATE_FILE.relative_to(ROOT)),
                 "size_bytes_hkb": STATE_FILE.stat().st_size,
@@ -265,6 +283,7 @@ class State:
 # ────────────────────────────────────────────────────────────────────────────
 #  HTTP handler
 # ────────────────────────────────────────────────────────────────────────────
+
 
 class DemoHandler(BaseHTTPRequestHandler):
     state: State  # injected on the class before serve_forever
@@ -365,7 +384,9 @@ class DemoHandler(BaseHTTPRequestHandler):
             elif path == "/api/save":
                 self._send_json(self.state.save_to_disk())
             elif path == "/api/load":
-                self._send_json({**self.state.load_from_disk(), "graph": self.state.graph()})
+                self._send_json(
+                    {**self.state.load_from_disk(), "graph": self.state.graph()}
+                )
             elif path == "/api/reset":
                 self.state.seed()
                 self._send_json({"ok": True, "graph": self.state.graph()})
@@ -379,6 +400,7 @@ class DemoHandler(BaseHTTPRequestHandler):
 # ────────────────────────────────────────────────────────────────────────────
 #  Entry point
 # ────────────────────────────────────────────────────────────────────────────
+
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Kohaku demo server")

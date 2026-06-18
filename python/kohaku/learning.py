@@ -22,6 +22,7 @@ Properties
 Used by :class:`MemorySystem` to maintain a semantic store that survives
 episodic decay.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -36,6 +37,7 @@ from kohaku._query import RetrievalResult
 @dataclass
 class Prototype:
     """A learned prototype for one class label."""
+
     label: str
     accumulator: np.ndarray  # float32, shape (dims,) — running signed sum
     n_examples: int
@@ -43,7 +45,9 @@ class Prototype:
     @property
     def vector(self) -> HyperVector:
         """The current binarized prototype: sign(accumulator), ties → +1."""
-        bits = np.where(self.accumulator >= 0.0, np.int8(1), np.int8(-1)).astype(np.int8)
+        bits = np.where(self.accumulator >= 0.0, np.int8(1), np.int8(-1)).astype(
+            np.int8
+        )
         return HyperVector(bits)
 
     def __len__(self) -> int:

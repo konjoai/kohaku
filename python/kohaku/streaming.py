@@ -1,4 +1,5 @@
 """Real-time streaming consolidation — auto-consolidates memory in a background thread."""
+
 from __future__ import annotations
 import threading
 import logging

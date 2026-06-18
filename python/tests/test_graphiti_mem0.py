@@ -1,4 +1,5 @@
 """Tests for Graphiti and Mem0 export dialects (Phase 15)."""
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ from kohaku.graph_export import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_episodic(n: int = 4, seed_base: int = 0) -> EpisodicMemory:
     mem = EpisodicMemory(capacity=100)
@@ -33,6 +35,7 @@ def _graph(n: int = 3, threshold: float = -1.0) -> MemoryGraph:
 # ---------------------------------------------------------------------------
 # Graphiti — dict structure
 # ---------------------------------------------------------------------------
+
 
 def test_to_graphiti_top_level_keys() -> None:
     """to_graphiti() must have all required top-level keys."""
@@ -56,7 +59,16 @@ def test_to_graphiti_episode_fields() -> None:
     """Each episode must carry uuid, name, content, source, timestamps, attributes."""
     d = _graph(n=2).to_graphiti()
     ep = d["episodes"][0]
-    assert {"uuid", "name", "content", "source", "created_at", "valid_at", "invalid_at", "attributes"} <= ep.keys()
+    assert {
+        "uuid",
+        "name",
+        "content",
+        "source",
+        "created_at",
+        "valid_at",
+        "invalid_at",
+        "attributes",
+    } <= ep.keys()
     assert ep["invalid_at"] is None
     assert isinstance(ep["attributes"], dict)
 
@@ -78,8 +90,16 @@ def test_to_graphiti_relation_fields() -> None:
     d = g.to_graphiti()
     if d["relations"]:
         rel = d["relations"][0]
-        assert {"uuid", "name", "fact", "source_node_uuid", "target_node_uuid",
-                "created_at", "expired_at", "weight"} <= rel.keys()
+        assert {
+            "uuid",
+            "name",
+            "fact",
+            "source_node_uuid",
+            "target_node_uuid",
+            "created_at",
+            "expired_at",
+            "weight",
+        } <= rel.keys()
         assert rel["name"] == "similar_to"
         assert rel["expired_at"] is None
         assert -1.0 <= rel["weight"] <= 1.0
@@ -105,6 +125,7 @@ def test_save_graphiti_creates_file(tmp_path: Path) -> None:
 # Mem0 — dict structure
 # ---------------------------------------------------------------------------
 
+
 def test_to_mem0_top_level_keys() -> None:
     d = _graph().to_mem0()
     assert d["format"] == "mem0"
@@ -122,7 +143,15 @@ def test_to_mem0_memory_count_matches_nodes() -> None:
 def test_to_mem0_memory_fields() -> None:
     d = _graph(n=2).to_mem0()
     mem = d["memories"][0]
-    assert {"id", "memory", "hash", "metadata", "score", "created_at", "updated_at"} <= mem.keys()
+    assert {
+        "id",
+        "memory",
+        "hash",
+        "metadata",
+        "score",
+        "created_at",
+        "updated_at",
+    } <= mem.keys()
     assert isinstance(mem["hash"], str) and len(mem["hash"]) == 16
     assert isinstance(mem["metadata"], dict)
     assert 0.0 <= mem["score"] <= 1.0

@@ -3,6 +3,7 @@
 The NumPy path is always exercised. When the Rust extension is built, a parity
 test asserts it agrees with NumPy exactly for bipolar inputs.
 """
+
 from __future__ import annotations
 
 import numpy as np

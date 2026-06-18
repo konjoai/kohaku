@@ -1,4 +1,5 @@
 """Kohaku command-line interface."""
+
 from __future__ import annotations
 
 import argparse
@@ -22,6 +23,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
 
     if args.from_file:
         from kohaku.persistence import load
+
         mem = load(args.from_file)
     else:
         mem = EpisodicMemory(capacity=1000)
@@ -51,28 +53,44 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.required = True
 
     serve_p = sub.add_parser("serve", help="Start the REST API server")
-    serve_p.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
-    serve_p.add_argument("--port", type=int, default=8080, help="Bind port (default: 8080)")
-    serve_p.add_argument("--capacity", type=int, default=1000, help="Memory capacity (default: 1000)")
-    serve_p.add_argument("--dim", type=int, default=1024, help="HyperVector dimension (default: 1024)")
+    serve_p.add_argument(
+        "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)"
+    )
+    serve_p.add_argument(
+        "--port", type=int, default=8080, help="Bind port (default: 8080)"
+    )
+    serve_p.add_argument(
+        "--capacity", type=int, default=1000, help="Memory capacity (default: 1000)"
+    )
+    serve_p.add_argument(
+        "--dim", type=int, default=1024, help="HyperVector dimension (default: 1024)"
+    )
     serve_p.set_defaults(func=_cmd_serve)
 
     export_p = sub.add_parser("export", help="Export memory graph to JSON or GEXF")
     export_p.add_argument(
-        "--format", choices=["json", "gexf"], default="json",
+        "--format",
+        choices=["json", "gexf"],
+        default="json",
         help="Output format (default: json)",
     )
     export_p.add_argument(
-        "--threshold", type=float, default=0.3,
+        "--threshold",
+        type=float,
+        default=0.3,
         help="Cosine similarity threshold for edges (default: 0.3)",
     )
     export_p.add_argument(
-        "--out", default=None,
+        "--out",
+        default=None,
         help="Output file path. Extension (.json/.gexf) selects format. "
-             "Prints to stdout if omitted.",
+        "Prints to stdout if omitted.",
     )
     export_p.add_argument(
-        "--from", dest="from_file", default=None, metavar="FILE",
+        "--from",
+        dest="from_file",
+        default=None,
+        metavar="FILE",
         help="Load EpisodicMemory from an .hkb or .json file before exporting.",
     )
     export_p.set_defaults(func=_cmd_export)

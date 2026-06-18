@@ -1,4 +1,5 @@
 """Tests for memory compaction and deduplication."""
+
 import pytest
 from kohaku.compaction import cosine_similarity, find_duplicates, deduplicate, compact
 from kohaku._pure import EpisodicMemory, HyperVector

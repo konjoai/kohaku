@@ -1,4 +1,5 @@
 """Tests for the unified system snapshot (B3): save_system / load_system."""
+
 from __future__ import annotations
 
 import json

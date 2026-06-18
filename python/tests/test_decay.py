@@ -1,4 +1,5 @@
 """Tests for kohaku.decay — exponential temporal decay on similarity."""
+
 from __future__ import annotations
 
 

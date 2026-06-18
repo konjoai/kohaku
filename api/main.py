@@ -22,6 +22,7 @@ POST /store                     — encode + persist (also feeds semantic memory
 POST /query                     — top-k associative retrieval (optional decay)
 POST /bundle                    — bundle_all over a list of inputs
 """
+
 from __future__ import annotations
 
 import json
@@ -104,6 +105,7 @@ DEFAULT_STEPS = 30
 #  VIZ — k-means + VizState (read-only sample-backed view)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _kmeans_cosine(
     hvs: List[Any],
     k: int,
@@ -160,9 +162,7 @@ class VizState:
 
         if concepts is None:
             if not sample_path.exists():
-                raise FileNotFoundError(
-                    f"sample memory file not found: {sample_path}"
-                )
+                raise FileNotFoundError(f"sample memory file not found: {sample_path}")
             payload = json.loads(sample_path.read_text(encoding="utf-8"))
             concepts = payload.get("concepts") or []
 
@@ -175,14 +175,16 @@ class VizState:
                 raise ValueError(f"concept missing 'phrase' or 'id': {c!r}")
             hv = encode_text(phrase)
             eid = self.memory.store(hv, hv, label=c["id"])
-            self.concepts.append({
-                "entry_id": eid,
-                "id": c["id"],
-                "label": c.get("label", c["id"]),
-                "phrase": phrase,
-                "cluster_label": c.get("cluster_label", ""),
-                "color": c.get("color"),
-            })
+            self.concepts.append(
+                {
+                    "entry_id": eid,
+                    "id": c["id"],
+                    "label": c.get("label", c["id"]),
+                    "phrase": phrase,
+                    "cluster_label": c.get("cluster_label", ""),
+                    "color": c.get("color"),
+                }
+            )
 
     # ── /viz/graph ───────────────────────────────────────────────────────
     def graph(self, threshold: float, k: int, half_life: float) -> Dict[str, Any]:
@@ -197,28 +199,32 @@ class VizState:
             meta = self.concepts[i] if i < len(self.concepts) else {}
             age = max(0, now_clock - 1 - e.timestamp)
             w = decay_weight(age, cfg)
-            nodes.append({
-                "id": e.label,
-                "entry_id": e.id,
-                "label": meta.get("label", e.label),
-                "cluster": int(cluster_idx[i]) if i < len(cluster_idx) else 0,
-                "cluster_label": meta.get("cluster_label", ""),
-                "color": meta.get("color"),
-                "last_accessed": e.timestamp,
-                "age": age,
-                "decay_weight": round(float(w), 4),
-            })
+            nodes.append(
+                {
+                    "id": e.label,
+                    "entry_id": e.id,
+                    "label": meta.get("label", e.label),
+                    "cluster": int(cluster_idx[i]) if i < len(cluster_idx) else 0,
+                    "cluster_label": meta.get("cluster_label", ""),
+                    "color": meta.get("color"),
+                    "last_accessed": e.timestamp,
+                    "age": age,
+                    "decay_weight": round(float(w), 4),
+                }
+            )
 
         edges: List[Dict[str, Any]] = []
         for i in range(len(entries)):
             for j in range(i + 1, len(entries)):
                 sim = float(entries[i].key.cosine_similarity(entries[j].key))
                 if sim >= threshold:
-                    edges.append({
-                        "source": entries[i].label,
-                        "target": entries[j].label,
-                        "similarity": round(sim, 4),
-                    })
+                    edges.append(
+                        {
+                            "source": entries[i].label,
+                            "target": entries[j].label,
+                            "similarity": round(sim, 4),
+                        }
+                    )
 
         return {
             "nodes": nodes,
@@ -247,15 +253,17 @@ class VizState:
                 for a in ages
             ]
             meta = self.concepts[i] if i < len(self.concepts) else {}
-            concepts_out.append({
-                "id": e.label,
-                "label": meta.get("label", e.label),
-                "color": meta.get("color"),
-                "last_accessed": int(e.timestamp),
-                "current_age": int(current_age),
-                "current_weight": round(float(decay_weight(current_age, cfg)), 5),
-                "curve": curve,
-            })
+            concepts_out.append(
+                {
+                    "id": e.label,
+                    "label": meta.get("label", e.label),
+                    "color": meta.get("color"),
+                    "last_accessed": int(e.timestamp),
+                    "current_age": int(current_age),
+                    "current_weight": round(float(decay_weight(current_age, cfg)), 5),
+                    "curve": curve,
+                }
+            )
 
         return {
             "concepts": concepts_out,
@@ -272,22 +280,25 @@ class VizState:
         q = encode_text(text)
         ranked: List[Dict[str, Any]] = []
         for e in self.memory.entries():
-            ranked.append({
-                "id": e.label,
-                "entry_id": e.id,
-                "similarity": round(float(e.key.cosine_similarity(q)), 4),
-            })
+            ranked.append(
+                {
+                    "id": e.label,
+                    "entry_id": e.id,
+                    "similarity": round(float(e.key.cosine_similarity(q)), 4),
+                }
+            )
         ranked.sort(key=lambda r: r["similarity"], reverse=True)
         return {
             "query": text,
             "top_k": top_k,
-            "matches": ranked[:max(0, int(top_k))],
+            "matches": ranked[: max(0, int(top_k))],
         }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  REST — write-able state + Pydantic models
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class RestState:
     """Process-wide HDC state for the write-able REST surface. Guarded by a
@@ -315,8 +326,10 @@ class RestState:
         # Lives alongside the plain `episodic` store so the legacy /store /query
         # endpoints stay unchanged; the new /memories/* endpoints use this.
         self.enriched = EnrichedMemoryStore(
-            capacity=capacity, dims=dims,
-            provenance=self.provenance, versions=self.versions,
+            capacity=capacity,
+            dims=dims,
+            provenance=self.provenance,
+            versions=self.versions,
         )
         # Sleep-phase consolidation daemon over the enriched store's episodic
         # memory. Started lazily by /consolidate when a background thread is
@@ -333,7 +346,9 @@ class RestState:
         self.episodes = EpisodeStore(dims=dims, capacity=capacity)
         self.validator = WriteValidator(
             self.episodic,
-            rate_limits={"agent_inference": RateLimit(max_stores=100, window_seconds=60.0)},
+            rate_limits={
+                "agent_inference": RateLimit(max_stores=100, window_seconds=60.0)
+            },
         )
         self.lock = threading.Lock()
         self.started_at = time.time()
@@ -354,7 +369,9 @@ class EncodeRequest(BaseModel):
             if not isinstance(self.input, list):
                 raise ValueError("input must be a list of floats when type='vector'")
             if len(self.input) != DIMS:
-                raise ValueError(f"vector input must have length {DIMS}, got {len(self.input)}")
+                raise ValueError(
+                    f"vector input must have length {DIMS}, got {len(self.input)}"
+                )
         return self
 
 
@@ -402,7 +419,11 @@ class QueryRequest(BaseModel):
     def _exactly_one_probe(self) -> "QueryRequest":
         if (self.input is None) == (self.label is None):
             raise ValueError("provide exactly one of `input` or `label`")
-        if self.type == "vector" and isinstance(self.input, list) and len(self.input) != DIMS:
+        if (
+            self.type == "vector"
+            and isinstance(self.input, list)
+            and len(self.input) != DIMS
+        ):
             raise ValueError(f"vector input must be a list of length {DIMS}")
         return self
 
@@ -431,7 +452,9 @@ class BundleRequest(BaseModel):
         if self.type == "vector":
             for v in self.inputs:
                 if not isinstance(v, list) or len(v) != DIMS:
-                    raise ValueError(f"each vector input must be a list of length {DIMS}")
+                    raise ValueError(
+                        f"each vector input must be a list of length {DIMS}"
+                    )
         return self
 
 
@@ -458,6 +481,7 @@ class HealthResponse(BaseModel):
 
 
 # ── kyro bridge models ────────────────────────────────────────────────────────
+
 
 class BridgeDoc(BaseModel):
     text: str = Field(..., min_length=1)
@@ -497,6 +521,7 @@ class BridgeRetrieveResponse(BaseModel):
 
 # ── Enriched memory request/response models ──────────────────────────────────
 
+
 class EnrichedStoreRequest(BaseModel):
     label: str = Field(..., min_length=1, max_length=200)
     input: Union[str, List[float]]
@@ -506,7 +531,11 @@ class EnrichedStoreRequest(BaseModel):
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     tags: List[str] = Field(default_factory=list)
-    forgetting_rate: Optional[float] = Field(None, gt=0.0, description="Per-memory decay rate override (> 0). Values > 1 accelerate forgetting; < 1 slow it.")
+    forgetting_rate: Optional[float] = Field(
+        None,
+        gt=0.0,
+        description="Per-memory decay rate override (> 0). Values > 1 accelerate forgetting; < 1 slow it.",
+    )
 
     @model_validator(mode="after")
     def _check_shape(self) -> "EnrichedStoreRequest":
@@ -552,6 +581,7 @@ class EnrichedQueryResponse(BaseModel):
 
 
 # ── Phase 13 P2 models ────────────────────────────────────────────────────────
+
 
 class EpisodeStoreRequest(BaseModel):
     label: str = Field(..., min_length=1)
@@ -643,6 +673,7 @@ def _encode(input_value: Union[str, List[float]], input_type: InputType) -> Hype
 #  App factory — registers BOTH /viz/* and the REST surface on one app
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def create_app(
     viz_state: Optional[VizState] = None,
     rest_state: Optional[RestState] = None,
@@ -685,9 +716,17 @@ def create_app(
             "dims": DIMS,
             "num_concepts": len(viz.memory.entries()),
             "endpoints": [
-                "/health", "/stats",
-                "/viz/graph", "/viz/decay", "/viz/probe", "/viz/memory_map.html", "/live",
-                "/encode", "/store", "/query", "/bundle",
+                "/health",
+                "/stats",
+                "/viz/graph",
+                "/viz/decay",
+                "/viz/probe",
+                "/viz/memory_map.html",
+                "/live",
+                "/encode",
+                "/store",
+                "/query",
+                "/bundle",
             ],
         }
 
@@ -739,7 +778,9 @@ def create_app(
         try:
             top_k = int(payload.get("top_k") or 5)
         except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=f"invalid top_k: {exc}") from exc
+            raise HTTPException(
+                status_code=400, detail=f"invalid top_k: {exc}"
+            ) from exc
         return app.state.viz.probe(text, top_k=top_k)
 
     @app.get("/viz/memory_map.html", response_class=FileResponse)
@@ -770,7 +811,9 @@ def create_app(
             # online-learning iterations and so prototypes accumulate by label.
             rest.semantic.add(req.label, hv)
             size = len(rest.episodic)
-        return StoreResponse(id=entry_id, label=req.label, dims=len(hv), episodic_size=size)
+        return StoreResponse(
+            id=entry_id, label=req.label, dims=len(hv), episodic_size=size
+        )
 
     @app.post("/query", response_model=QueryResponse)
     def query_endpoint(req: QueryRequest) -> QueryResponse:
@@ -806,7 +849,9 @@ def create_app(
                 entry_id=r.entry_id,
                 label=r.label,
                 similarity=r.similarity,
-                decayed_similarity=decayed_map.get(r.entry_id) if decay_applied else None,
+                decayed_similarity=decayed_map.get(r.entry_id)
+                if decay_applied
+                else None,
             )
             for r in raw_hits
         ]
@@ -816,7 +861,9 @@ def create_app(
     def bundle(req: BundleRequest) -> BundleResponse:
         hvs = [_encode(item, req.type) for item in req.inputs]
         bundled = HyperVector.bundle_all(hvs)
-        return BundleResponse(vector=bundled.data.tolist(), dims=len(bundled), n_inputs=len(hvs))
+        return BundleResponse(
+            vector=bundled.data.tolist(), dims=len(bundled), n_inputs=len(hvs)
+        )
 
     # ── kyro bridge ──────────────────────────────────────────────────────
     @app.post("/bridge/ingest", response_model=BridgeIngestResponse)
@@ -828,7 +875,9 @@ def create_app(
             if isinstance(d, str):
                 payload.append(d)
             else:
-                payload.append({"text": d.text, "id": d.id} if d.id else {"text": d.text})
+                payload.append(
+                    {"text": d.text, "id": d.id} if d.id else {"text": d.text}
+                )
         with rest.lock:
             try:
                 ids = rest.bridge.ingest(payload)
@@ -918,7 +967,9 @@ def create_app(
         hv = _encode(req.input, req.type)
         with rest.lock:
             eid = rest.enriched.store(
-                hv, hv, req.label,
+                hv,
+                hv,
+                req.label,
                 source=req.source,
                 importance=req.importance,
                 valid_from=req.valid_from,
@@ -970,24 +1021,37 @@ def create_app(
         source: Optional[str] = Query(None, description="Filter by source"),
         limit: int = Query(50, ge=1, le=1000),
         include_expired: bool = Query(False),
-        tags: Optional[str] = Query(None, description="Comma-separated tags (any-match)"),
-        tags_all: Optional[str] = Query(None, description="Comma-separated tags (all-match)"),
+        tags: Optional[str] = Query(
+            None, description="Comma-separated tags (any-match)"
+        ),
+        tags_all: Optional[str] = Query(
+            None, description="Comma-separated tags (all-match)"
+        ),
     ) -> Dict[str, Any]:
         rest: RestState = app.state.rest
         if sort not in ("salience", "recency"):
-            raise HTTPException(status_code=400, detail="sort must be 'salience' or 'recency'")
+            raise HTTPException(
+                status_code=400, detail="sort must be 'salience' or 'recency'"
+            )
         any_list = [t.strip() for t in (tags or "").split(",") if t.strip()] or None
         all_list = [t.strip() for t in (tags_all or "").split(",") if t.strip()] or None
         with rest.lock:
             items = rest.enriched.list_memories(
-                sort=sort, source_filter=source,
-                include_expired=include_expired, limit=limit,
-                tags_any=any_list, tags_all=all_list,
+                sort=sort,
+                source_filter=source,
+                include_expired=include_expired,
+                limit=limit,
+                tags_any=any_list,
+                tags_all=all_list,
             )
             total = len(rest.enriched)
         return {
-            "items": items, "count": len(items), "total": total,
-            "sort": sort, "source_filter": source, "include_expired": include_expired,
+            "items": items,
+            "count": len(items),
+            "total": total,
+            "sort": sort,
+            "source_filter": source,
+            "include_expired": include_expired,
         }
 
     @app.post("/memories/expire")
@@ -998,8 +1062,11 @@ def create_app(
         with rest.lock:
             dropped = rest.enriched.expire_old()
             remaining = len(rest.enriched)
-        return {"dropped_ids": dropped, "dropped_count": len(dropped),
-                "remaining": remaining}
+        return {
+            "dropped_ids": dropped,
+            "dropped_count": len(dropped),
+            "remaining": remaining,
+        }
 
     @app.get("/memories/trust-weights")
     def memories_trust_weights() -> Dict[str, float]:
@@ -1014,8 +1081,11 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             counts = rest.enriched.all_tags()
-        return {"tags": counts, "count": len(counts),
-                "total_uses": sum(counts.values())}
+        return {
+            "tags": counts,
+            "count": len(counts),
+            "total_uses": sum(counts.values()),
+        }
 
     @app.get("/memories/{memory_id}/tags")
     def memories_tags_get(memory_id: int) -> Dict[str, Any]:
@@ -1023,7 +1093,9 @@ def create_app(
         with rest.lock:
             tags = rest.enriched.get_tags(memory_id)
         if tags is None:
-            raise HTTPException(status_code=404, detail=f"unknown memory_id {memory_id}")
+            raise HTTPException(
+                status_code=404, detail=f"unknown memory_id {memory_id}"
+            )
         return {"entry_id": memory_id, "tags": sorted(tags)}
 
     @app.post("/memories/{memory_id}/tags")
@@ -1033,12 +1105,16 @@ def create_app(
     ) -> Dict[str, Any]:
         raw = payload.get("tags") or []
         if not isinstance(raw, list):
-            raise HTTPException(status_code=400, detail="'tags' must be a list of strings")
+            raise HTTPException(
+                status_code=400, detail="'tags' must be a list of strings"
+            )
         rest: RestState = app.state.rest
         with rest.lock:
             updated = rest.enriched.add_tags(memory_id, [str(t) for t in raw])
         if updated is None:
-            raise HTTPException(status_code=404, detail=f"unknown memory_id {memory_id}")
+            raise HTTPException(
+                status_code=404, detail=f"unknown memory_id {memory_id}"
+            )
         return {"entry_id": memory_id, "tags": sorted(updated)}
 
     @app.delete("/memories/{memory_id}/tags")
@@ -1053,7 +1129,9 @@ def create_app(
         with rest.lock:
             updated = rest.enriched.remove_tags(memory_id, tags)
         if updated is None:
-            raise HTTPException(status_code=404, detail=f"unknown memory_id {memory_id}")
+            raise HTTPException(
+                status_code=404, detail=f"unknown memory_id {memory_id}"
+            )
         return {"entry_id": memory_id, "tags": sorted(updated)}
 
     # ── Conflict detection ────────────────────────────────────────────────
@@ -1065,6 +1143,7 @@ def create_app(
         max_pairs: int = Query(100, ge=0, le=1000),
     ) -> Dict[str, Any]:
         from kohaku.conflicts import detect_conflicts
+
         rest: RestState = app.state.rest
         with rest.lock:
             pairs = detect_conflicts(
@@ -1081,20 +1160,25 @@ def create_app(
         }
 
     @app.post("/memories/conflicts/resolve")
-    def memories_conflicts_resolve(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    def memories_conflicts_resolve(
+        payload: Dict[str, Any] = Body(...),
+    ) -> Dict[str, Any]:
         from kohaku.conflicts import resolve_conflict
+
         try:
             a_id = int(payload["a_id"])
             b_id = int(payload["b_id"])
             keep = str(payload.get("keep", "both"))
         except (KeyError, ValueError, TypeError) as exc:
-            raise HTTPException(status_code=400,
-                                detail=f"invalid payload: {exc}") from exc
+            raise HTTPException(
+                status_code=400, detail=f"invalid payload: {exc}"
+            ) from exc
         rest: RestState = app.state.rest
         with rest.lock:
             try:
-                outcome = resolve_conflict(rest.enriched,
-                                            a_id=a_id, b_id=b_id, keep=keep)
+                outcome = resolve_conflict(
+                    rest.enriched, a_id=a_id, b_id=b_id, keep=keep
+                )
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         return outcome.to_dict()
@@ -1104,6 +1188,7 @@ def create_app(
     @app.get("/memories/export")
     def memories_export(format: str = Query("json")) -> Dict[str, Any]:
         from kohaku.portability import export_memories
+
         rest: RestState = app.state.rest
         with rest.lock:
             try:
@@ -1115,14 +1200,17 @@ def create_app(
     @app.post("/memories/import")
     def memories_import(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         from kohaku.portability import import_memories
+
         body = payload.get("payload")
         if body is None and "memories" in payload:
             # accept a bare envelope for convenience
             import json as _json
+
             body = _json.dumps(payload)
         if not isinstance(body, str):
-            raise HTTPException(status_code=400,
-                                detail="'payload' (JSON string) is required")
+            raise HTTPException(
+                status_code=400, detail="'payload' (JSON string) is required"
+            )
         dedup = float(payload.get("dedup_threshold", 0.99))
         rest: RestState = app.state.rest
         with rest.lock:
@@ -1154,22 +1242,26 @@ def create_app(
             )
         if direction == "ancestors":
             nodes = graph.get_ancestors(memory_id, max_depth=max_depth)
-            return {"root_id": str(memory_id),
-                    "direction": direction,
-                    "max_depth": max_depth,
-                    "ancestors": [n.to_dict() for n in nodes],
-                    "descendants": [],
-                    "edges": [],
-                    "nodes": [n.to_dict() for n in nodes]}
+            return {
+                "root_id": str(memory_id),
+                "direction": direction,
+                "max_depth": max_depth,
+                "ancestors": [n.to_dict() for n in nodes],
+                "descendants": [],
+                "edges": [],
+                "nodes": [n.to_dict() for n in nodes],
+            }
         if direction == "descendants":
             nodes = graph.get_descendants(memory_id, max_depth=max_depth)
-            return {"root_id": str(memory_id),
-                    "direction": direction,
-                    "max_depth": max_depth,
-                    "ancestors": [],
-                    "descendants": [n.to_dict() for n in nodes],
-                    "edges": [],
-                    "nodes": [n.to_dict() for n in nodes]}
+            return {
+                "root_id": str(memory_id),
+                "direction": direction,
+                "max_depth": max_depth,
+                "ancestors": [],
+                "descendants": [n.to_dict() for n in nodes],
+                "edges": [],
+                "nodes": [n.to_dict() for n in nodes],
+            }
         result = graph.get_full_graph(memory_id, max_depth=max_depth)
         out = result.to_dict()
         out["direction"] = "both"
@@ -1187,8 +1279,9 @@ def create_app(
         include_expired: bool = Query(False),
     ) -> Dict[str, Any]:
         if sort not in ("salience", "recency", "similarity"):
-            raise HTTPException(status_code=400,
-                                detail="sort must be salience | recency | similarity")
+            raise HTTPException(
+                status_code=400, detail="sort must be salience | recency | similarity"
+            )
         try:
             tf = TimeFilter.from_iso(valid_after, valid_before)
         except ValueError as exc:
@@ -1197,14 +1290,17 @@ def create_app(
         with rest.lock:
             base_sort = sort if sort in ("salience", "recency") else "salience"
             items = rest.enriched.list_memories(
-                sort=base_sort, source_filter=source,
-                include_expired=include_expired, limit=None,
+                sort=base_sort,
+                source_filter=source,
+                include_expired=include_expired,
+                limit=None,
             )
             items = apply_time_filter(items, tf)
             if q and sort == "similarity":
                 probe = encode_text(q)
                 results = rest.enriched.query(
-                    probe, top_k=max(limit, 1),
+                    probe,
+                    top_k=max(limit, 1),
                     source_filter=source,
                     include_expired=include_expired,
                     reinforce_hits=False,
@@ -1213,10 +1309,13 @@ def create_app(
                 items = [r.to_dict() for r in results if r.entry_id in live_ids]
             items = items[:limit]
         return {
-            "items": items, "count": len(items),
+            "items": items,
+            "count": len(items),
             "sort": sort,
-            "valid_after": valid_after, "valid_before": valid_before,
-            "q": q, "source_filter": source,
+            "valid_after": valid_after,
+            "valid_before": valid_before,
+            "q": q,
+            "source_filter": source,
             "include_expired": include_expired,
         }
 
@@ -1230,20 +1329,27 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             items = rest.enriched.list_memories(
-                sort="recency", include_expired=True, limit=None,
+                sort="recency",
+                include_expired=True,
+                limit=None,
             )
         try:
             buckets = bucket_timeline(
-                items, start=start, end=end, bucket=bucket,
+                items,
+                start=start,
+                end=end,
+                bucket=bucket,
                 preview_per_bucket=preview_per_bucket,
-                text_field="label", id_field="entry_id",
+                text_field="label",
+                id_field="entry_id",
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {
             "buckets": [b.to_dict() for b in buckets],
             "bucket": bucket,
-            "start": start, "end": end,
+            "start": start,
+            "end": end,
             "total": sum(b.count for b in buckets),
         }
 
@@ -1255,15 +1361,19 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             items = rest.enriched.list_memories(
-                sort="recency", include_expired=True, limit=None,
+                sort="recency",
+                include_expired=True,
+                limit=None,
             )
         try:
             recent = filter_recent(items, since_hours=since_hours, limit=limit)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {
-            "items": recent, "count": len(recent),
-            "since_hours": since_hours, "limit": limit,
+            "items": recent,
+            "count": len(recent),
+            "since_hours": since_hours,
+            "limit": limit,
         }
 
     @app.get("/memories/health")
@@ -1274,7 +1384,8 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             analyzer = MemoryHealthAnalyzer(
-                rest.enriched, provenance=rest.provenance,
+                rest.enriched,
+                provenance=rest.provenance,
                 stale_days=stale_days,
                 duplicate_threshold=duplicate_threshold,
             )
@@ -1288,12 +1399,15 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             analyzer = MemoryHealthAnalyzer(
-                rest.enriched, provenance=rest.provenance, stale_days=days,
+                rest.enriched,
+                provenance=rest.provenance,
+                stale_days=days,
             )
             stale = analyzer.list_stale(days=days)
         return {
             "items": [s.to_dict() for s in stale],
-            "count": len(stale), "days": days,
+            "count": len(stale),
+            "days": days,
         }
 
     @app.delete("/memories/stale")
@@ -1304,7 +1418,9 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             analyzer = MemoryHealthAnalyzer(
-                rest.enriched, provenance=rest.provenance, stale_days=days,
+                rest.enriched,
+                provenance=rest.provenance,
+                stale_days=days,
             )
             return analyzer.delete_stale(days=days, dry_run=dry_run)
 
@@ -1330,8 +1446,11 @@ def create_app(
         with rest.lock:
             try:
                 result = update_memory(
-                    rest.enriched, memory_id, rest.versions,
-                    editor=editor, **kwargs,
+                    rest.enriched,
+                    memory_id,
+                    rest.versions,
+                    editor=editor,
+                    **kwargs,
                 )
             except KeyError as exc:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -1403,15 +1522,18 @@ def create_app(
         try:
             target_id = int(target_id)
         except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400,
-                                detail=f"invalid target_id: {exc}") from exc
+            raise HTTPException(
+                status_code=400, detail=f"invalid target_id: {exc}"
+            ) from exc
         live_ids = {e.id for e in rest.enriched.episodic.entries()}
         if memory_id not in live_ids:
-            raise HTTPException(status_code=404,
-                                detail=f"unknown memory_id {memory_id}")
+            raise HTTPException(
+                status_code=404, detail=f"unknown memory_id {memory_id}"
+            )
         if target_id not in live_ids:
-            raise HTTPException(status_code=404,
-                                detail=f"unknown target_id {target_id}")
+            raise HTTPException(
+                status_code=404, detail=f"unknown target_id {target_id}"
+            )
         try:
             rel = rest.relationships.record(
                 source_id=memory_id,
@@ -1430,8 +1552,9 @@ def create_app(
         direction: str = Query("both", description="outgoing | incoming | both"),
     ) -> Dict[str, Any]:
         if direction not in ("outgoing", "incoming", "both"):
-            raise HTTPException(status_code=400,
-                                detail="direction must be outgoing | incoming | both")
+            raise HTTPException(
+                status_code=400, detail="direction must be outgoing | incoming | both"
+            )
         rest: RestState = app.state.rest
         with rest.lock:
             if direction == "outgoing":
@@ -1457,7 +1580,9 @@ def create_app(
         rest: RestState = app.state.rest
         with rest.lock:
             deleted = rest.relationships.delete(
-                memory_id, target_id, relation_type,
+                memory_id,
+                target_id,
+                relation_type,
             )
         return {
             "source_id": memory_id,
@@ -1520,14 +1645,18 @@ def create_app(
     def memories_batch_update(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         updates = payload.get("updates")
         if not isinstance(updates, list):
-            raise HTTPException(status_code=400,
-                                detail="'updates' must be a list of dicts")
+            raise HTTPException(
+                status_code=400, detail="'updates' must be a list of dicts"
+            )
         editor = payload.get("editor")
         rest: RestState = app.state.rest
         with rest.lock:
             try:
                 report = batch_update(
-                    rest.enriched, rest.versions, updates, editor=editor,
+                    rest.enriched,
+                    rest.versions,
+                    updates,
+                    editor=editor,
                 )
             except (TypeError, ValueError) as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1554,7 +1683,9 @@ def create_app(
                     if not isinstance(ids, list):
                         raise ValueError("'ids' must be a list of integers")
                     report = batch_delete_by_ids(
-                        rest.enriched, ids, relationships=rest.relationships,
+                        rest.enriched,
+                        ids,
+                        relationships=rest.relationships,
                     )
                 else:
                     if not isinstance(filt, dict):
@@ -1577,8 +1708,9 @@ def create_app(
         ids = payload.get("ids")
         fmt = str(payload.get("format", "json")).lower()
         if not isinstance(ids, list) or not ids:
-            raise HTTPException(status_code=400,
-                                detail="'ids' must be a non-empty list")
+            raise HTTPException(
+                status_code=400, detail="'ids' must be a non-empty list"
+            )
         rest: RestState = app.state.rest
         with rest.lock:
             try:
@@ -1596,6 +1728,7 @@ def create_app(
         Each provided role vector is binarized and bound with its fixed role HV;
         the resulting bundle is stored as a single composite hypervector.
         """
+
         def _to_hv(vals: Optional[List[float]]) -> Optional[HyperVector]:
             return _vec_input_to_hv(vals) if vals is not None else None
 
@@ -1604,7 +1737,9 @@ def create_app(
         when_hv = _to_hv(req.when)
         where_hv = _to_hv(req.where)
         if all(v is None for v in (who_hv, what_hv, when_hv, where_hv)):
-            raise HTTPException(status_code=422, detail="At least one role must be provided")
+            raise HTTPException(
+                status_code=422, detail="At least one role must be provided"
+            )
         rest: RestState = app.state.rest
         with rest.lock:
             try:
@@ -1622,6 +1757,7 @@ def create_app(
         Supply any subset of who / what / when / where; the query composite is
         built from those roles only, enabling partial-cue retrieval.
         """
+
         def _to_hv(vals: Optional[List[float]]) -> Optional[HyperVector]:
             return _vec_input_to_hv(vals) if vals is not None else None
 
@@ -1630,12 +1766,17 @@ def create_app(
         when_hv = _to_hv(req.when)
         where_hv = _to_hv(req.where)
         if all(v is None for v in (who_hv, what_hv, when_hv, where_hv)):
-            raise HTTPException(status_code=422, detail="At least one role must be provided")
+            raise HTTPException(
+                status_code=422, detail="At least one role must be provided"
+            )
         rest: RestState = app.state.rest
         with rest.lock:
             try:
                 results = rest.episodes.query_episode(
-                    who=who_hv, what=what_hv, when=when_hv, where=where_hv,
+                    who=who_hv,
+                    what=what_hv,
+                    when=when_hv,
+                    where=where_hv,
                     top_k=req.top_k,
                 )
             except ValueError as exc:
@@ -1662,18 +1803,26 @@ def create_app(
             start_hv = encode_text(req.start if isinstance(req.start, str) else "")
         else:
             if not isinstance(req.start, list):
-                raise HTTPException(status_code=422, detail="start must be a list when type='vector'")
+                raise HTTPException(
+                    status_code=422, detail="start must be a list when type='vector'"
+                )
             start_hv = _vec_input_to_hv(req.start)
         rest: RestState = app.state.rest
         with rest.lock:
             result = chain_query(
-                rest.episodic, start_hv,
+                rest.episodic,
+                start_hv,
                 hops=req.hops,
                 min_similarity=req.min_similarity,
             )
         return ChainQueryResponse(
             hops=[
-                {"hop": h.hop, "entry_id": h.entry_id, "label": h.label, "similarity": h.similarity}
+                {
+                    "hop": h.hop,
+                    "entry_id": h.entry_id,
+                    "label": h.label,
+                    "similarity": h.similarity,
+                }
                 for h in result.hops
             ],
             terminated_early=result.terminated_early,
@@ -1690,7 +1839,9 @@ def create_app(
             key_hv = encode_text(req.input if isinstance(req.input, str) else "")
         else:
             if not isinstance(req.input, list):
-                raise HTTPException(status_code=422, detail="input must be a list when type='vector'")
+                raise HTTPException(
+                    status_code=422, detail="input must be a list when type='vector'"
+                )
             key_hv = _vec_input_to_hv(req.input)
         rest: RestState = app.state.rest
         with rest.lock:
@@ -1704,7 +1855,9 @@ def create_app(
 
     # ── Sleep-phase consolidation ──────────────────────────────────────────
     @app.post("/consolidate", response_model=ConsolidateResponse)
-    def consolidate_endpoint(req: ConsolidateRequest = ConsolidateRequest()) -> ConsolidateResponse:
+    def consolidate_endpoint(
+        req: ConsolidateRequest = ConsolidateRequest(),
+    ) -> ConsolidateResponse:
         """Trigger a one-shot sleep-phase consolidation pass.
 
         Runs synchronously over the enriched store's episodic memory:

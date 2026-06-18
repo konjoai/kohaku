@@ -39,24 +39,58 @@ logger = logging.getLogger(__name__)
 # other does not. Lowered, whitespace-tokenised; ``n't`` is also matched
 # against the raw label via a regex so "doesn't" / "isn't" / "won't" all
 # count.
-NEGATION_TOKENS: frozenset[str] = frozenset({
-    "not", "no", "never", "none", "nothing", "neither", "nor", "without",
-})
+NEGATION_TOKENS: frozenset[str] = frozenset(
+    {
+        "not",
+        "no",
+        "never",
+        "none",
+        "nothing",
+        "neither",
+        "nor",
+        "without",
+    }
+)
 NEGATION_RE = re.compile(r"\bn[’']t\b|\bn't\b", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
 # Filler words we strip from anchor / predicate token sets — they carry no
 # topical content and would falsely inflate overlap.
-_STOPWORDS: frozenset[str] = frozenset({
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "to",
-    "in", "on", "of", "for", "and", "or", "but", "by", "with", "at",
-    "this", "that", "these", "those", "it", "its",
-})
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "to",
+        "in",
+        "on",
+        "of",
+        "for",
+        "and",
+        "or",
+        "but",
+        "by",
+        "with",
+        "at",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+    }
+)
 
 # Default tuning. Each ``_w_*`` is the partial weight contributed by that
 # signal when present; they sum to 1.0 so the final score is in [0, 1].
 DEFAULT_SIMILARITY_THRESHOLD: float = 0.40
 DEFAULT_CONTRADICTION_THRESHOLD: float = 0.45
-_W_SIMILARITY: float = 0.40   # gated on similarity ≥ threshold
+_W_SIMILARITY: float = 0.40  # gated on similarity ≥ threshold
 _W_NEGATION: float = 0.30
 _W_NUMERIC: float = 0.15
 _W_PREDICATE_DIVERGE: float = 0.15
@@ -65,6 +99,7 @@ _W_PREDICATE_DIVERGE: float = 0.15
 @dataclass(frozen=True)
 class ConflictPair:
     """One detected contradiction signal between two memories."""
+
     a_id: int
     b_id: int
     label_a: str
@@ -88,9 +123,10 @@ class ConflictPair:
 @dataclass(frozen=True)
 class ConflictResolution:
     """Outcome of resolving a conflict — what stayed, what got removed."""
+
     kept_id: Optional[int]
     removed_ids: Tuple[int, ...]
-    action: str   # "keep_a" | "keep_b" | "keep_both" | "dismiss"
+    action: str  # "keep_a" | "keep_b" | "keep_both" | "dismiss"
 
     def to_dict(self) -> dict:
         return {
@@ -101,6 +137,7 @@ class ConflictResolution:
 
 
 # ──────────────────────────── tokenisation ─────────────────────────────────
+
 
 def _tokenise(text: str) -> List[str]:
     """Lower-cased word tokenisation with stopwords stripped."""
@@ -132,6 +169,7 @@ def _numbers_in(text: str) -> Set[str]:
 
 
 # ──────────────────────────── scoring ──────────────────────────────────────
+
 
 def _score_pair(
     label_a: str,
@@ -165,9 +203,7 @@ def _score_pair(
             # Scale the partial weight by how disjoint the predicates are.
             partial = _W_PREDICATE_DIVERGE * (1.0 - 2.0 * jaccard)
             score += partial
-            reasons.append(
-                f"same subject, predicate Jaccard {jaccard:.2f}"
-            )
+            reasons.append(f"same subject, predicate Jaccard {jaccard:.2f}")
 
     neg_a = _has_negation(label_a, ta)
     neg_b = _has_negation(label_b, tb)
@@ -185,6 +221,7 @@ def _score_pair(
 
 
 # ──────────────────────────── public API ───────────────────────────────────
+
 
 def detect_conflicts(
     store: EnrichedMemoryStore,
@@ -218,17 +255,23 @@ def detect_conflicts(
             ej = entries[j]
             sim = float(sims[j])
             score, reasons = _score_pair(
-                ei.label, ej.label, sim,
+                ei.label,
+                ej.label,
+                sim,
                 similarity_threshold=similarity_threshold,
             )
             if score >= contradiction_threshold:
-                out.append(ConflictPair(
-                    a_id=ei.id, b_id=ej.id,
-                    label_a=ei.label, label_b=ej.label,
-                    similarity=sim,
-                    contradiction_score=score,
-                    reasons=reasons,
-                ))
+                out.append(
+                    ConflictPair(
+                        a_id=ei.id,
+                        b_id=ej.id,
+                        label_a=ei.label,
+                        label_b=ej.label,
+                        similarity=sim,
+                        contradiction_score=score,
+                        reasons=reasons,
+                    )
+                )
     out.sort(key=lambda p: (p.contradiction_score, p.similarity), reverse=True)
     return out[:max_pairs]
 
@@ -268,7 +311,8 @@ def resolve_conflict(
         return ConflictResolution(kept_id=b_id, removed_ids=(a_id,), action="keep_b")
     # both / dismiss
     return ConflictResolution(
-        kept_id=None, removed_ids=(),
+        kept_id=None,
+        removed_ids=(),
         action="keep_both" if keep == "both" else "dismiss",
     )
 

@@ -19,6 +19,7 @@ Because the encoding is deterministic, :meth:`save` / :meth:`load` round-trip
 the full store from labels + metadata alone — no hypervectors are written to
 disk.
 """
+
 from __future__ import annotations
 
 import json
@@ -54,6 +55,7 @@ class MemoryHit:
     salience when ``sort='salience'``) so callers can sort/threshold on one
     field without caring which mode produced it.
     """
+
     id: int
     text: str
     score: float
@@ -381,21 +383,27 @@ class Memory:
         load via the deterministic encoder, so the round-trip is exact.
         """
         records = []
-        for meta_dict in self._store.list_memories(include_expired=True, sort="recency"):
+        for meta_dict in self._store.list_memories(
+            include_expired=True, sort="recency"
+        ):
             meta = self._store.get_metadata(meta_dict["entry_id"])
             if meta is None:  # pragma: no cover - defensive
                 continue
-            records.append({
-                "label": meta_dict["label"],
-                "source": meta.source,
-                "importance": meta.importance,
-                "reinforcement_count": meta.reinforcement_count,
-                "created_at": meta.created_at.isoformat(),
-                "valid_from": meta.valid_from.isoformat(),
-                "valid_until": meta.valid_until.isoformat() if meta.valid_until else None,
-                "tags": sorted(meta.tags),
-                "forgetting_rate": meta.forgetting_rate,
-            })
+            records.append(
+                {
+                    "label": meta_dict["label"],
+                    "source": meta.source,
+                    "importance": meta.importance,
+                    "reinforcement_count": meta.reinforcement_count,
+                    "created_at": meta.created_at.isoformat(),
+                    "valid_from": meta.valid_from.isoformat(),
+                    "valid_until": meta.valid_until.isoformat()
+                    if meta.valid_until
+                    else None,
+                    "tags": sorted(meta.tags),
+                    "forgetting_rate": meta.forgetting_rate,
+                }
+            )
         payload = {
             "schema": _SCHEMA_VERSION,
             "dims": self._dims,

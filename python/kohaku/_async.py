@@ -1,4 +1,5 @@
 """Async wrappers for EpisodicMemory using asyncio.to_thread."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +16,9 @@ class AsyncEpisodicMemory:
     async def store(self, key: HyperVector, value: HyperVector, label: str) -> int:
         return await asyncio.to_thread(self._mem.store, key, value, label)
 
-    async def query(self, query_key: HyperVector, top_k: int = 5) -> list[RetrievalResult]:
+    async def query(
+        self, query_key: HyperVector, top_k: int = 5
+    ) -> list[RetrievalResult]:
         return await asyncio.to_thread(query, self._mem, query_key, top_k)
 
     async def query_threshold(

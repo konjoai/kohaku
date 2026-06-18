@@ -10,6 +10,7 @@ lets a fleet of agents pool what they learn.
 Read scoping (`agents=[...]`) narrows the union to a subset of namespaces, so a
 pool can still serve a restricted view without a separate store.
 """
+
 from __future__ import annotations
 import logging
 from dataclasses import dataclass

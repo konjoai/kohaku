@@ -46,6 +46,7 @@ DEFAULT_DEDUP_THRESHOLD: float = 0.99
 @dataclass(frozen=True)
 class ExportBundle:
     """Result of an export call — payload + summary counts."""
+
     format: str
     payload: str
     memory_count: int
@@ -63,11 +64,12 @@ class ExportBundle:
 @dataclass(frozen=True)
 class ImportReport:
     """Outcome of an import — what landed, what got deduplicated."""
+
     imported: int
     skipped_duplicates: int
     skipped_invalid: int
     new_ids: tuple
-    duplicate_of: Dict[int, int]   # incoming-index → existing entry_id
+    duplicate_of: Dict[int, int]  # incoming-index → existing entry_id
 
     def to_dict(self) -> dict:
         return {
@@ -81,6 +83,7 @@ class ImportReport:
 
 # ──────────────────────────── export ───────────────────────────────────────
 
+
 def _memory_records(store: EnrichedMemoryStore) -> List[dict]:
     """Build the canonical record list — same shape across all formats."""
     records: List[dict] = []
@@ -88,17 +91,21 @@ def _memory_records(store: EnrichedMemoryStore) -> List[dict]:
         meta = store.get_metadata(e.id)
         if meta is None:
             continue
-        records.append({
-            "entry_id": e.id,
-            "label": e.label,
-            "source": meta.source,
-            "importance": float(meta.importance),
-            "reinforcement_count": int(meta.reinforcement_count),
-            "valid_from": meta.valid_from.isoformat(),
-            "valid_until": meta.valid_until.isoformat() if meta.valid_until else None,
-            "created_at": meta.created_at.isoformat(),
-            "tags": sorted(meta.tags),
-        })
+        records.append(
+            {
+                "entry_id": e.id,
+                "label": e.label,
+                "source": meta.source,
+                "importance": float(meta.importance),
+                "reinforcement_count": int(meta.reinforcement_count),
+                "valid_from": meta.valid_from.isoformat(),
+                "valid_until": meta.valid_until.isoformat()
+                if meta.valid_until
+                else None,
+                "created_at": meta.created_at.isoformat(),
+                "tags": sorted(meta.tags),
+            }
+        )
     return records
 
 
@@ -121,11 +128,13 @@ def export_json(store: EnrichedMemoryStore, *, indent: int = 2) -> ExportBundle:
             payload["provenance_edges"] = edges
         except (AttributeError, OSError, RuntimeError) as exc:
             logger.warning(
-                "provenance export skipped (%s)", exc.__class__.__name__,
+                "provenance export skipped (%s)",
+                exc.__class__.__name__,
             )
     text = json.dumps(payload, indent=indent, sort_keys=True)
     return ExportBundle(
-        format="json", payload=text,
+        format="json",
+        payload=text,
         memory_count=len(records),
         tag_count=sum(len(r["tags"]) for r in records),
     )
@@ -155,7 +164,8 @@ def export_markdown(store: EnrichedMemoryStore) -> ExportBundle:
         lines.append("")
     payload = "\n".join(lines).rstrip() + "\n"
     return ExportBundle(
-        format="markdown", payload=payload,
+        format="markdown",
+        payload=payload,
         memory_count=len(records),
         tag_count=sum(len(r["tags"]) for r in records),
     )
@@ -165,8 +175,15 @@ def export_csv(store: EnrichedMemoryStore) -> ExportBundle:
     records = _memory_records(store)
     buf = io.StringIO()
     cols = [
-        "entry_id", "label", "source", "importance", "reinforcement_count",
-        "valid_from", "valid_until", "created_at", "tags",
+        "entry_id",
+        "label",
+        "source",
+        "importance",
+        "reinforcement_count",
+        "valid_from",
+        "valid_until",
+        "created_at",
+        "tags",
     ]
     writer = csv.DictWriter(buf, fieldnames=cols, lineterminator="\n")
     writer.writeheader()
@@ -175,7 +192,8 @@ def export_csv(store: EnrichedMemoryStore) -> ExportBundle:
         row["tags"] = "|".join(r["tags"])
         writer.writerow(row)
     return ExportBundle(
-        format="csv", payload=buf.getvalue(),
+        format="csv",
+        payload=buf.getvalue(),
         memory_count=len(records),
         tag_count=sum(len(r["tags"]) for r in records),
     )
@@ -192,6 +210,7 @@ def export_memories(store: EnrichedMemoryStore, fmt: str = "json") -> ExportBund
 
 
 # ──────────────────────────── import ───────────────────────────────────────
+
 
 def _parse_dt(value: Optional[str]) -> Optional[datetime]:
     if value in (None, ""):
@@ -265,7 +284,9 @@ def import_memories(
         hv = encode_text(label)
         try:
             new_id = store.store(
-                hv, hv, label,
+                hv,
+                hv,
+                label,
                 source=str(r.get("source") or "user_input"),
                 importance=float(r.get("importance", 0.5)),
                 valid_from=valid_from,

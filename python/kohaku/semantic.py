@@ -20,6 +20,7 @@ a clear :class:`ImportError`, never an import-time crash.
     >>> enc = EmbeddingEncoder(model_name="all-MiniLM-L6-v2")   # doctest: +SKIP
     >>> mem = Memory(encoder=enc)                               # doctest: +SKIP
 """
+
 from __future__ import annotations
 
 import logging

@@ -1,4 +1,5 @@
 """Tests for TenantMemoryStore."""
+
 import pytest
 from kohaku.tenant import TenantMemoryStore
 from kohaku._pure import HyperVector

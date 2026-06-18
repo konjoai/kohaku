@@ -11,6 +11,7 @@ Sections:
     4. Consolidation — 6 noisy bundles → 2 clusters
     5. Decay — query_with_decay() across 5 simulated time steps
 """
+
 from __future__ import annotations
 
 import sys
@@ -71,6 +72,7 @@ def ascii_bar(value: float, max_value: float, width: int = 40, char: str = "█"
 # 1. Encode 10 text strings
 # ---------------------------------------------------------------------------
 
+
 def section_encode() -> list[tuple[str, HyperVector]]:
     section(1, "HDC Encoding — text → 10 000-D bipolar hypervectors")
 
@@ -92,7 +94,9 @@ def section_encode() -> list[tuple[str, HyperVector]]:
         encoded.append((p, encode_text(p)))
 
     sample = encoded[0][1]
-    table = Table(title="Encoded phrases", show_lines=False, header_style="bold magenta")
+    table = Table(
+        title="Encoded phrases", show_lines=False, header_style="bold magenta"
+    )
     table.add_column("#", style="cyan", width=4)
     table.add_column("Phrase", style="white")
     table.add_column("Type", style="green")
@@ -126,6 +130,7 @@ def section_encode() -> list[tuple[str, HyperVector]]:
 # 2. Bundle and query
 # ---------------------------------------------------------------------------
 
+
 def section_bundle(encoded: list[tuple[str, HyperVector]]) -> HyperVector:
     section(2, "Bundle & Query — three felines combine into one prototype")
 
@@ -154,7 +159,9 @@ def section_bundle(encoded: list[tuple[str, HyperVector]]) -> HyperVector:
 
     results = query(mem, bundle_vec, top_k=5)
 
-    table = Table(title="Top-5 matches against the cat-bundle", header_style="bold magenta")
+    table = Table(
+        title="Top-5 matches against the cat-bundle", header_style="bold magenta"
+    )
     table.add_column("Rank", style="cyan", justify="right")
     table.add_column("Phrase", style="white")
     table.add_column("Cosine sim", justify="right", style="yellow")
@@ -176,6 +183,7 @@ def section_bundle(encoded: list[tuple[str, HyperVector]]) -> HyperVector:
 # ---------------------------------------------------------------------------
 # 3. Persistence — JSON vs binary
 # ---------------------------------------------------------------------------
+
 
 def section_persistence(encoded: list[tuple[str, HyperVector]]) -> None:
     section(3, "Persistence — JSON vs binary .hkb round-trip")
@@ -212,11 +220,16 @@ def section_persistence(encoded: list[tuple[str, HyperVector]]) -> None:
         table.add_column("Round-trip recall", style="green")
         table.add_column("Ratio vs JSON", justify="right", style="blue")
         table.add_row(
-            ".json", f"{json_size:,}", f"{json_size/1024:.1f}",
-            "✓ identical" if json_ok else "✗ differs", "1.00×",
+            ".json",
+            f"{json_size:,}",
+            f"{json_size / 1024:.1f}",
+            "✓ identical" if json_ok else "✗ differs",
+            "1.00×",
         )
         table.add_row(
-            ".hkb", f"{hkb_size:,}", f"{hkb_size/1024:.1f}",
+            ".hkb",
+            f"{hkb_size:,}",
+            f"{hkb_size / 1024:.1f}",
             "✓ identical" if hkb_ok else "✗ differs",
             f"{hkb_size / json_size:.3f}×",
         )
@@ -236,6 +249,7 @@ def section_persistence(encoded: list[tuple[str, HyperVector]]) -> None:
 # ---------------------------------------------------------------------------
 # 4. Consolidation — 6 noisy bundles → clusters
 # ---------------------------------------------------------------------------
+
 
 def _noisy(base: HyperVector, flip_frac: float, seed: int) -> HyperVector:
     rng = np.random.default_rng(seed)
@@ -270,8 +284,10 @@ def section_consolidation() -> None:
 
     clusters = consolidate(mem, similarity_threshold=0.3)
 
-    table = Table(title=f"{len(clusters)} clusters from {len(members)} entries",
-                  header_style="bold magenta")
+    table = Table(
+        title=f"{len(clusters)} clusters from {len(members)} entries",
+        header_style="bold magenta",
+    )
     table.add_column("Cluster", style="cyan", justify="right")
     table.add_column("Seed label", style="white")
     table.add_column("Members", style="yellow")
@@ -282,11 +298,15 @@ def section_consolidation() -> None:
         names = ", ".join(id_to_label[mid] for mid in c.member_ids)
         s_cat = c.centroid_key.cosine_similarity(cat_proto)
         s_cof = c.centroid_key.cosine_similarity(coffee_proto)
-        table.add_row(str(i), c.label, names, str(c.size), f"{s_cat:+.3f}", f"{s_cof:+.3f}")
+        table.add_row(
+            str(i), c.label, names, str(c.size), f"{s_cat:+.3f}", f"{s_cof:+.3f}"
+        )
     console.print(table)
 
     # Show centroid concentration: avg single-member sim vs centroid sim to the prototype
-    cat_cluster = max(clusters, key=lambda c: c.centroid_key.cosine_similarity(cat_proto))
+    cat_cluster = max(
+        clusters, key=lambda c: c.centroid_key.cosine_similarity(cat_proto)
+    )
     member_sims = []
     for name, hv, lab in members:
         if lab == "cat":
@@ -308,6 +328,7 @@ def section_consolidation() -> None:
 # ---------------------------------------------------------------------------
 # 5. Temporal decay
 # ---------------------------------------------------------------------------
+
 
 def section_decay() -> None:
     section(5, "Ebbinghaus decay — query_with_decay() across 5 time steps")
@@ -343,8 +364,10 @@ def section_decay() -> None:
         rows.append((step, age, target_result.similarity))
 
     max_sim = max(r[2] for r in rows)
-    table = Table(title=f"Decay of target memory  (half_life = {half_life} ticks)",
-                  header_style="bold magenta")
+    table = Table(
+        title=f"Decay of target memory  (half_life = {half_life} ticks)",
+        header_style="bold magenta",
+    )
     table.add_column("t", style="cyan", justify="right")
     table.add_column("age (ticks)", justify="right", style="yellow")
     table.add_column("decayed sim", justify="right", style="green")
@@ -368,6 +391,7 @@ def section_decay() -> None:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     header(
