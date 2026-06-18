@@ -2,6 +2,36 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.25.0] — 2026-06-18
+
+### Added — Track D: free-text → triple extraction (the prose→reasoning bridge)
+
+Analogical memory reasons over structured records, but agents accumulate *prose*.
+This release closes that gap with a deterministic, zero-dependency heuristic
+extractor, so relational reasoning runs on what the agent actually read:
+
+- `kohaku.extract_triples(text)` — high-precision `(subject, attribute, value)`
+  extraction over five common memory-statement forms ("The capital of X is Y",
+  "Y is the capital of X", "X's attr is Y", "X is a Y", "X likes/prefers/uses Y").
+  Returns a `Triple` (with confidence) per parsed clause; **yields nothing for
+  prose it can't confidently parse — no fabricated facts**.
+- `kohaku.records_from_texts(texts)` — group extracted triples into
+  `{subject: {attribute: value}}`.
+- `AnalogicalMemory.learn(text)` — extract triples and fold them into records
+  keyed by subject (merging into existing subjects); returns what it learned.
+- `Memory.learn(text)` — ingest once as **both** episodic prose (verbatim recall)
+  and structured knowledge (relational reasoning); returns `(memory_id, triples)`.
+
+Honest characterization (`benchmarks/bench_extraction.py`, 26-sentence labelled
+corpus): **precision 1.0, recall 0.789, F1 0.882**. By design — every miss is an
+unsupported phrasing (false negative), never a fabricated fact (zero false
+positives). A wrong fact poisons reasoning; a missed fact does not. For messy or
+novel phrasings, plug in your own extractor and call `add_record` directly.
+
+- New: `python/kohaku/extraction.py`, `python/tests/test_extraction.py`
+  (21 tests), `benchmarks/bench_extraction.py`, `examples/extraction_demo.py`.
+  Exports `Triple`, `extract_triples`, `records_from_texts`. Version `0.25.0`.
+
 ## [0.24.0] — 2026-06-18
 
 ### Added — Track D3: compositional & robust recall

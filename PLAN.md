@@ -289,3 +289,30 @@ can curate at scale:
   `RescoreReport`, `rescore_all`, `IMPORTANCE_DEFAULT_WEIGHTS`,
   `BatchUpdateReport`, `BatchDeleteReport`, `batch_update`,
   `batch_delete_by_ids`, `batch_delete_by_filter`, `batch_export`.
+
+## Phase 18: Track D — Analogical Reasoning + Prose Bridge (v0.13.x)
+
+The capability a vector DB cannot match: *algebra* over memory, plus the bridge
+that lets it run on what an agent actually read.
+
+- [x] **D1 — Analogical memory** (`python/kohaku/analogy.py`,
+  `AnalogicalMemory`): records as superpositions of bound `(attribute, value)`
+  pairs over a deterministic, hash-seeded symbol vocabulary. `get()` recovers an
+  attribute (unbind + codebook cleanup); `analogy()` is the "dollar of Mexico"
+  transfer (Kanerva 2010). Capacity curve in `benchmarks/bench_analogy.py`.
+- [x] **D2 — Facade integration** (`Memory.add_record` / `attribute` / `analogy`)
+  + serialization round-trip.
+- [x] **D3 — Compositional & robust recall** (`compositional.py`): `compose`
+  (multi-cue soft conjunction), `complete_cue` (Hopfield completion),
+  `Memory.recall_composite`. High-D memory is inherently noise-robust;
+  `cleanup` is opt-in for the hard corner.
+- [x] **Free-text → triple extraction** (`python/kohaku/extraction.py`) — the
+  prose→reasoning bridge. `extract_triples(text)` over five high-precision
+  memory-statement forms returns `Triple(subject, attribute, value, confidence)`
+  per clause and **nothing for prose it can't parse** (no fabricated facts).
+  `records_from_texts` groups by subject. `AnalogicalMemory.learn(text)` folds
+  triples into records keyed by subject; `Memory.learn(text)` ingests once as
+  both episodic prose and structured knowledge, returning `(memory_id, triples)`.
+  Honest benchmark (`benchmarks/bench_extraction.py`): precision 1.0, recall
+  0.789, F1 0.882 — every miss is an unsupported phrasing, zero false positives.
+  Exports `Triple`, `extract_triples`, `records_from_texts`. 21 tests. v0.25.0.
