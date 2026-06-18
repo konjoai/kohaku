@@ -15,6 +15,7 @@ Unbinding: bind is its own inverse for bipolar ±1, so
 ``bind(composite, R_who) ≈ who_hv``  (noisy). The store keeps the originals
 for exact reconstruction via :meth:`unbind_role`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -86,9 +87,7 @@ class EpisodeStore:
         """
         provided = {"who": who, "what": what, "when": when, "where": where}
         bound = [
-            self._role_hvs[r].bind(hv)
-            for r, hv in provided.items()
-            if hv is not None
+            self._role_hvs[r].bind(hv) for r, hv in provided.items() if hv is not None
         ]
         if not bound:
             raise ValueError("At least one role HV must be provided")
@@ -115,9 +114,7 @@ class EpisodeStore:
         """
         provided = {"who": who, "what": what, "when": when, "where": where}
         bound = [
-            self._role_hvs[r].bind(hv)
-            for r, hv in provided.items()
-            if hv is not None
+            self._role_hvs[r].bind(hv) for r, hv in provided.items() if hv is not None
         ]
         if not bound:
             raise ValueError("At least one role HV must be provided for query")

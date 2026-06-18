@@ -16,6 +16,7 @@ regimes:
 Vector-level (no encoder) so noise is controlled exactly. Averaged over many
 random stores; written under benchmarks/results/, never overwritten.
 """
+
 from __future__ import annotations
 
 import json
@@ -81,12 +82,14 @@ def run(regime: str, noise_levels):
             clean = index.topk(cleaned.data, 1)[0][0]
             base_hits += base == target
             clean_hits += clean == target
-        rows.append({
-            "regime": regime,
-            "noise": frac,
-            "baseline_hit@1": round(base_hits / TRIALS, 3),
-            "cleanup_hit@1": round(clean_hits / TRIALS, 3),
-        })
+        rows.append(
+            {
+                "regime": regime,
+                "noise": frac,
+                "baseline_hit@1": round(base_hits / TRIALS, 3),
+                "cleanup_hit@1": round(clean_hits / TRIALS, 3),
+            }
+        )
     return rows
 
 
@@ -115,7 +118,9 @@ def main() -> None:
     print(header)
     print("-" * len(header))
     for r in rows:
-        print(f"{r['regime']:<12} {r['noise']:<7} {r['baseline_hit@1']:<16} {r['cleanup_hit@1']}")
+        print(
+            f"{r['regime']:<12} {r['noise']:<7} {r['baseline_hit@1']:<16} {r['cleanup_hit@1']}"
+        )
     print(f"\nwrote {out_dir / 'report.json'}")
 
 

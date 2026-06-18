@@ -18,6 +18,7 @@ SQLite stores are copied byte-for-byte via the sqlite backup API (so even
     >>> bundle = load_system("snap/")                             # doctest: +SKIP
     >>> bundle.store, bundle.provenance, bundle.versions          # doctest: +SKIP
 """
+
 from __future__ import annotations
 
 import json
@@ -47,6 +48,7 @@ _RELATIONSHIPS_DB = "relationships.db"
 @dataclass
 class SystemBundle:
     """The reconstructed components returned by :func:`load_system`."""
+
     store: EnrichedMemoryStore
     provenance: Optional[ProvenanceGraph] = None
     versions: Optional[VersionStore] = None
@@ -71,11 +73,15 @@ def _meta_from_dict(d: dict) -> MemoryMetadata:
     return MemoryMetadata(
         entry_id=int(d["entry_id"]),
         valid_from=datetime.fromisoformat(d["valid_from"]),
-        valid_until=datetime.fromisoformat(d["valid_until"]) if d.get("valid_until") else None,
+        valid_until=datetime.fromisoformat(d["valid_until"])
+        if d.get("valid_until")
+        else None,
         source=d.get("source", "user_input"),
         importance=float(d.get("importance", 0.5)),
         reinforcement_count=int(d.get("reinforcement_count", 0)),
-        created_at=datetime.fromisoformat(d["created_at"]) if d.get("created_at") else _aware(datetime.now(timezone.utc)),
+        created_at=datetime.fromisoformat(d["created_at"])
+        if d.get("created_at")
+        else _aware(datetime.now(timezone.utc)),
         tags=set(d.get("tags", [])),
         forgetting_rate=d.get("forgetting_rate"),
     )
@@ -110,11 +116,16 @@ def save_system(
 
     save_binary(store.episodic, directory / _MEMORY_FILE)
 
-    metadata = [_meta_to_dict(store.get_metadata(e.id)) for e in store.episodic.entries()
-                if store.get_metadata(e.id) is not None]
+    metadata = [
+        _meta_to_dict(store.get_metadata(e.id))
+        for e in store.episodic.entries()
+        if store.get_metadata(e.id) is not None
+    ]
     _atomic_json(directory / _METADATA_FILE, {"records": metadata})
 
-    provenance = provenance if provenance is not None else getattr(store, "provenance", None)
+    provenance = (
+        provenance if provenance is not None else getattr(store, "provenance", None)
+    )
     versions = versions if versions is not None else getattr(store, "versions", None)
 
     components: List[str] = [_MEMORY_FILE, _METADATA_FILE]

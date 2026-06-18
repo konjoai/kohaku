@@ -9,6 +9,7 @@ query (a soft conjunction) and ranks by closeness to the *combination* — in a
 single pass, no model call. Hopfield cleanup is available for noisy cues
 (opt-in; at 10k-D plain cosine is already very noise-robust).
 """
+
 from __future__ import annotations
 
 from kohaku import Memory
@@ -27,15 +28,21 @@ def main() -> None:
         print(f"  {h.similarity:.3f}  {h.text}")
 
     print("\nMulti-cue ['Italian', 'wine', 'Tuscany'] — the combination wins:")
-    for h in mem.recall_composite(["Italian", "wine", "Tuscany"], top_k=3, reinforce=False):
+    for h in mem.recall_composite(
+        ["Italian", "wine", "Tuscany"], top_k=3, reinforce=False
+    ):
         print(f"  {h.similarity:.3f}  {h.text}")
 
     print("\nMulti-cue ['Italian', 'mountains', 'summer'] — different combination:")
-    for h in mem.recall_composite(["Italian", "mountains", "summer"], top_k=3, reinforce=False):
+    for h in mem.recall_composite(
+        ["Italian", "mountains", "summer"], top_k=3, reinforce=False
+    ):
         print(f"  {h.similarity:.3f}  {h.text}")
 
     print("\nNoisy/partial cue with Hopfield cleanup (pattern completion):")
-    for h in mem.recall_composite(["Japanese", "tea"], top_k=2, cleanup=True, reinforce=False):
+    for h in mem.recall_composite(
+        ["Japanese", "tea"], top_k=2, cleanup=True, reinforce=False
+    ):
         print(f"  {h.similarity:.3f}  {h.text}")
 
 

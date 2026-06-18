@@ -3,6 +3,7 @@
 The index must rank identically to the NumPy baseline on either backend, and
 its per-memory cache must rebuild exactly when the memory's contents change.
 """
+
 from __future__ import annotations
 
 import numpy as np

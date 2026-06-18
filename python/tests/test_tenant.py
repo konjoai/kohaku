@@ -1,4 +1,5 @@
 """Tests for kohaku.tenant — TenantMemoryStore multi-tenant isolation."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,6 +12,7 @@ from kohaku.tenant import TenantMemoryStore
 # helpers
 # ---------------------------------------------------------------------------
 
+
 def _hv(seed: int) -> HyperVector:
     return HyperVector.random(DIMS, seed=seed)
 
@@ -22,6 +24,7 @@ def _store() -> TenantMemoryStore:
 # ---------------------------------------------------------------------------
 # construction / validation
 # ---------------------------------------------------------------------------
+
 
 def test_init_defaults() -> None:
     ts = _store()
@@ -48,6 +51,7 @@ def test_init_bad_capacity_raises() -> None:
 # empty-ID rejection
 # ---------------------------------------------------------------------------
 
+
 def test_empty_tenant_id_raises_on_store() -> None:
     ts = _store()
     with pytest.raises(ValueError):
@@ -63,6 +67,7 @@ def test_empty_tenant_id_raises_on_retrieve() -> None:
 # ---------------------------------------------------------------------------
 # auto-provisioning
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_tenant_auto_provisioned_on_store() -> None:
     ts = _store()
@@ -81,6 +86,7 @@ def test_unknown_tenant_size_returns_zero() -> None:
 # ---------------------------------------------------------------------------
 # isolation
 # ---------------------------------------------------------------------------
+
 
 def test_tenant_isolation_store_and_retrieve() -> None:
     """Memories stored under tenant A must not appear when querying tenant B."""
@@ -120,6 +126,7 @@ def test_size_per_tenant() -> None:
 # drop_tenant
 # ---------------------------------------------------------------------------
 
+
 def test_drop_tenant_removes_all_data() -> None:
     ts = _store()
     ts.store("alice", _hv(1), _hv(2), label="x")
@@ -138,6 +145,7 @@ def test_drop_nonexistent_tenant_returns_false() -> None:
 # ---------------------------------------------------------------------------
 # multiple tenants
 # ---------------------------------------------------------------------------
+
 
 def test_multiple_tenants_independent() -> None:
     """Ten tenants each storing and retrieving their own memories."""

@@ -27,6 +27,7 @@ algebra. Recall is exact-cosine cleanup, so every answer carries a confidence;
 analogical transfer is noisier than direct attribute lookup (see
 ``benchmarks/bench_analogy.py`` for the capacity curve).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -42,7 +43,9 @@ from kohaku.extraction import Triple, extract_triples
 
 def _stable_seed(symbol: str) -> int:
     """Process-stable 64-bit seed for a symbol (unlike the salted builtin hash)."""
-    return int.from_bytes(hashlib.blake2b(symbol.encode("utf-8"), digest_size=8).digest(), "big")
+    return int.from_bytes(
+        hashlib.blake2b(symbol.encode("utf-8"), digest_size=8).digest(), "big"
+    )
 
 
 @dataclass(frozen=True)
@@ -109,7 +112,10 @@ class AnalogicalMemory:
 
     def to_dict(self) -> Dict[str, object]:
         """Serialise to the field maps; vectors re-derive deterministically."""
-        return {"dims": self.dims, "records": {n: dict(f) for n, f in self._fields.items()}}
+        return {
+            "dims": self.dims,
+            "records": {n: dict(f) for n, f in self._fields.items()},
+        }
 
     @classmethod
     def from_dict(cls, data: Mapping[str, object]) -> "AnalogicalMemory":

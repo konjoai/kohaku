@@ -4,6 +4,7 @@ This module is **always importable** even when ``transformers`` is not installed
 Instantiating ``KohakuMemoryCallback`` without transformers raises ``ImportError``
 at construction time, not at import time.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Stub — always importable
 # ---------------------------------------------------------------------------
+
 
 class KohakuMemoryCallbackStub:
     """Importable stub when transformers is not installed.
@@ -85,8 +87,13 @@ try:
             # ``output_attentions=True`` is set; we record the mean if available.
             try:
                 import numpy as np  # type: ignore[import]
+
                 outputs = kwargs.get("outputs")
-                if outputs is not None and hasattr(outputs, "attentions") and outputs.attentions:
+                if (
+                    outputs is not None
+                    and hasattr(outputs, "attentions")
+                    and outputs.attentions
+                ):
                     last_layer = outputs.attentions[-1]
                     # last_layer shape: (batch, heads, seq, seq)
                     mean_attn = float(
@@ -125,7 +132,10 @@ try:
                 return
             step_key = f"log_step_{getattr(state, 'global_step', self._step)}"
             # Serialize most important metrics into a compact string
-            parts = [f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in logs.items()]
+            parts = [
+                f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
+                for k, v in logs.items()
+            ]
             value = " | ".join(parts)
             self.manager.store(key=step_key, value=value, label=step_key)
 

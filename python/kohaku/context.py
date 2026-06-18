@@ -1,4 +1,5 @@
 """Context window memory manager — sliding-window episodic store sized to an LLM context limit."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from kohaku._pure import (
 # ---------------------------------------------------------------------------
 # Deterministic text → HyperVector encoding
 # ---------------------------------------------------------------------------
+
 
 def _hash_str(s: str) -> int:
     """Stable, deterministic 64-bit hash of a string using the same LCG seed path."""
@@ -61,12 +63,14 @@ def _encode_text_to_hv(text: str, dims: int = DIMS) -> HyperVector:
 # ContextConfig + ContextMemoryManager
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ContextConfig:
     """Configuration for the context-window memory manager."""
-    max_tokens: int = 4096         # LLM context window size
-    tokens_per_entry: int = 50     # estimated tokens per memory entry
-    top_k: int = 5                 # memories to inject per query
+
+    max_tokens: int = 4096  # LLM context window size
+    tokens_per_entry: int = 50  # estimated tokens per memory entry
+    top_k: int = 5  # memories to inject per query
     similarity_threshold: float = 0.1
 
 
@@ -98,7 +102,11 @@ class ContextMemoryManager:
         ``build_context_block``.
         """
         key_hv = _encode_text_to_hv(key)
-        value_hv = _encode_text_to_hv(value) if value else HyperVector.random(dims=DIMS, seed=0)
+        value_hv = (
+            _encode_text_to_hv(value)
+            if value
+            else HyperVector.random(dims=DIMS, seed=0)
+        )
         if len(self._labels) >= self._memory._capacity:
             # Mirror the FIFO eviction happening inside EpisodicMemory
             self._labels.pop(0)
@@ -125,8 +133,7 @@ class ContextMemoryManager:
         query_hv = _encode_text_to_hv(query_text)
         entries = self._memory.entries()
         scored: list[tuple[float, int]] = [
-            (e.key.cosine_similarity(query_hv), idx)
-            for idx, e in enumerate(entries)
+            (e.key.cosine_similarity(query_hv), idx) for idx, e in enumerate(entries)
         ]
         scored.sort(key=lambda x: x[0], reverse=True)
         results: list[tuple[str, str, float]] = []
@@ -135,7 +142,9 @@ class ContextMemoryManager:
                 entry = entries[idx]
                 # Map entry index to raw string storage.  The raw lists are kept in
                 # insertion order matching EpisodicMemory._entries, so the index is valid.
-                raw_label = self._labels[idx] if idx < len(self._labels) else entry.label
+                raw_label = (
+                    self._labels[idx] if idx < len(self._labels) else entry.label
+                )
                 raw_value = self._values[idx] if idx < len(self._values) else ""
                 results.append((raw_label, raw_value, sim))
         return results

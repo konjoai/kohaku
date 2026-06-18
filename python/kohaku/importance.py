@@ -45,16 +45,17 @@ DEFAULT_FREQ_CAP: int = 20
 
 # Per-signal weights; the dataclass validator enforces sum ≈ 1.
 DEFAULT_WEIGHTS = {
-    "frequency":  0.25,
-    "recency":    0.25,
+    "frequency": 0.25,
+    "recency": 0.25,
     "uniqueness": 0.25,
-    "depth":      0.25,
+    "depth": 0.25,
 }
 
 
 @dataclass(frozen=True)
 class ImportanceBreakdown:
     """Per-component contribution for one memory."""
+
     entry_id: int
     frequency: float
     recency: float
@@ -67,19 +68,20 @@ class ImportanceBreakdown:
     def to_dict(self) -> dict:
         return {
             "entry_id": int(self.entry_id),
-            "frequency":  round(float(self.frequency), 4),
-            "recency":    round(float(self.recency), 4),
+            "frequency": round(float(self.frequency), 4),
+            "recency": round(float(self.recency), 4),
             "uniqueness": round(float(self.uniqueness), 4),
-            "depth":      round(float(self.depth), 4),
-            "composite":  round(float(self.composite), 4),
+            "depth": round(float(self.depth), 4),
+            "composite": round(float(self.composite), 4),
             "importance_before": round(float(self.importance_before), 4),
-            "importance_after":  round(float(self.importance_after), 4),
+            "importance_after": round(float(self.importance_after), 4),
         }
 
 
 @dataclass(frozen=True)
 class RescoreReport:
     """Aggregate output of a rescore pass."""
+
     total_memories: int
     updated: int
     skipped: int
@@ -191,26 +193,28 @@ class ImportanceScorer:
             unique = uniqueness.get(e.id, 0.0)
             depth = children_norm.get(e.id, 0.0)
             composite = (
-                self.weights["frequency"]  * freq
-                + self.weights["recency"]    * recency
+                self.weights["frequency"] * freq
+                + self.weights["recency"] * recency
                 + self.weights["uniqueness"] * unique
-                + self.weights["depth"]      * depth
+                + self.weights["depth"] * depth
             )
             composite = max(0.0, min(1.0, composite))
             blended = (
                 self.blend_alpha * composite
                 + (1.0 - self.blend_alpha) * meta.importance
             )
-            out.append(ImportanceBreakdown(
-                entry_id=e.id,
-                frequency=freq,
-                recency=recency,
-                uniqueness=unique,
-                depth=depth,
-                composite=composite,
-                importance_before=float(meta.importance),
-                importance_after=float(blended),
-            ))
+            out.append(
+                ImportanceBreakdown(
+                    entry_id=e.id,
+                    frequency=freq,
+                    recency=recency,
+                    uniqueness=unique,
+                    depth=depth,
+                    composite=composite,
+                    importance_before=float(meta.importance),
+                    importance_after=float(blended),
+                )
+            )
         return out
 
     def apply(
@@ -273,17 +277,16 @@ class ImportanceScorer:
                 descendants = self.provenance.get_descendants(e.id, max_depth=1)
             except (AttributeError, ValueError, RuntimeError) as exc:
                 logger.warning(
-                    "depth signal skipped for %s (%s)", e.id, exc.__class__.__name__,
+                    "depth signal skipped for %s (%s)",
+                    e.id,
+                    exc.__class__.__name__,
                 )
                 descendants = []
             child_counts[e.id] = len(descendants)
         max_log = math.log1p(max(child_counts.values())) if child_counts else 0.0
         if max_log <= 0:
             return {eid: 0.0 for eid in child_counts}
-        return {
-            eid: math.log1p(cnt) / max_log
-            for eid, cnt in child_counts.items()
-        }
+        return {eid: math.log1p(cnt) / max_log for eid, cnt in child_counts.items()}
 
 
 def rescore_all(

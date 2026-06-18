@@ -4,6 +4,7 @@ Konjo Adversarial Review Agent — Wall 3.
 Critic model: claude-opus-4-6
 Exit codes: 0=APPROVED/WARNING, 1=BLOCKER, 2=API error
 """
+
 from __future__ import annotations
 import argparse
 import json
@@ -45,13 +46,16 @@ OUTPUT FORMAT — valid JSON only, no markdown:
 {"verdict": "APPROVED"|"WARNING"|"BLOCKER", "summary": "...", "questions": {"Q1": {"verdict": "PASS"|"WARN"|"BLOCK", "finding": "..."}, ...}, "blockers": [], "warnings": [], "approved_aspects": []}
 """
 
+
 def _load_anthropic():
     try:
         import anthropic
+
         return anthropic
     except ImportError:
         print("ERROR: pip install anthropic", file=sys.stderr)
         raise
+
 
 def _call_api(diff_text: str, anthropic_module) -> dict:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -59,18 +63,31 @@ def _call_api(diff_text: str, anthropic_module) -> dict:
         raise ValueError("ANTHROPIC_API_KEY not set")
     client = anthropic_module.Anthropic(api_key=api_key)
     if len(diff_text) > MAX_DIFF_CHARS:
-        diff_text = diff_text[:MAX_DIFF_CHARS] + f"\n\n[DIFF TRUNCATED at {MAX_DIFF_CHARS} chars]"
+        diff_text = (
+            diff_text[:MAX_DIFF_CHARS]
+            + f"\n\n[DIFF TRUNCATED at {MAX_DIFF_CHARS} chars]"
+        )
     user_content = f"Review this pull request diff against the ten Konjo quality standards.\n\n<diff>\n{diff_text}\n</diff>"
     for attempt in range(MAX_RETRIES):
         try:
             response = client.messages.create(
-                model=CRITIC_MODEL, max_tokens=MAX_TOKENS,
-                system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                model=CRITIC_MODEL,
+                max_tokens=MAX_TOKENS,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 messages=[{"role": "user", "content": user_content}],
             )
             raw = response.content[0].text.strip()
             usage = response.usage
-            print(f"[konjo-review] tokens: input={usage.input_tokens} output={usage.output_tokens} cache_read={getattr(usage, 'cache_read_input_tokens', 0)}", file=sys.stderr)
+            print(
+                f"[konjo-review] tokens: input={usage.input_tokens} output={usage.output_tokens} cache_read={getattr(usage, 'cache_read_input_tokens', 0)}",
+                file=sys.stderr,
+            )
             return json.loads(raw)
         except (anthropic_module.RateLimitError, anthropic_module.APIStatusError):
             if attempt < MAX_RETRIES - 1:
@@ -83,6 +100,7 @@ def _call_api(diff_text: str, anthropic_module) -> dict:
             raise ValueError(f"Non-JSON response: {raw}") from exc
     raise RuntimeError("Exhausted retries")
 
+
 def _render_human(result: dict) -> str:
     lines = ["# Konjo Adversarial Review Report\n"]
     verdict = result.get("verdict", "UNKNOWN")
@@ -94,6 +112,7 @@ def _render_human(result: dict) -> str:
     for w in result.get("warnings", []):
         lines.append(f"- WARNING: {w}")
     return "\n".join(lines)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -118,7 +137,10 @@ def main() -> int:
         print("[konjo-review] Empty diff. Approved.", file=sys.stderr)
         return 0
     if args.dry_run:
-        print(f"[konjo-review] DRY RUN: model={CRITIC_MODEL} diff_chars={len(diff_text)}", file=sys.stderr)
+        print(
+            f"[konjo-review] DRY RUN: model={CRITIC_MODEL} diff_chars={len(diff_text)}",
+            file=sys.stderr,
+        )
         return 0
     try:
         anthropic = _load_anthropic()
@@ -141,6 +163,7 @@ def main() -> int:
         return 1
     print(f"[konjo-review] VERDICT: {verdict}", file=sys.stderr)
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

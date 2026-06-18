@@ -10,6 +10,7 @@ Example::
     for hop in result.hops:
         print(hop.hop, hop.label, hop.similarity)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -73,9 +74,7 @@ def chain_query(
 
     for hop_idx in range(hops):
         candidates = query(memory, current_key, top_k=len(visited_ids) + 1)
-        best = next(
-            (r for r in candidates if r.entry_id not in visited_ids), None
-        )
+        best = next((r for r in candidates if r.entry_id not in visited_ids), None)
         if best is None or best.similarity < min_similarity:
             return ChainResult(hops=chain, terminated_early=True)
 
@@ -89,9 +88,7 @@ def chain_query(
         )
         visited_ids.add(best.entry_id)
 
-        matched = next(
-            (e for e in memory.entries() if e.id == best.entry_id), None
-        )
+        matched = next((e for e in memory.entries() if e.id == best.entry_id), None)
         if matched is None:
             return ChainResult(hops=chain, terminated_early=True)
         current_key = matched.key

@@ -163,7 +163,9 @@ class VersionStore:
         """Append a new version snapshot. Returns the recorded :class:`MemoryVersion`."""
         if memory_id < 0:
             raise ValueError("memory_id must be >= 0")
-        clean_tags = sorted({_normalise_tag(t) for t in (tags or []) if _normalise_tag(t)})
+        clean_tags = sorted(
+            {_normalise_tag(t) for t in (tags or []) if _normalise_tag(t)}
+        )
         edited_at = time.time()
         with self._lock:
             row = self._conn.execute(
@@ -313,7 +315,8 @@ def update_memory(
     if memory_id < 0:
         raise ValueError("memory_id must be >= 0")
     entry = next(
-        (e for e in store.episodic._entries if e.id == memory_id), None,
+        (e for e in store.episodic._entries if e.id == memory_id),
+        None,
     )
     if entry is None:
         raise KeyError(f"unknown memory_id {memory_id}")
@@ -389,6 +392,7 @@ def update_memory(
 
 # ──────────────────────────── helpers ──────────────────────────────────────
 
+
 def _iso_or_none(value: Any) -> Optional[str]:
     if value is None:
         return None
@@ -415,8 +419,7 @@ def _coerce_datetime(value: Any) -> Optional[datetime]:
 
 
 def _row_to_version(row: Any) -> MemoryVersion:
-    (mid, ver, label, source, importance, tags_json,
-     vf, vu, edited_at, editor) = row
+    (mid, ver, label, source, importance, tags_json, vf, vu, edited_at, editor) = row
     try:
         tags = tuple(json.loads(tags_json or "[]"))
     except json.JSONDecodeError:

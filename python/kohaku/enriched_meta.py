@@ -6,6 +6,7 @@ formula, the source-trust table, and the small datetime/tag helpers. The
 :class:`~kohaku.enriched.EnrichedMemoryStore` lives in ``enriched.py`` and
 re-exports everything here for backwards compatibility.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -55,6 +56,7 @@ class MemoryMetadata:
     All datetimes are stored as UTC-aware. Naive datetimes are promoted on
     write so downstream comparisons never raise ``TypeError``.
     """
+
     entry_id: int
     valid_from: datetime
     valid_until: Optional[datetime] = None
@@ -135,6 +137,7 @@ class MemoryMetadata:
 @dataclass(frozen=True)
 class EnrichedRetrievalResult:
     """One row of an enriched query result."""
+
     entry_id: int
     label: str
     similarity: float

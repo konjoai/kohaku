@@ -1,4 +1,5 @@
 """Tests for kohaku.validation — write-time validation and poisoning defense."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,6 +13,7 @@ def _hv(seed: int) -> HyperVector:
 
 
 # ── RateLimit construction ────────────────────────────────────────────────────
+
 
 def test_rate_limit_max_stores_zero_raises():
     with pytest.raises(ValueError, match="max_stores"):
@@ -29,6 +31,7 @@ def test_rate_limit_negative_raises():
 
 
 # ── WriteValidator construction ───────────────────────────────────────────────
+
 
 def test_duplicate_threshold_zero_raises():
     mem = EpisodicMemory()
@@ -49,6 +52,7 @@ def test_duplicate_threshold_exactly_one_is_valid():
 
 # ── empty memory always accepts ───────────────────────────────────────────────
 
+
 def test_empty_memory_accepts_any_key():
     mem = EpisodicMemory()
     validator = WriteValidator(mem)
@@ -60,6 +64,7 @@ def test_empty_memory_accepts_any_key():
 
 
 # ── novelty check ─────────────────────────────────────────────────────────────
+
 
 def test_identical_key_rejected_as_near_duplicate():
     mem = EpisodicMemory()
@@ -118,6 +123,7 @@ def test_nearest_similarity_populated_on_accept():
 
 # ── rate limit ────────────────────────────────────────────────────────────────
 
+
 def test_rate_limit_second_call_rejected():
     mem = EpisodicMemory()
     validator = WriteValidator(
@@ -166,6 +172,7 @@ def test_validate_does_not_update_rate_limit():
 
 
 # ── validate_and_store ────────────────────────────────────────────────────────
+
 
 def test_validate_and_store_accepted_stores_entry():
     mem = EpisodicMemory()

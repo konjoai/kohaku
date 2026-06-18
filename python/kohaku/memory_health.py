@@ -55,6 +55,7 @@ _WEIGHTS = {"stale": 0.30, "expired": 0.20, "orphan": 0.20, "duplicate": 0.30}
 
 # ──────────────────────────── DTOs ─────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class DuplicatePair:
     a_id: int
@@ -126,6 +127,7 @@ class MemoryHealthReport:
 
 # ──────────────────────────── analyzer ─────────────────────────────────────
 
+
 class MemoryHealthAnalyzer:
     """Compute health metrics over a live :class:`EnrichedMemoryStore`.
 
@@ -157,7 +159,7 @@ class MemoryHealthAnalyzer:
 
     # ── primary report ────────────────────────────────────────────────────
     def compute(self, *, now: Optional[datetime] = None) -> MemoryHealthReport:
-        now = (now or datetime.now(timezone.utc))
+        now = now or datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
 
@@ -214,7 +216,7 @@ class MemoryHealthAnalyzer:
         threshold = days if days is not None else self.stale_days
         if threshold <= 0:
             raise ValueError("days must be > 0")
-        now = (now or datetime.now(timezone.utc))
+        now = now or datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
         out: List[StaleMemory] = []
@@ -224,13 +226,15 @@ class MemoryHealthAnalyzer:
                 continue
             age = _age_from_valid_from(meta, now)
             if age >= threshold and meta.reinforcement_count == 0:
-                out.append(StaleMemory(
-                    entry_id=e.id,
-                    label=e.label,
-                    age_days=age,
-                    last_accessed=None,  # not tracked yet; placeholder for v2
-                    reinforcement_count=meta.reinforcement_count,
-                ))
+                out.append(
+                    StaleMemory(
+                        entry_id=e.id,
+                        label=e.label,
+                        age_days=age,
+                        last_accessed=None,  # not tracked yet; placeholder for v2
+                        reinforcement_count=meta.reinforcement_count,
+                    )
+                )
         out.sort(key=lambda s: s.age_days, reverse=True)
         return out
 
@@ -303,11 +307,15 @@ class MemoryHealthAnalyzer:
             for j in range(i + 1, n):
                 sim = float(sims[j])
                 if sim >= self.duplicate_threshold:
-                    out.append(DuplicatePair(
-                        a_id=entries[i].id, b_id=entries[j].id,
-                        similarity=sim,
-                        label_a=entries[i].label, label_b=entries[j].label,
-                    ))
+                    out.append(
+                        DuplicatePair(
+                            a_id=entries[i].id,
+                            b_id=entries[j].id,
+                            similarity=sim,
+                            label_a=entries[i].label,
+                            label_b=entries[j].label,
+                        )
+                    )
                     if len(out) >= self.max_duplicate_pairs:
                         return out
         return out
@@ -327,8 +335,7 @@ class MemoryHealthAnalyzer:
             )
             clamped = max(0.0, min(1.0, sal))
             # Map [0, 1] to bucket index in [0, len-1]
-            idx = min(len(buckets) - 1,
-                      int(clamped * len(buckets)))
+            idx = min(len(buckets) - 1, int(clamped * len(buckets)))
             buckets[idx] += 1
         return buckets
 
@@ -370,10 +377,10 @@ class MemoryHealthAnalyzer:
         # gives the score. Each ratio is computed against `total` for stable
         # behaviour as the store grows.
         ratios = {
-            "stale":     stale / total,
-            "expired":   expired / total,
-            "orphan":    orphans / total,
-            "duplicate": (2 * duplicates) / total,   # both members of each pair count
+            "stale": stale / total,
+            "expired": expired / total,
+            "orphan": orphans / total,
+            "duplicate": (2 * duplicates) / total,  # both members of each pair count
         }
         penalty = sum(_WEIGHTS[k] * min(1.0, v) for k, v in ratios.items())
         return max(0.0, min(1.0, 1.0 - penalty))
@@ -392,9 +399,7 @@ class MemoryHealthAnalyzer:
         if total == 0:
             return recs
         if expired > 0:
-            recs.append(
-                f"POST /memories/expire to drop {expired} expired item(s)."
-            )
+            recs.append(f"POST /memories/expire to drop {expired} expired item(s).")
         if stale / max(1, total) > 0.20:
             recs.append(
                 f"Consider deleting {stale} stale items "

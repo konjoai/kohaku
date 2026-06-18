@@ -41,7 +41,9 @@ def test_sleep_records_consolidation_lineage() -> None:
         v = _noisy(base, 0.05, seed=100 + i)
         store.store(v, v, label=f"variant-{i}", source="user_input")
     sl = SleepConsolidator(
-        store.episodic, similarity_threshold=0.30, provenance=pg,
+        store.episodic,
+        similarity_threshold=0.30,
+        provenance=pg,
     )
     report = sl.run_once()
     assert report.prototypes_created == 1
@@ -65,7 +67,9 @@ def test_consolidation_metadata_carries_threshold_and_cluster_size() -> None:
         v = _noisy(base, 0.05, seed=200 + i)
         store.store(v, v, label=f"m-{i}", source="user_input")
     sl = SleepConsolidator(
-        store.episodic, similarity_threshold=0.30, provenance=pg,
+        store.episodic,
+        similarity_threshold=0.30,
+        provenance=pg,
     )
     sl.run_once()
     # Find the consolidation node — it carries cluster_size + threshold metadata
@@ -86,7 +90,9 @@ def test_singleton_clusters_do_not_record_lineage() -> None:
         v = HyperVector.random(DIMS, seed=1000 + s)
         store.store(v, v, label=f"orth-{s}", source="user_input")
     sl = SleepConsolidator(
-        store.episodic, similarity_threshold=0.30, provenance=pg,
+        store.episodic,
+        similarity_threshold=0.30,
+        provenance=pg,
     )
     sl.run_once()
     # No consolidation source_type nodes should exist — each cluster is size 1.
@@ -125,7 +131,9 @@ def test_self_parent_collision_is_filtered() -> None:
         v = _noisy(base, 0.05, seed=300 + i)
         store.store(v, v, label=f"x-{i}", source="user_input")
     sl = SleepConsolidator(
-        store.episodic, similarity_threshold=0.30, provenance=pg,
+        store.episodic,
+        similarity_threshold=0.30,
+        provenance=pg,
     )
     # Must not raise; lineage edge may be a singleton if one parent collided
     # with the new id, but the consolidation node itself must exist.

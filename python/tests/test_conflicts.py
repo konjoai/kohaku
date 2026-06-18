@@ -34,12 +34,16 @@ def test_negation_pair_flagged() -> None:
 
 def test_numeric_divergence_flagged() -> None:
     s = _store()
-    s.store(encode_text("the meeting is at 3pm"),
-            encode_text("the meeting is at 3pm"),
-            label="the meeting is at 3pm")
-    s.store(encode_text("the meeting is at 5pm"),
-            encode_text("the meeting is at 5pm"),
-            label="the meeting is at 5pm")
+    s.store(
+        encode_text("the meeting is at 3pm"),
+        encode_text("the meeting is at 3pm"),
+        label="the meeting is at 3pm",
+    )
+    s.store(
+        encode_text("the meeting is at 5pm"),
+        encode_text("the meeting is at 5pm"),
+        label="the meeting is at 5pm",
+    )
     pairs = detect_conflicts(s)
     assert pairs
     assert any("numeric divergence" in r for r in pairs[0].reasons)
@@ -59,12 +63,16 @@ def test_predicate_divergence_caught_via_jaccard() -> None:
 
 def test_unrelated_pair_not_flagged() -> None:
     s = _store()
-    s.store(encode_text("cats sleep most of the day"),
-            encode_text("cats sleep most of the day"),
-            label="cats sleep most of the day")
-    s.store(encode_text("the espresso machine is broken"),
-            encode_text("the espresso machine is broken"),
-            label="the espresso machine is broken")
+    s.store(
+        encode_text("cats sleep most of the day"),
+        encode_text("cats sleep most of the day"),
+        label="cats sleep most of the day",
+    )
+    s.store(
+        encode_text("the espresso machine is broken"),
+        encode_text("the espresso machine is broken"),
+        label="the espresso machine is broken",
+    )
     assert detect_conflicts(s) == []
 
 
@@ -81,12 +89,16 @@ def test_thresholds_validate_inputs() -> None:
 def test_returns_sorted_by_score_descending() -> None:
     s = _store()
     # Strong: full negation pair
-    s.store(encode_text("the door is open"),
-            encode_text("the door is open"),
-            label="the door is open")
-    s.store(encode_text("the door is not open"),
-            encode_text("the door is not open"),
-            label="the door is not open")
+    s.store(
+        encode_text("the door is open"),
+        encode_text("the door is open"),
+        label="the door is open",
+    )
+    s.store(
+        encode_text("the door is not open"),
+        encode_text("the door is not open"),
+        label="the door is not open",
+    )
     # Weaker: preference flip
     a = "user prefers tea"
     b = "user prefers coffee"
@@ -100,21 +112,35 @@ def test_returns_sorted_by_score_descending() -> None:
 def test_conflict_pair_to_dict_shape() -> None:
     s = _store()
     s.store(encode_text("door open"), encode_text("door open"), label="door open")
-    s.store(encode_text("door not open"), encode_text("door not open"),
-            label="door not open")
+    s.store(
+        encode_text("door not open"),
+        encode_text("door not open"),
+        label="door not open",
+    )
     pair = detect_conflicts(s)[0]
     d = pair.to_dict()
-    assert {"a_id", "b_id", "label_a", "label_b", "similarity",
-            "contradiction_score", "reasons"} <= d.keys()
+    assert {
+        "a_id",
+        "b_id",
+        "label_a",
+        "label_b",
+        "similarity",
+        "contradiction_score",
+        "reasons",
+    } <= d.keys()
     assert isinstance(d["reasons"], list)
 
 
 def test_resolve_keep_a_drops_b() -> None:
     s = _store(provenance=True)
-    a_id = s.store(encode_text("door open"), encode_text("door open"),
-                    label="door open")
-    b_id = s.store(encode_text("door not open"), encode_text("door not open"),
-                    label="door not open")
+    a_id = s.store(
+        encode_text("door open"), encode_text("door open"), label="door open"
+    )
+    b_id = s.store(
+        encode_text("door not open"),
+        encode_text("door not open"),
+        label="door not open",
+    )
     outcome = resolve_conflict(s, a_id=a_id, b_id=b_id, keep="a")
     assert outcome.action == "keep_a"
     assert outcome.kept_id == a_id

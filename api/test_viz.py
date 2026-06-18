@@ -5,6 +5,7 @@ cluster recovery, and probe behaviour. The tests instantiate a fresh app via
 `create_app()` and drive it through `fastapi.testclient.TestClient` — no real
 network sockets, no global state.
 """
+
 from __future__ import annotations
 
 import sys
@@ -37,16 +38,29 @@ def test_graph_structure_has_required_fields(client: TestClient) -> None:
     assert r.status_code == 200
     data = r.json()
 
-    assert {"nodes", "edges", "dims", "threshold", "num_clusters",
-            "half_life", "current_clock"} <= data.keys()
+    assert {
+        "nodes",
+        "edges",
+        "dims",
+        "threshold",
+        "num_clusters",
+        "half_life",
+        "current_clock",
+    } <= data.keys()
     assert data["dims"] == DIMS
     assert data["num_clusters"] == 3
     assert len(data["nodes"]) == 12
 
     # Every node carries the fields the viewer renders.
     required_node = {
-        "id", "entry_id", "label", "cluster", "cluster_label",
-        "last_accessed", "age", "decay_weight",
+        "id",
+        "entry_id",
+        "label",
+        "cluster",
+        "cluster_label",
+        "last_accessed",
+        "age",
+        "decay_weight",
     }
     for node in data["nodes"]:
         assert required_node <= node.keys(), f"missing fields on node {node['id']}"
@@ -110,8 +124,14 @@ def test_decay_curve_shape_and_monotonicity(client: TestClient) -> None:
     assert len(data["concepts"]) == 12
 
     for c in data["concepts"]:
-        assert {"id", "label", "last_accessed", "current_age",
-                "current_weight", "curve"} <= c.keys()
+        assert {
+            "id",
+            "label",
+            "last_accessed",
+            "current_age",
+            "current_weight",
+            "curve",
+        } <= c.keys()
         curve = c["curve"]
         assert len(curve) >= 2
         # ages cover [0, horizon], starting at 0

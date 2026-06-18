@@ -24,16 +24,22 @@ from kohaku.portability import (
 
 def _populated() -> EnrichedMemoryStore:
     s = EnrichedMemoryStore(capacity=20)
-    s.store(encode_text("coffee at 8 am"),
-            encode_text("coffee at 8 am"),
-            label="coffee at 8 am",
-            source="user_input", importance=0.8,
-            tags=["routine", "beverage"])
-    s.store(encode_text("forgot the umbrella"),
-            encode_text("forgot the umbrella"),
-            label="forgot the umbrella",
-            source="agent_inference", importance=0.3,
-            tags=["regret"])
+    s.store(
+        encode_text("coffee at 8 am"),
+        encode_text("coffee at 8 am"),
+        label="coffee at 8 am",
+        source="user_input",
+        importance=0.8,
+        tags=["routine", "beverage"],
+    )
+    s.store(
+        encode_text("forgot the umbrella"),
+        encode_text("forgot the umbrella"),
+        label="forgot the umbrella",
+        source="agent_inference",
+        importance=0.3,
+        tags=["regret"],
+    )
     return s
 
 
@@ -124,10 +130,14 @@ def test_import_accepts_bare_list() -> None:
 
 def test_import_skips_empty_label() -> None:
     dst = EnrichedMemoryStore(capacity=5)
-    payload = json.dumps({"memories": [
-        {"label": "", "source": "user_input"},
-        {"label": "kept", "source": "user_input"},
-    ]})
+    payload = json.dumps(
+        {
+            "memories": [
+                {"label": "", "source": "user_input"},
+                {"label": "kept", "source": "user_input"},
+            ]
+        }
+    )
     report = import_memories(dst, payload, dedup_threshold=0.99)
     assert report.imported == 1
     assert report.skipped_invalid == 1
@@ -138,12 +148,16 @@ def test_import_parses_iso_validity_dates() -> None:
     now = datetime.now(timezone.utc)
     valid = (now - timedelta(days=2)).isoformat()
     until = (now + timedelta(days=2)).isoformat()
-    payload = json.dumps([{
-        "label": "scheduled chat",
-        "source": "user_input",
-        "valid_from": valid,
-        "valid_until": until,
-    }])
+    payload = json.dumps(
+        [
+            {
+                "label": "scheduled chat",
+                "source": "user_input",
+                "valid_from": valid,
+                "valid_until": until,
+            }
+        ]
+    )
     report = import_memories(dst, payload, dedup_threshold=0.99)
     assert report.imported == 1
     meta = dst.get_metadata(report.new_ids[0])

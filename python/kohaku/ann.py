@@ -22,6 +22,7 @@ directly:
     >>> idx.query(hv_query, top_k=5)                  # doctest: +SKIP
     [(2, 0.83), (1, 0.41)]
 """
+
 from __future__ import annotations
 
 from typing import Dict, List, Tuple
@@ -76,8 +77,10 @@ class LSHIndex:
         self.hash_bits = hash_bits
         rng = np.random.default_rng(seed)
         # Planes: (num_tables, hash_bits, dims). Fixed for the index lifetime.
-        self._planes = rng.standard_normal((num_tables, hash_bits, dims)).astype(np.float32)
-        self._powers = (1 << np.arange(hash_bits, dtype=np.int64))
+        self._planes = rng.standard_normal((num_tables, hash_bits, dims)).astype(
+            np.float32
+        )
+        self._powers = 1 << np.arange(hash_bits, dtype=np.int64)
         self._tables: List[Dict[int, List[int]]] = [{} for _ in range(num_tables)]
         self._vectors: Dict[int, "np.ndarray"] = {}
 
@@ -147,7 +150,11 @@ class LSHIndex:
             return []
         denom = float(np.linalg.norm(vec)) or 1.0
         scored = [
-            (cid, float(self._vectors[cid] @ vec) / (denom * (np.linalg.norm(self._vectors[cid]) or 1.0)))
+            (
+                cid,
+                float(self._vectors[cid] @ vec)
+                / (denom * (np.linalg.norm(self._vectors[cid]) or 1.0)),
+            )
             for cid in cand
         ]
         scored.sort(key=lambda pair: pair[1], reverse=True)

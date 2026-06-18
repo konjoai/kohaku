@@ -9,6 +9,7 @@ measures that swap in-process, both backends, per the repo benchmarking rules
 
 Reference = the exact naive loop the slice replaced; "indexed" = the new path.
 """
+
 from __future__ import annotations
 
 import json
@@ -97,13 +98,15 @@ def run(sizes, dims):
         entries = _memory(n, dims, seed=n).entries()
         naive = _bench(lambda: _naive_uniqueness(entries))
         indexed = _bench(lambda: _indexed_uniqueness(entries))
-        rows.append({
-            "n": n,
-            "dims": dims,
-            "naive_ms": naive,
-            "indexed_ms": indexed,
-            "speedup_p50": round(naive["p50"] / indexed["p50"], 2),
-        })
+        rows.append(
+            {
+                "n": n,
+                "dims": dims,
+                "naive_ms": naive,
+                "indexed_ms": indexed,
+                "speedup_p50": round(naive["p50"] / indexed["p50"], 2),
+            }
+        )
     return rows
 
 

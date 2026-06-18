@@ -1,4 +1,5 @@
 """Tests for kohaku.hf_hooks and kohaku.openai_compat importability and basic behavior."""
+
 from __future__ import annotations
 
 import pytest
@@ -8,15 +9,18 @@ import pytest
 # 1. hf_hooks is importable even without transformers
 # ---------------------------------------------------------------------------
 
+
 def test_hf_hooks_importable_without_transformers():
     """Importing KohakuMemoryCallback must not raise even if transformers is absent."""
     from kohaku.hf_hooks import KohakuMemoryCallback  # noqa: F401  — import must succeed
+
     assert KohakuMemoryCallback is not None
 
 
 # ---------------------------------------------------------------------------
 # 2. When transformers absent, instantiation raises ImportError (not AttributeError)
 # ---------------------------------------------------------------------------
+
 
 def test_stub_raises_import_error_on_instantiation():
     """When transformers is absent, KohakuMemoryCallback() raises ImportError."""
@@ -39,6 +43,7 @@ def _try_import_transformers() -> bool:
     """Return True if transformers can be imported."""
     try:
         import importlib
+
         importlib.import_module("transformers")
         return True
     except ImportError:
@@ -49,15 +54,18 @@ def _try_import_transformers() -> bool:
 # 3. openai_compat.MemoryMiddleware is always importable
 # ---------------------------------------------------------------------------
 
+
 def test_openai_compat_importable():
     """MemoryMiddleware must be importable regardless of optional dependencies."""
     from kohaku.openai_compat import MemoryMiddleware  # noqa: F401
+
     assert MemoryMiddleware is not None
 
 
 # ---------------------------------------------------------------------------
 # 4. MemoryMiddleware.augment returns a list
 # ---------------------------------------------------------------------------
+
 
 def test_memory_middleware_augment_returns_list():
     """augment() must return a list even when memory is empty."""

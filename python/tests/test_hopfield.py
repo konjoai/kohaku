@@ -1,4 +1,5 @@
 """Tests for kohaku.hopfield — modern continuous Hopfield associator."""
+
 from __future__ import annotations
 
 import numpy as np

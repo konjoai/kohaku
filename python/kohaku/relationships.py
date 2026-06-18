@@ -47,13 +47,15 @@ from typing import Dict, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 
-KNOWN_RELATIONS: frozenset[str] = frozenset({
-    "supports",
-    "contradicts",
-    "extends",
-    "derived_from",
-    "references",
-})
+KNOWN_RELATIONS: frozenset[str] = frozenset(
+    {
+        "supports",
+        "contradicts",
+        "extends",
+        "derived_from",
+        "references",
+    }
+)
 
 
 _SCHEMA = """
@@ -250,8 +252,7 @@ class RelationshipStore:
         """Histogram of relationship types."""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT relation_type, COUNT(*) FROM relations "
-                "GROUP BY relation_type"
+                "SELECT relation_type, COUNT(*) FROM relations GROUP BY relation_type"
             ).fetchall()
         return {rt: int(cnt) for rt, cnt in rows}
 
@@ -288,7 +289,9 @@ def _row_to_relationship(row) -> Relationship:
     except json.JSONDecodeError:
         logger.warning(
             "dropping malformed relation metadata %s→%s/%s",
-            source_id, target_id, relation_type,
+            source_id,
+            target_id,
+            relation_type,
         )
         meta = {}
     return Relationship(

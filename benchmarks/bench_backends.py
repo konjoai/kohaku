@@ -9,6 +9,7 @@ so the comparison is apples-to-apples. Follows the repo benchmarking rules:
 Requires the Rust extension to be built (``pip install .``); otherwise only the
 NumPy path is timed and the speedup column is blank.
 """
+
 from __future__ import annotations
 
 import json

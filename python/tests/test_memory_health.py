@@ -57,12 +57,20 @@ def test_expired_detection() -> None:
     store, pg = _store_with()
     now = datetime.now(timezone.utc)
     h = encode_text("temp memo")
-    store.store(h, h, label="expired",
-                valid_from=now - timedelta(days=2),
-                valid_until=now - timedelta(days=1))
-    store.store(h, h, label="still good",
-                valid_from=now - timedelta(days=1),
-                valid_until=now + timedelta(days=1))
+    store.store(
+        h,
+        h,
+        label="expired",
+        valid_from=now - timedelta(days=2),
+        valid_until=now - timedelta(days=1),
+    )
+    store.store(
+        h,
+        h,
+        label="still good",
+        valid_from=now - timedelta(days=1),
+        valid_until=now + timedelta(days=1),
+    )
     analyzer = MemoryHealthAnalyzer(store, provenance=pg)
     report = analyzer.compute(now=now)
     assert report.expired_memories == 1
@@ -73,8 +81,7 @@ def test_duplicate_candidates_flagged() -> None:
     hv = encode_text("identical phrase used twice")
     store.store(hv, hv, label="copy-a")
     store.store(hv, hv, label="copy-b")
-    analyzer = MemoryHealthAnalyzer(store, provenance=pg,
-                                    duplicate_threshold=0.9)
+    analyzer = MemoryHealthAnalyzer(store, provenance=pg, duplicate_threshold=0.9)
     report = analyzer.compute()
     assert report.duplicate_candidates, "identical HVs should be flagged"
     pair = report.duplicate_candidates[0]
@@ -145,9 +152,13 @@ def test_recommendations_appear_when_issues_present() -> None:
         store.store(h, h, label=f"old-{i}", valid_from=long_ago)
     # Add an expired memory.
     h = encode_text("expired memo")
-    store.store(h, h, label="expired",
-                valid_from=now - timedelta(days=1),
-                valid_until=now - timedelta(hours=1))
+    store.store(
+        h,
+        h,
+        label="expired",
+        valid_from=now - timedelta(days=1),
+        valid_until=now - timedelta(hours=1),
+    )
     analyzer = MemoryHealthAnalyzer(store, provenance=pg)
     report = analyzer.compute(now=now)
     text = " ".join(report.recommendations)

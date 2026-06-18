@@ -11,6 +11,7 @@ watching absolute numbers move.
     python benchmarks/run_benchmarks.py --quick         # fast, for CI logs
     python benchmarks/run_benchmarks.py --json out.json # also write results
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,25 +44,36 @@ def bench_retrieval(sizes, dims, queries):
     for n in sizes:
         exact = Memory(dims=dims, capacity=n + 1)
         approx = Memory(dims=dims, capacity=n + 1, ann=True)
-        phrases = [f"concept {i} regarding subject {i % 13} and detail {i % 29}" for i in range(n)]
+        phrases = [
+            f"concept {i} regarding subject {i % 13} and detail {i % 29}"
+            for i in range(n)
+        ]
         for p in phrases:
             exact.store(p)
             approx.store(p)
         probes = [phrases[int(rng.integers(0, n))] for _ in range(queries)]
-        t_exact = _time(lambda: [exact.query(p, reinforce=False) for p in probes], 1) / queries
-        t_ann = _time(lambda: [approx.query(p, reinforce=False) for p in probes], 1) / queries
+        t_exact = (
+            _time(lambda: [exact.query(p, reinforce=False) for p in probes], 1)
+            / queries
+        )
+        t_ann = (
+            _time(lambda: [approx.query(p, reinforce=False) for p in probes], 1)
+            / queries
+        )
         agree = sum(
             exact.query(p, top_k=1, reinforce=False)[0].text
             == approx.query(p, top_k=1, reinforce=False)[0].text
             for p in probes
         ) / len(probes)
-        rows.append({
-            "n": n,
-            "exact_ms": round(t_exact * 1e3, 3),
-            "ann_ms": round(t_ann * 1e3, 3),
-            "speedup": round(t_exact / t_ann, 2) if t_ann else float("inf"),
-            "ann_top1_agreement": round(agree, 3),
-        })
+        rows.append(
+            {
+                "n": n,
+                "exact_ms": round(t_exact * 1e3, 3),
+                "ann_ms": round(t_ann * 1e3, 3),
+                "speedup": round(t_exact / t_ann, 2) if t_ann else float("inf"),
+                "ann_top1_agreement": round(agree, 3),
+            }
+        )
     return rows
 
 
@@ -77,12 +89,14 @@ def bench_storage(sizes, dims):
             js = Path(d) / "m.json"
             save_binary(mem, hkb)
             save_json(mem, js)
-            rows.append({
-                "n": n,
-                "hkb_kb": round(hkb.stat().st_size / 1024, 1),
-                "json_kb": round(js.stat().st_size / 1024, 1),
-                "ratio": round(js.stat().st_size / hkb.stat().st_size, 1),
-            })
+            rows.append(
+                {
+                    "n": n,
+                    "hkb_kb": round(hkb.stat().st_size / 1024, 1),
+                    "json_kb": round(js.stat().st_size / 1024, 1),
+                    "ratio": round(js.stat().st_size / hkb.stat().st_size, 1),
+                }
+            )
     return rows
 
 
@@ -103,7 +117,9 @@ def main() -> None:
     parser.add_argument("--quick", action="store_true", help="small sizes for CI logs")
     parser.add_argument("--dims", type=int, default=DIMS)
     parser.add_argument("--queries", type=int, default=50)
-    parser.add_argument("--json", type=str, default=None, help="write results to this path")
+    parser.add_argument(
+        "--json", type=str, default=None, help="write results to this path"
+    )
     args = parser.parse_args()
 
     sizes = [100, 500, 1000] if args.quick else [500, 2000, 5000, 10000]
@@ -115,13 +131,17 @@ def main() -> None:
     print(f"kohaku {kohaku.__version__} — backend: {kohaku._BACKEND}")
     retrieval = bench_retrieval(sizes, dims, queries)
     storage = bench_storage(sizes, dims)
-    _print_table(f"Retrieval latency (dims={dims}, {queries} queries) — exact vs ANN", retrieval)
+    _print_table(
+        f"Retrieval latency (dims={dims}, {queries} queries) — exact vs ANN", retrieval
+    )
     _print_table("On-disk size — .hkb (packed bits) vs JSON", storage)
 
     if args.json:
-        Path(args.json).write_text(json.dumps(
-            {"dims": dims, "retrieval": retrieval, "storage": storage}, indent=2
-        ))
+        Path(args.json).write_text(
+            json.dumps(
+                {"dims": dims, "retrieval": retrieval, "storage": storage}, indent=2
+            )
+        )
         print(f"\nwrote {args.json}")
 
 

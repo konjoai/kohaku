@@ -30,6 +30,7 @@ trust table, and the datetime/tag helpers) live in :mod:`kohaku.enriched_meta`
 and are re-exported here so existing ``from kohaku.enriched import …`` paths
 keep working.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -100,7 +101,9 @@ class EnrichedMemoryStore:
         self.half_life_days = half_life_days
         self.reinforcement_k = reinforcement_k
         self.trust_weights = (
-            dict(trust_weights) if trust_weights is not None else dict(SOURCE_TRUST_WEIGHTS)
+            dict(trust_weights)
+            if trust_weights is not None
+            else dict(SOURCE_TRUST_WEIGHTS)
         )
         # Optional provenance graph — when attached, every `store()` records a
         # lineage row. Typed as `object` to avoid a circular import at module
@@ -393,20 +396,24 @@ class EnrichedMemoryStore:
                 reinforcement_k=self.reinforcement_k,
                 trust_weights=self.trust_weights,
             )
-            items.append({
-                "entry_id": e.id,
-                "label": e.label,
-                "timestamp": e.timestamp,
-                "salience": round(float(sal), 6),
-                "source": meta.source,
-                "importance": float(meta.importance),
-                "reinforcement_count": int(meta.reinforcement_count),
-                "trust": meta.trust(self.trust_weights),
-                "valid_from": meta.valid_from.isoformat(),
-                "valid_until": meta.valid_until.isoformat() if meta.valid_until else None,
-                "created_at": meta.created_at.isoformat(),
-                "tags": sorted(meta.tags),
-            })
+            items.append(
+                {
+                    "entry_id": e.id,
+                    "label": e.label,
+                    "timestamp": e.timestamp,
+                    "salience": round(float(sal), 6),
+                    "source": meta.source,
+                    "importance": float(meta.importance),
+                    "reinforcement_count": int(meta.reinforcement_count),
+                    "trust": meta.trust(self.trust_weights),
+                    "valid_from": meta.valid_from.isoformat(),
+                    "valid_until": meta.valid_until.isoformat()
+                    if meta.valid_until
+                    else None,
+                    "created_at": meta.created_at.isoformat(),
+                    "tags": sorted(meta.tags),
+                }
+            )
         if sort == "recency":
             items.sort(key=lambda r: r["valid_from"], reverse=True)
         else:
@@ -430,7 +437,8 @@ class EnrichedMemoryStore:
         now = _aware(now or _utcnow())
         # Find entries to drop.
         drop_ids = [
-            eid for eid, meta in self._meta.items()
+            eid
+            for eid, meta in self._meta.items()
             if meta.valid_until is not None and now > meta.valid_until
         ]
         if not drop_ids:

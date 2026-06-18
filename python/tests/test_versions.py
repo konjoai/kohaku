@@ -41,8 +41,13 @@ def test_record_returns_monotonic_versions() -> None:
 
 def test_record_tags_are_normalised() -> None:
     vs = VersionStore()
-    v = vs.record(1, label="x", source="user_input", importance=0.5,
-                  tags=["  Work ", "URGENT", "work", ""])
+    v = vs.record(
+        1,
+        label="x",
+        source="user_input",
+        importance=0.5,
+        tags=["  Work ", "URGENT", "work", ""],
+    )
     # lowercase, dedup, sorted, empty dropped
     assert v.tags == ("urgent", "work")
 
@@ -75,8 +80,14 @@ def test_negative_memory_id_rejected() -> None:
 def test_sqlite_persistence_round_trip(tmp_path: Path) -> None:
     db = tmp_path / "versions.sqlite"
     vs1 = VersionStore(db)
-    vs1.record(1, label="first", source="user_input", importance=0.5,
-               tags=["t1"], editor="alice")
+    vs1.record(
+        1,
+        label="first",
+        source="user_input",
+        importance=0.5,
+        tags=["t1"],
+        editor="alice",
+    )
     vs1.close()
     vs2 = VersionStore(db)
     try:
@@ -103,8 +114,9 @@ def test_delete_removes_all_versions_for_one_memory() -> None:
 def test_enriched_store_autosnapshots_v1() -> None:
     store, vs = _store_with_versions()
     hv = encode_text("the cat sat on the mat")
-    eid = store.store(hv, hv, label="cat", source="user_input",
-                       importance=0.7, tags=["pet"])
+    eid = store.store(
+        hv, hv, label="cat", source="user_input", importance=0.7, tags=["pet"]
+    )
     versions = vs.list_versions(eid)
     assert len(versions) == 1
     assert versions[0].label == "cat"
@@ -116,8 +128,9 @@ def test_enriched_store_autosnapshots_v1() -> None:
 def test_update_label_re_encodes_hv() -> None:
     store, vs = _store_with_versions()
     h = encode_text("user prefers green tea")
-    eid = store.store(h, h, label="user prefers green tea",
-                       source="user_input", importance=0.5)
+    eid = store.store(
+        h, h, label="user prefers green tea", source="user_input", importance=0.5
+    )
     result = update_memory(store, eid, vs, label="user prefers black coffee")
     assert isinstance(result, UpdateResult)
     assert result.hv_re_encoded is True
@@ -197,9 +210,18 @@ def test_no_change_still_writes_snapshot() -> None:
 
 def test_version_to_dict_shape() -> None:
     vs = VersionStore()
-    v = vs.record(1, label="x", source="user_input", importance=0.7,
-                  tags=["t"], editor="me")
+    v = vs.record(
+        1, label="x", source="user_input", importance=0.7, tags=["t"], editor="me"
+    )
     d = v.to_dict()
-    assert {"memory_id", "version", "label", "source", "importance",
-            "tags", "edited_at", "editor"} <= d.keys()
+    assert {
+        "memory_id",
+        "version",
+        "label",
+        "source",
+        "importance",
+        "tags",
+        "edited_at",
+        "editor",
+    } <= d.keys()
     assert d["tags"] == ["t"]

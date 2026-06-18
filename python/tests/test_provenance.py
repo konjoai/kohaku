@@ -150,8 +150,7 @@ def test_enriched_store_records_parent_lineage() -> None:
     h1 = encode_text("alpha")
     e1 = store.store(h1, h1, label="alpha", source="user_input")
     h2 = encode_text("derived")
-    e2 = store.store(h2, h2, label="derived",
-                     source="inference", parent_ids=[e1])
+    e2 = store.store(h2, h2, label="derived", source="inference", parent_ids=[e1])
     full = pg.get_full_graph(e2)
     assert str(e1) in {n.memory_id for n in full.ancestors}
     assert (str(e1), str(e2)) in full.edges
@@ -160,8 +159,7 @@ def test_enriched_store_records_parent_lineage() -> None:
 def test_upsert_preserves_created_at() -> None:
     pg = ProvenanceGraph()
     node1 = pg.record("m1", source_type="user_input")
-    node2 = pg.record("m1", source_type="inference",
-                      metadata={"updated": True})
+    node2 = pg.record("m1", source_type="inference", metadata={"updated": True})
     # created_at is sticky across upserts
     assert node2.created_at == node1.created_at
     assert node2.source_type == "inference"

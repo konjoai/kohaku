@@ -4,6 +4,7 @@ Covers the two primitives (`compose`, `complete_cue`) and the `Memory`
 facade's `recall_composite`: soft-conjunction retrieval and robust recall of a
 noisy cue via pattern completion.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -76,13 +77,17 @@ def _facade() -> Memory:
 
 def test_recall_composite_soft_conjunction():
     mem = _facade()
-    hits = mem.recall_composite(["Italian", "wine", "Tuscany"], top_k=1, reinforce=False)
+    hits = mem.recall_composite(
+        ["Italian", "wine", "Tuscany"], top_k=1, reinforce=False
+    )
     assert hits[0].text.startswith("User loves Italian red wine")
 
 
 def test_recall_composite_cleanup_returns_results():
     mem = _facade()
-    hits = mem.recall_composite(["Japanese", "tea"], top_k=1, cleanup=True, reinforce=False)
+    hits = mem.recall_composite(
+        ["Japanese", "tea"], top_k=1, cleanup=True, reinforce=False
+    )
     assert hits[0].text.startswith("User prefers Japanese green tea")
 
 

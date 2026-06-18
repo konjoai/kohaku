@@ -1,4 +1,5 @@
 """Tests for kohaku.enriched — temporal validity, salience, provenance, trust."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,7 @@ def _utc(year=2026, month=5, day=12, hour=12, minute=0):
 
 
 # ────────────────────────────── MemoryMetadata ────────────────────────────────
+
 
 def test_metadata_promotes_naive_datetimes_to_utc():
     m = MemoryMetadata(
@@ -64,9 +66,9 @@ def test_is_valid_at_respects_from_and_until():
         valid_from=_utc(day=10),
         valid_until=_utc(day=15),
     )
-    assert not m.is_valid_at(_utc(day=9))     # before window
-    assert m.is_valid_at(_utc(day=11))         # inside window
-    assert not m.is_valid_at(_utc(day=16))    # after window
+    assert not m.is_valid_at(_utc(day=9))  # before window
+    assert m.is_valid_at(_utc(day=11))  # inside window
+    assert not m.is_valid_at(_utc(day=16))  # after window
     # No valid_until = always valid past start
     m2 = MemoryMetadata(entry_id=2, valid_from=_utc(day=1))
     assert m2.is_valid_at(_utc(year=2030))
@@ -93,8 +95,7 @@ def test_salience_recency_halves_at_half_life():
 
 
 def test_salience_reinforcement_bumps_score():
-    m = MemoryMetadata(entry_id=1, valid_from=_utc(), importance=1.0,
-                      created_at=_utc())
+    m = MemoryMetadata(entry_id=1, valid_from=_utc(), importance=1.0, created_at=_utc())
     base = m.salience(now=_utc())
     m.reinforcement_count = 10
     bumped = m.salience(now=_utc())
@@ -103,17 +104,29 @@ def test_salience_reinforcement_bumps_score():
 
 
 def test_salience_trust_modulates_score():
-    user = MemoryMetadata(entry_id=1, valid_from=_utc(), source="user_input",
-                          importance=1.0, created_at=_utc())
-    agent = MemoryMetadata(entry_id=2, valid_from=_utc(), source="agent_inference",
-                           importance=1.0, created_at=_utc())
+    user = MemoryMetadata(
+        entry_id=1,
+        valid_from=_utc(),
+        source="user_input",
+        importance=1.0,
+        created_at=_utc(),
+    )
+    agent = MemoryMetadata(
+        entry_id=2,
+        valid_from=_utc(),
+        source="agent_inference",
+        importance=1.0,
+        created_at=_utc(),
+    )
     assert agent.salience(now=_utc()) < user.salience(now=_utc())
     assert agent.salience(now=_utc()) == pytest.approx(
-        user.salience(now=_utc()) * 0.5, abs=1e-6,
+        user.salience(now=_utc()) * 0.5,
+        abs=1e-6,
     )
 
 
 # ─────────────────────────── EnrichedMemoryStore ──────────────────────────────
+
 
 def _store_with_phrase(store: EnrichedMemoryStore, phrase: str, **kwargs) -> int:
     hv = HyperVector.random(seed=hash(phrase) & 0xFFFF)
@@ -124,7 +137,8 @@ def test_query_filters_expired_by_default():
     store = EnrichedMemoryStore(capacity=20)
     now = datetime.now(timezone.utc)
     expired_id = _store_with_phrase(
-        store, "stale",
+        store,
+        "stale",
         valid_from=now - timedelta(days=5),
         valid_until=now - timedelta(days=1),
     )
@@ -140,7 +154,8 @@ def test_query_include_expired_returns_them():
     store = EnrichedMemoryStore(capacity=10)
     now = datetime.now(timezone.utc)
     expired_id = _store_with_phrase(
-        store, "stale",
+        store,
+        "stale",
         valid_from=now - timedelta(days=5),
         valid_until=now - timedelta(days=1),
     )
@@ -167,20 +182,22 @@ def test_query_sort_by_salience_reranks():
     # important user memory that DOES NOT match the probe
     target_text = "kohaku amber"
     other = HyperVector.random(seed=900)
-    eid_imp = store.store(other, other, "important",
-                          source="user_input", importance=1.0)
+    eid_imp = store.store(
+        other, other, "important", source="user_input", importance=1.0
+    )
     # reinforce it many times
     for _ in range(20):
         store.reinforce(eid_imp)
     # match-y memory but agent-sourced + low importance
     matchy = HyperVector.random(seed=hash(target_text) & 0xFFFF)
-    eid_match = store.store(matchy, matchy, "match",
-                            source="agent_inference", importance=0.1)
+    eid_match = store.store(
+        matchy, matchy, "match", source="agent_inference", importance=0.1
+    )
     # query with the matchy vector
     by_sim = store.query(matchy, top_k=2, sort="similarity", reinforce_hits=False)
     by_sal = store.query(matchy, top_k=2, sort="salience", reinforce_hits=False)
-    assert by_sim[0].entry_id == eid_match     # top sim is the matchy one
-    assert by_sal[0].entry_id == eid_imp        # top salience is the important one
+    assert by_sim[0].entry_id == eid_match  # top sim is the matchy one
+    assert by_sal[0].entry_id == eid_imp  # top salience is the important one
 
 
 def test_reinforce_increments_count():
@@ -209,7 +226,8 @@ def test_expire_old_drops_expired_entries():
     store = EnrichedMemoryStore(capacity=10)
     now = datetime.now(timezone.utc)
     eid_expired = _store_with_phrase(
-        store, "x",
+        store,
+        "x",
         valid_from=now - timedelta(days=5),
         valid_until=now - timedelta(days=1),
     )
@@ -223,10 +241,8 @@ def test_expire_old_drops_expired_entries():
 
 def test_list_memories_sorts_by_salience():
     store = EnrichedMemoryStore(capacity=10)
-    eid_low = _store_with_phrase(store, "low",
-                                  source="agent_inference", importance=0.1)
-    eid_high = _store_with_phrase(store, "high",
-                                   source="user_input", importance=0.9)
+    eid_low = _store_with_phrase(store, "low", source="agent_inference", importance=0.1)
+    eid_high = _store_with_phrase(store, "high", source="user_input", importance=0.9)
     out = store.list_memories(sort="salience")
     assert out[0]["entry_id"] == eid_high
     assert out[1]["entry_id"] == eid_low
@@ -255,7 +271,7 @@ def test_capacity_eviction_drops_metadata():
     store = EnrichedMemoryStore(capacity=2)
     e1 = _store_with_phrase(store, "a")
     e2 = _store_with_phrase(store, "b")
-    e3 = _store_with_phrase(store, "c")   # evicts e1
+    e3 = _store_with_phrase(store, "c")  # evicts e1
     assert store.get_metadata(e1) is None
     assert store.get_metadata(e2) is not None
     assert store.get_metadata(e3) is not None

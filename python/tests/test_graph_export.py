@@ -1,4 +1,5 @@
 """Tests for Phase 10 — Memory Graph Export (v0.9.0)."""
+
 from __future__ import annotations
 
 import json
@@ -19,6 +20,7 @@ from kohaku.learning import ItemMemory
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_episodic(n: int = 4, seed_base: int = 0) -> EpisodicMemory:
     """Return an EpisodicMemory populated with *n* deterministic HVs."""
@@ -42,6 +44,7 @@ def _make_semantic(labels: list[str], seed_base: int = 100) -> ItemMemory:
 # Config defaults
 # ---------------------------------------------------------------------------
 
+
 def test_graph_export_config_defaults() -> None:
     """GraphExportConfig must have the documented default values."""
     cfg = GraphExportConfig()
@@ -55,6 +58,7 @@ def test_graph_export_config_defaults() -> None:
 # ---------------------------------------------------------------------------
 # Basic export behaviour
 # ---------------------------------------------------------------------------
+
 
 def test_export_returns_memory_graph() -> None:
     """export() must return a MemoryGraph instance."""
@@ -96,6 +100,7 @@ def test_export_episodic_source_label() -> None:
 # ---------------------------------------------------------------------------
 # Edge behaviour
 # ---------------------------------------------------------------------------
+
 
 def test_export_edges_above_threshold() -> None:
     """All edges must have similarity >= similarity_threshold."""
@@ -153,13 +158,21 @@ def test_export_no_self_loops_default() -> None:
 # Serialisation
 # ---------------------------------------------------------------------------
 
+
 def test_export_to_dict_roundtrip() -> None:
     """to_dict() must contain all required top-level keys."""
     mem = _make_episodic(3)
     exporter = MemoryGraphExporter()
     graph = exporter.export(mem)
     d = graph.to_dict()
-    for key in ("n_nodes", "n_edges", "similarity_threshold", "exported_at", "nodes", "edges"):
+    for key in (
+        "n_nodes",
+        "n_edges",
+        "similarity_threshold",
+        "exported_at",
+        "nodes",
+        "edges",
+    ):
         assert key in d, f"missing key: {key}"
     assert d["n_nodes"] == 3
 
@@ -210,6 +223,7 @@ def test_export_gexf_has_edges_element() -> None:
 # File I/O
 # ---------------------------------------------------------------------------
 
+
 def test_save_json_creates_file(tmp_path: Path) -> None:
     """save_json() must create the target file."""
     mem = _make_episodic(3)
@@ -258,6 +272,7 @@ def test_save_unknown_extension_raises(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Semantic memory integration
 # ---------------------------------------------------------------------------
+
 
 def test_export_with_semantic_memory() -> None:
     """ItemMemory nodes must be included with source='semantic'."""

@@ -9,6 +9,7 @@ Graph model:
 
 Cosine similarity: computed in FP32 via np.einsum.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -57,12 +58,12 @@ class GraphExportConfig:
 class MemoryNode:
     """A single node in the exported memory graph."""
 
-    node_id: str          # "e_{entry_id}" or "s_{label}"
+    node_id: str  # "e_{entry_id}" or "s_{label}"
     label: str
-    source: str           # "episodic" | "semantic"
+    source: str  # "episodic" | "semantic"
     timestamp: Optional[int]
     decay_weight: Optional[float]  # None if no DecayConfig
-    cluster_id: Optional[int]      # None if no clustering info
+    cluster_id: Optional[int]  # None if no clustering info
 
 
 @dataclass(frozen=True)
@@ -269,7 +270,9 @@ def _add_gexf_nodes(graph_el: Element, nodes: list[MemoryNode]) -> None:
         avs = SubElement(n, "attvalues")
         _attval(avs, "0", node.source)
         _attval(avs, "1", str(node.timestamp) if node.timestamp is not None else "")
-        _attval(avs, "2", str(node.decay_weight) if node.decay_weight is not None else "")
+        _attval(
+            avs, "2", str(node.decay_weight) if node.decay_weight is not None else ""
+        )
         _attval(avs, "3", str(node.cluster_id) if node.cluster_id is not None else "")
 
 
@@ -380,9 +383,7 @@ class MemoryGraphExporter:
         elif ext == ".gexf":
             self.save_gexf(graph, dest)
         else:
-            raise ValueError(
-                f"unknown file extension {ext!r}; supported: .json, .gexf"
-            )
+            raise ValueError(f"unknown file extension {ext!r}; supported: .json, .gexf")
 
 
 def _collect_nodes(

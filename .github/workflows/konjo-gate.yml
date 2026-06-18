@@ -4,8 +4,8 @@ name: "Konjo Quality Gate — Wall 2"
 # `continue-on-error` removed and now fail the job (and the aggregate gate) on
 # violation — they are verified clean repo-wide. Steps marked "WARN-ONLY" still
 # carry `continue-on-error: true` because pre-existing debt would break CI; each
-# is armed once its debt is cleared (clippy::pedantic, ruff format, mypy strict,
-# file size, complexity, coverage threshold, mutation). Do not add new
+# is armed once its debt is cleared (clippy::pedantic, mypy strict, file size,
+# complexity, coverage threshold, mutation). Do not add new
 # `continue-on-error` steps; clear the debt and arm instead.
 #
 on:
@@ -53,9 +53,8 @@ jobs:
       # ARMED (blocking): verified clean repo-wide.
       - name: ruff lint
         run: ruff check .
-      # WARN-ONLY: repo not yet ruff-format-clean — arm after a format sweep.
+      # ARMED (blocking): repo format-swept clean.
       - name: ruff format
-        continue-on-error: true
         run: ruff format --check .
       - name: vulture
         continue-on-error: true

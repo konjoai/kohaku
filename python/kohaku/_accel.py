@@ -6,6 +6,7 @@ Rust (bit-packed XOR + popcount over bipolar vectors). Both paths return
 identical rankings for ±1 inputs — proven by the parity tests in
 ``test_accel.py``.
 """
+
 from __future__ import annotations
 
 from typing import List, Tuple

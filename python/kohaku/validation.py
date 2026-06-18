@@ -26,6 +26,7 @@ Usage::
     result, entry_id = validator.validate_and_store(key_hv, value_hv, label,
                                                     source="agent_inference")
 """
+
 from __future__ import annotations
 
 import time

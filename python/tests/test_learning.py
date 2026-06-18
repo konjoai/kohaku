@@ -1,4 +1,5 @@
 """Tests for kohaku.learning — online HDC item memory."""
+
 from __future__ import annotations
 
 import numpy as np

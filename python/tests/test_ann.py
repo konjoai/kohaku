@@ -1,4 +1,5 @@
 """Tests for the bipolar-LSH ANN index (B2) and its Memory integration."""
+
 from __future__ import annotations
 
 import numpy as np

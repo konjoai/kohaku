@@ -1,4 +1,5 @@
 """Tests for StreamingConsolidator."""
+
 import pytest
 from kohaku.streaming import StreamingConsolidator
 from kohaku._pure import EpisodicMemory, HyperVector

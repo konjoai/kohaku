@@ -1,4 +1,5 @@
 """FastAPI REST server for Kohaku HDC episodic memory."""
+
 from __future__ import annotations
 
 import logging
@@ -74,6 +75,7 @@ if _FASTAPI_AVAILABLE:
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
+
 
 def create_app(capacity: int = 1000, dim: int = 1024) -> Any:
     """Create and configure the Kohaku FastAPI application.
@@ -179,6 +181,7 @@ def create_app(capacity: int = 1000, dim: int = 1024) -> Any:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def serve(
     host: str = "127.0.0.1",

@@ -1,4 +1,5 @@
 """Tests for the ``Memory`` facade — the string-in/string-out front door."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

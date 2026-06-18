@@ -9,6 +9,7 @@ rankings over their scored set — the index never invents a match.
 
 Follows the repo benchmarking rules (≥5 warmups, p50/p95/p99, never overwrites).
 """
+
 from __future__ import annotations
 
 import json
@@ -71,22 +72,29 @@ def run(sizes, dims, cand_frac):
     rows = []
     for n in sizes:
         store, ids = _store(n, dims, seed=n)
-        probe = HyperVector(np.where(np.random.default_rng(n + 1).random(dims) > 0.5,
-                                     np.int8(1), np.int8(-1)))
+        probe = HyperVector(
+            np.where(
+                np.random.default_rng(n + 1).random(dims) > 0.5, np.int8(1), np.int8(-1)
+            )
+        )
         k = max(1, int(n * cand_frac))
         cand = set(ids[:k])  # ANN would hand us a small candidate set
         full = _bench(lambda: store.query(probe, top_k=TOP_K, reinforce_hits=False))
         narrowed = _bench(
-            lambda: store.query(probe, top_k=TOP_K, candidate_ids=cand, reinforce_hits=False)
+            lambda: store.query(
+                probe, top_k=TOP_K, candidate_ids=cand, reinforce_hits=False
+            )
         )
-        rows.append({
-            "n": n,
-            "dims": dims,
-            "candidates": k,
-            "full_ms": full,
-            "narrowed_ms": narrowed,
-            "speedup_p50": round(full["p50"] / narrowed["p50"], 2),
-        })
+        rows.append(
+            {
+                "n": n,
+                "dims": dims,
+                "candidates": k,
+                "full_ms": full,
+                "narrowed_ms": narrowed,
+                "speedup_p50": round(full["p50"] / narrowed["p50"], 2),
+            }
+        )
     return rows
 
 
@@ -107,8 +115,13 @@ def main() -> None:
             "processor": platform.processor(),
             "python": platform.python_version(),
         },
-        "config": {"warmup": WARMUP, "runs": RUNS, "top_k": TOP_K,
-                   "dims": dims, "cand_frac": cand_frac},
+        "config": {
+            "warmup": WARMUP,
+            "runs": RUNS,
+            "top_k": TOP_K,
+            "dims": dims,
+            "cand_frac": cand_frac,
+        },
         "has_rust": HAS_RUST,
         "rows": rows,
     }

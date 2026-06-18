@@ -28,6 +28,7 @@ Why ship this on top of :func:`kohaku._query.query`?
     reconstructed pattern that converges to the true latent prototype. Useful
     for de-noising and for completing partial cues.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -41,12 +42,13 @@ from kohaku._pure import DIMS, HyperVector
 @dataclass
 class HopfieldRecall:
     """Result of one :meth:`HopfieldAssociator.recall` call."""
-    pattern: HyperVector              # final binarized state q*
-    iterations: int                   # how many updates ran
-    converged: bool                   # True if update delta ≤ eps
-    weights: np.ndarray               # final softmax(β X q*) — length N
-    best_index: int                   # argmax of final weights
-    best_similarity: float            # cosine(q*, X[best_index])
+
+    pattern: HyperVector  # final binarized state q*
+    iterations: int  # how many updates ran
+    converged: bool  # True if update delta ≤ eps
+    weights: np.ndarray  # final softmax(β X q*) — length N
+    best_index: int  # argmax of final weights
+    best_similarity: float  # cosine(q*, X[best_index])
 
 
 class HopfieldAssociator:
@@ -113,7 +115,9 @@ class HopfieldAssociator:
         self._labels.append(label)
         return len(self._patterns) - 1
 
-    def store_many(self, vectors: List[HyperVector], labels: Optional[List[str]] = None) -> None:
+    def store_many(
+        self, vectors: List[HyperVector], labels: Optional[List[str]] = None
+    ) -> None:
         if labels is None:
             labels = [""] * len(vectors)
         if len(labels) != len(vectors):
@@ -146,8 +150,8 @@ class HopfieldAssociator:
                 f"query dims mismatch: expected {self._dims}, got {len(query)}"
             )
 
-        X = np.stack(self._patterns, axis=0)        # (N, D) float32
-        q = query.data.astype(np.float32).copy()    # (D,)
+        X = np.stack(self._patterns, axis=0)  # (N, D) float32
+        q = query.data.astype(np.float32).copy()  # (D,)
         prev: Optional[np.ndarray] = None
         weights = np.zeros(X.shape[0], dtype=np.float32)
         converged = False
@@ -155,7 +159,7 @@ class HopfieldAssociator:
 
         for step in range(max_iters):
             n_iters = step + 1
-            scores = X @ q                         # (N,) — dot products
+            scores = X @ q  # (N,) — dot products
             # numerically stable softmax
             scaled = self.beta * scores
             scaled -= scaled.max()
@@ -167,7 +171,9 @@ class HopfieldAssociator:
                 new_q = np.where(new_q >= 0.0, np.float32(1), np.float32(-1))
             # convergence: change in normalized state below eps
             if prev is not None:
-                delta = float(np.linalg.norm(new_q - prev) / max(1.0, np.linalg.norm(new_q)))
+                delta = float(
+                    np.linalg.norm(new_q - prev) / max(1.0, np.linalg.norm(new_q))
+                )
                 if delta <= eps:
                     converged = True
                     q = new_q
@@ -179,7 +185,11 @@ class HopfieldAssociator:
         final_bits = np.where(q >= 0.0, np.int8(1), np.int8(-1)).astype(np.int8)
         final_hv = HyperVector(final_bits)
         best_idx = int(np.argmax(weights))
-        best_sim = float(final_hv.cosine_similarity(HyperVector(self._patterns[best_idx].astype(np.int8))))
+        best_sim = float(
+            final_hv.cosine_similarity(
+                HyperVector(self._patterns[best_idx].astype(np.int8))
+            )
+        )
         return HopfieldRecall(
             pattern=final_hv,
             iterations=n_iters,

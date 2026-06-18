@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # ──────────────────────────── DTOs ─────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class BatchUpdateReport:
     processed: int
@@ -112,16 +113,19 @@ def batch_update(
         row_editor = row.get("editor", editor)
         try:
             result = update_memory(
-                store, memory_id, versions,
-                editor=row_editor, **kwargs,
+                store,
+                memory_id,
+                versions,
+                editor=row_editor,
+                **kwargs,
             )
         except KeyError as exc:
-            errors.append({"index": idx, "memory_id": memory_id,
-                            "error": f"not found: {exc}"})
+            errors.append(
+                {"index": idx, "memory_id": memory_id, "error": f"not found: {exc}"}
+            )
             continue
         except (ValueError, TypeError) as exc:
-            errors.append({"index": idx, "memory_id": memory_id,
-                            "error": str(exc)})
+            errors.append({"index": idx, "memory_id": memory_id, "error": str(exc)})
             continue
         results.append(result.to_dict())
         updated_count += 1
@@ -136,6 +140,7 @@ def batch_update(
 
 
 # ──────────────────────────── batch delete ─────────────────────────────────
+
 
 def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
     """Drop entries from the underlying :class:`EpisodicMemory`."""
@@ -155,7 +160,8 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
             except (AttributeError, OSError) as exc:
                 logger.warning(
                     "provenance delete failed for %s (%s)",
-                    eid, exc.__class__.__name__,
+                    eid,
+                    exc.__class__.__name__,
                 )
         if store.versions is not None:
             try:
@@ -163,7 +169,8 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
             except (AttributeError, OSError) as exc:
                 logger.warning(
                     "version delete failed for %s (%s)",
-                    eid, exc.__class__.__name__,
+                    eid,
+                    exc.__class__.__name__,
                 )
     return removed
 
@@ -200,7 +207,8 @@ def batch_delete_by_ids(
             except (AttributeError, OSError) as exc:
                 logger.warning(
                     "relationship cleanup failed for %s (%s)",
-                    mid, exc.__class__.__name__,
+                    mid,
+                    exc.__class__.__name__,
                 )
 
     return BatchDeleteReport(
@@ -229,7 +237,11 @@ def batch_delete_by_filter(
     raises (we don't accept an unconditional wipe by accident).
     """
     filters_set = [
-        stale_days, older_than_days, source, tags_any, max_importance,
+        stale_days,
+        older_than_days,
+        source,
+        tags_any,
+        max_importance,
     ]
     if all(f is None for f in filters_set):
         raise ValueError(
@@ -278,6 +290,7 @@ def batch_delete_by_filter(
 
 
 # ──────────────────────────── batch export ─────────────────────────────────
+
 
 def batch_export(
     store: EnrichedMemoryStore,

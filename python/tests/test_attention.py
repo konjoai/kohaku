@@ -1,4 +1,5 @@
 """Tests for kohaku.attention — attention_weighted_encode and encode_text."""
+
 from __future__ import annotations
 
 import pytest
@@ -10,6 +11,7 @@ from kohaku._pure import DIMS
 # 1. Uniform weights == encode_text (cosine similarity > 0.99)
 # ---------------------------------------------------------------------------
 
+
 def test_uniform_weights_matches_encode_text():
     """attention_weighted_encode with uniform weights must match encode_text closely."""
     tokens = ["the", "quick", "brown", "fox"]
@@ -17,12 +19,15 @@ def test_uniform_weights_matches_encode_text():
     hv_weighted = attention_weighted_encode(tokens, uniform)
     hv_encode = encode_text(" ".join(tokens))
     sim = hv_weighted.cosine_similarity(hv_encode)
-    assert sim > 0.99, f"Uniform-weighted encode should match encode_text, got sim={sim:.4f}"
+    assert sim > 0.99, (
+        f"Uniform-weighted encode should match encode_text, got sim={sim:.4f}"
+    )
 
 
 # ---------------------------------------------------------------------------
 # 2. Higher weight on a token → result more similar to that token's vector
 # ---------------------------------------------------------------------------
+
 
 def test_high_weight_token_dominates():
     """The high-weight token's hypervector should be more similar to the result."""
@@ -51,6 +56,7 @@ def test_high_weight_token_dominates():
 # 3. Output is a valid HyperVector (all values ±1)
 # ---------------------------------------------------------------------------
 
+
 def test_output_is_valid_bipolar_hypervector():
     """Result of attention_weighted_encode must have all values in {+1, -1}."""
     tokens = ["neural", "network", "memory"]
@@ -64,6 +70,7 @@ def test_output_is_valid_bipolar_hypervector():
 # ---------------------------------------------------------------------------
 # 4. Empty weight list raises ValueError
 # ---------------------------------------------------------------------------
+
 
 def test_empty_weights_raises_value_error():
     """attention_weighted_encode with empty tokens/weights must raise ValueError."""

@@ -1,4 +1,5 @@
 """Memory compaction: remove near-duplicate entries before eviction."""
+
 from __future__ import annotations
 import logging
 from typing import List, Set

@@ -74,8 +74,7 @@ def test_apply_time_filter_drops_unparseable() -> None:
         {"entry_id": 2, "label": "bad", "valid_from": "garbage", "valid_until": None},
         {"entry_id": 3, "label": "missing", "valid_until": None},
     ]
-    tf = TimeFilter(valid_after=JAN_1 - timedelta(days=1),
-                    valid_before=FEB_1)
+    tf = TimeFilter(valid_after=JAN_1 - timedelta(days=1), valid_before=FEB_1)
     out = apply_time_filter(rows, tf)
     assert [r["label"] for r in out] == ["ok"]
 
@@ -93,9 +92,11 @@ def test_bucket_timeline_groups_by_day() -> None:
     same_day_1 = JAN_1
     same_day_2 = JAN_1 + timedelta(hours=5)
     next_day = JAN_1 + timedelta(days=1, hours=2)
-    rows = [_mem(same_day_1, label="a", entry_id=1),
-            _mem(same_day_2, label="b", entry_id=2),
-            _mem(next_day, label="c", entry_id=3)]
+    rows = [
+        _mem(same_day_1, label="a", entry_id=1),
+        _mem(same_day_2, label="b", entry_id=2),
+        _mem(next_day, label="c", entry_id=3),
+    ]
     buckets = bucket_timeline(rows, bucket="day")
     assert len(buckets) == 2
     counts = sorted([b.count for b in buckets])
@@ -105,8 +106,10 @@ def test_bucket_timeline_groups_by_day() -> None:
 def test_bucket_timeline_emits_empty_buckets_when_bounded() -> None:
     rows = [_mem(JAN_1, label="x")]
     buckets = bucket_timeline(
-        rows, start="2026-01-01T00:00:00Z",
-        end="2026-01-04T23:59:59Z", bucket="day",
+        rows,
+        start="2026-01-01T00:00:00Z",
+        end="2026-01-04T23:59:59Z",
+        bucket="day",
     )
     # Should emit Jan 1, 2, 3, 4 buckets
     assert len(buckets) == 4
@@ -132,16 +135,19 @@ def test_filter_recent_only_recent() -> None:
     now = datetime(2026, 5, 12, tzinfo=timezone.utc)
     one_hr_ago = now - timedelta(hours=1)
     two_days_ago = now - timedelta(days=2)
-    rows = [_mem(one_hr_ago, label="fresh", entry_id=1),
-            _mem(two_days_ago, label="old", entry_id=2)]
+    rows = [
+        _mem(one_hr_ago, label="fresh", entry_id=1),
+        _mem(two_days_ago, label="old", entry_id=2),
+    ]
     out = filter_recent(rows, since_hours=24, now=now)
     assert [r["label"] for r in out] == ["fresh"]
 
 
 def test_filter_recent_respects_limit() -> None:
     now = datetime(2026, 5, 12, tzinfo=timezone.utc)
-    rows = [_mem(now - timedelta(hours=i), label=f"m{i}", entry_id=i)
-            for i in range(1, 11)]
+    rows = [
+        _mem(now - timedelta(hours=i), label=f"m{i}", entry_id=i) for i in range(1, 11)
+    ]
     out = filter_recent(rows, since_hours=24, now=now, limit=3)
     assert len(out) == 3
     # sorted most-recent-first
