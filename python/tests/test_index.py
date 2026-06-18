@@ -57,6 +57,39 @@ def test_all_scores_row_order_and_agreement():
         assert sims[i] == pytest.approx(s, abs=1e-6)
 
 
+def test_all_pairs_matches_per_row_all_scores():
+    """The batched all-pairs matrix must equal stacking all_scores row by row —
+    the parity guarantee the conflict/duplicate scans depend on."""
+    keys = _bipolar(15, 128, 13)
+    idx = RetrievalIndex(keys)
+    mat = idx.all_pairs()
+    assert mat.shape == (15, 15)
+    for i in range(15):
+        row = idx.all_scores(keys[i])
+        np.testing.assert_allclose(mat[i], row, atol=1e-5)
+
+
+def test_all_pairs_symmetric_with_unit_diagonal():
+    keys = _bipolar(10, 96, 21)
+    mat = RetrievalIndex(keys).all_pairs()
+    np.testing.assert_allclose(mat, mat.T, atol=1e-6)
+    np.testing.assert_allclose(np.diag(mat), np.ones(10), atol=1e-6)
+
+
+def test_all_pairs_empty():
+    assert RetrievalIndex(np.empty((0, 0), dtype=np.int8)).all_pairs().shape == (0, 0)
+
+
+def test_all_pairs_matches_numpy_dot_baseline():
+    """Independent check: for bipolar rows, cosine = MMᵀ / dims."""
+    keys = _bipolar(8, 64, 33)
+    mat = RetrievalIndex(keys).all_pairs()
+    f = keys.astype(np.float32)
+    expected = (f @ f.T) / 64.0
+    np.fill_diagonal(expected, 1.0)
+    np.testing.assert_allclose(mat, expected, atol=1e-5)
+
+
 def _store_random(memory, seed):
     hv = HyperVector(_bipolar(1, 64, seed)[0])
     return memory.store(hv, hv, f"e{seed}")

@@ -136,6 +136,36 @@ impl PackedIndex {
         self.n_rows == 0
     }
 
+    /// Full symmetric cosine matrix over every pair of indexed rows.
+    ///
+    /// Returns a flat row-major `n_rows × n_rows` buffer (length `n_rows²`); the
+    /// caller reshapes to `(n, n)`. Only the upper triangle is computed — the
+    /// expensive popcount work — then mirrored, with the diagonal set to `1.0`
+    /// (a row is identical to itself). This collapses an all-pairs scan from
+    /// `n` separate [`PackedIndex::topk`] calls (each an `O(n log n)` sort plus
+    /// an FFI crossing) into a single kernel pass of `n(n-1)/2` popcounts.
+    ///
+    /// When `dims == 0` every entry is `0.0`, matching [`cosine_from_bits`] on
+    /// empty vectors so the two paths agree at the degenerate boundary.
+    pub fn all_pairs(&self) -> Vec<f32> {
+        let n = self.n_rows;
+        let mut out = vec![0.0f32; n * n];
+        if self.dims == 0 {
+            return out;
+        }
+        for i in 0..n {
+            out[i * n + i] = 1.0;
+            let ri = &self.bits[i * self.words..i * self.words + self.words];
+            for j in (i + 1)..n {
+                let rj = &self.bits[j * self.words..j * self.words + self.words];
+                let s = cosine_from_bits(ri, rj, self.dims);
+                out[i * n + j] = s;
+                out[j * n + i] = s;
+            }
+        }
+        out
+    }
+
     /// Top-`k` cosine of `query` against every packed row.
     pub fn topk(&self, query: &[i8], top_k: usize) -> Vec<(usize, f32)> {
         if top_k == 0 || self.n_rows == 0 || self.dims == 0 {
@@ -242,6 +272,53 @@ mod tests {
         assert_eq!(idx.len(), 2);
         assert!(!idx.is_empty());
         assert!(PackedIndex::from_rows(&[], 0, 3).is_empty());
+    }
+
+    #[test]
+    fn all_pairs_is_symmetric_with_unit_diagonal() {
+        let dims = 130; // spans 3 words
+        let mut flat: Vec<i8> = Vec::new();
+        for r in 0..5 {
+            for i in 0..dims {
+                flat.push(if (i + r) % 3 == 0 { 1 } else { -1 });
+            }
+        }
+        let idx = PackedIndex::from_rows(&flat, 5, dims);
+        let mat = idx.all_pairs();
+        assert_eq!(mat.len(), 25);
+        for i in 0..5 {
+            approx(mat[i * 5 + i], 1.0); // diagonal: row vs itself
+            for j in 0..5 {
+                approx(mat[i * 5 + j], mat[j * 5 + i]); // symmetric
+            }
+        }
+    }
+
+    #[test]
+    fn all_pairs_row_matches_topk_scores() {
+        // Every off-diagonal entry must equal the cosine the per-row topk path
+        // reports — the parity guarantee the Python all_scores fallback relies on.
+        let dims = 96;
+        let mut flat: Vec<i8> = Vec::new();
+        for r in 0..6 {
+            for i in 0..dims {
+                flat.push(if (i * 7 + r) % 5 < 2 { 1 } else { -1 });
+            }
+        }
+        let idx = PackedIndex::from_rows(&flat, 6, dims);
+        let mat = idx.all_pairs();
+        for i in 0..6 {
+            let row: Vec<i8> = flat[i * dims..i * dims + dims].to_vec();
+            for (j, sim) in idx.topk(&row, 6) {
+                approx(mat[i * 6 + j], sim);
+            }
+        }
+    }
+
+    #[test]
+    fn all_pairs_empty_when_no_dims() {
+        let idx = PackedIndex::from_rows(&[], 0, 0);
+        assert!(idx.all_pairs().is_empty());
     }
 
     #[test]

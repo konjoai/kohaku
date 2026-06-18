@@ -297,9 +297,9 @@ class MemoryHealthAnalyzer:
         n = len(entries)
         if n < 2 or self.max_duplicate_pairs == 0:
             return out
-        idx = index_over(entries)
+        sim_matrix = index_over(entries).all_pairs()
         for i in range(n):
-            sims = idx.all_scores(entries[i].key.data)
+            sims = sim_matrix[i]
             for j in range(i + 1, n):
                 sim = float(sims[j])
                 if sim >= self.duplicate_threshold:

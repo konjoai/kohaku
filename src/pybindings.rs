@@ -4,7 +4,7 @@
 use crate::accel::{cosine_topk_rows, PackedIndex};
 use crate::retrieval::query;
 use crate::{EpisodicMemory, HyperVector, DIMS};
-use numpy::{PyReadonlyArray1, PyReadonlyArray2};
+use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
@@ -153,6 +153,15 @@ impl PyPackedIndex {
     /// Top-`k` cosine of `query` against every indexed row.
     fn topk(&self, query: PyReadonlyArray1<i8>, top_k: usize) -> PyResult<Vec<(usize, f32)>> {
         Ok(self.inner.topk(query.as_slice()?, top_k))
+    }
+
+    /// Flat row-major `n_rows × n_rows` cosine matrix over all pairs of rows.
+    ///
+    /// Returns a 1-D `float32` array of length `n_rows²`; the caller reshapes to
+    /// `(n, n)`. One kernel pass replaces `n` separate `topk` calls for the
+    /// all-pairs scans (conflict / duplicate detection).
+    fn all_pairs<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f32>> {
+        self.inner.all_pairs().into_pyarray_bound(py)
     }
 
     fn __len__(&self) -> usize {

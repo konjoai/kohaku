@@ -67,6 +67,31 @@ class RetrievalIndex:
             return [(int(i), float(s)) for i, s in self._rust.topk(q, top_k)]
         return _numpy_cosine_topk(query, self._mat, top_k)
 
+    def all_pairs(self) -> np.ndarray:
+        """Full symmetric ``(N, N)`` cosine matrix over every pair of rows.
+
+        ``M[i, j]`` is the cosine of row ``i`` against row ``j``; the diagonal is
+        ``1.0``. For all-pairs scans (conflict / duplicate detection) this is the
+        batched dual of calling :meth:`all_scores` once per row — it collapses
+        ``N`` FFI crossings and ``N`` sorts into a single packed-popcount pass in
+        Rust, and a single BLAS ``MMᵀ`` on the NumPy baseline. Both backends agree
+        bit-for-bit for ±1 inputs (proven by the parity tests).
+        """
+        if self._n == 0:
+            return np.zeros((0, 0), dtype=np.float32)
+        if self._rust is not None:
+            flat = self._rust.all_pairs()
+            return np.asarray(flat, dtype=np.float32).reshape(self._n, self._n)
+        # NumPy baseline: bipolar rows share norm √dims, so cosine = MMᵀ / dims.
+        # Normalise per-row to stay exact even if a row isn't perfectly ±1.
+        mat = self._mat
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        norms[norms == 0.0] = 1.0
+        unit = mat / norms
+        sims = (unit @ unit.T).astype(np.float32)
+        np.fill_diagonal(sims, 1.0)
+        return sims
+
     def all_scores(self, query: np.ndarray) -> np.ndarray:
         """Cosine of ``query`` against every row, in row order.
 
