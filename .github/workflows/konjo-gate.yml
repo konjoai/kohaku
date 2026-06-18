@@ -1,4 +1,13 @@
 name: "Konjo Quality Gate — Wall 2"
+#
+# Phased arming: steps marked "ARMED (blocking)" have had their
+# `continue-on-error` removed and now fail the job (and the aggregate gate) on
+# violation — they are verified clean repo-wide. Steps marked "WARN-ONLY" still
+# carry `continue-on-error: true` because pre-existing debt would break CI; each
+# is armed once its debt is cleared (clippy::pedantic, ruff format, mypy strict,
+# file size, complexity, coverage threshold, mutation). Do not add new
+# `continue-on-error` steps; clear the debt and arm instead.
+#
 on:
   pull_request: {branches: [main]}
   push: {branches: [main]}
@@ -22,9 +31,10 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.11"}
       - run: pip install ruff mypy vulture bandit --quiet
+      # ARMED (blocking): verified clean repo-wide. See "phased arming" note below.
       - name: cargo fmt
-        continue-on-error: true
         run: cargo fmt --all -- --check
+      # WARN-ONLY: 61 pre-existing clippy::pedantic findings — arm after cleanup.
       - name: clippy
         continue-on-error: true
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::pedantic -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::todo -D clippy::dbg_macro
@@ -40,9 +50,10 @@ jobs:
           COUNT=$(RUSTFLAGS="-W dead_code" cargo check --workspace 2>&1 | grep -c "warning: dead_code" || true)
           echo "Dead code: $COUNT"
           [ "$COUNT" -gt 0 ] && exit 1; echo "✓"
+      # ARMED (blocking): verified clean repo-wide.
       - name: ruff lint
-        continue-on-error: true
         run: ruff check .
+      # WARN-ONLY: repo not yet ruff-format-clean — arm after a format sweep.
       - name: ruff format
         continue-on-error: true
         run: ruff format --check .
@@ -112,8 +123,8 @@ jobs:
           OVERSIZED=""
           while IFS= read -r -d '' f; do LC=$(wc -l < "$f"); [ "$LC" -gt 500 ] && OVERSIZED="${OVERSIZED}${f}: ${LC}\n"; done < <(find . \( -name "*.rs" -o -name "*.py" \) | grep -v target | grep -v __pycache__ | tr '\n' '\0')
           [ -n "$OVERSIZED" ] && printf "%b" "$OVERSIZED" && exit 1; echo "✓"
+      # ARMED (blocking): repo currently at 0 DRY violations.
       - name: DRY
-        continue-on-error: true
         run: |
           python3 .konjo/scripts/dry_check.py --threshold 0.85 --min-lines 20 --report dry_report.json
           COUNT=$(python3 -c "import json; print(json.load(open('dry_report.json'))['count'])")

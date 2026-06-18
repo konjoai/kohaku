@@ -9,7 +9,6 @@ import pytest
 from kohaku import EnrichedMemoryStore, ProvenanceGraph, encode_text
 from kohaku.importance import (
     DEFAULT_WEIGHTS,
-    ImportanceBreakdown,
     ImportanceScorer,
     RescoreReport,
     rescore_all,
