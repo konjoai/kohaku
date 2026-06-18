@@ -1,0 +1,62 @@
+{
+  "timestamp": "20260618T015233Z",
+  "hardware": {
+    "platform": "Linux-6.18.5-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.11.15"
+  },
+  "config": {
+    "trials": 200,
+    "dims": 10000
+  },
+  "rows": [
+    {
+      "attrs_per_record": 3,
+      "dims": 10000,
+      "get_accuracy": 1.0,
+      "analogy_accuracy": 1.0,
+      "mean_get_confidence": 0.5,
+      "mean_analogy_confidence": 0.249
+    },
+    {
+      "attrs_per_record": 6,
+      "dims": 10000,
+      "get_accuracy": 1.0,
+      "analogy_accuracy": 1.0,
+      "mean_get_confidence": 0.312,
+      "mean_analogy_confidence": 0.097
+    },
+    {
+      "attrs_per_record": 10,
+      "dims": 10000,
+      "get_accuracy": 1.0,
+      "analogy_accuracy": 1.0,
+      "mean_get_confidence": 0.247,
+      "mean_analogy_confidence": 0.061
+    },
+    {
+      "attrs_per_record": 16,
+      "dims": 10000,
+      "get_accuracy": 1.0,
+      "analogy_accuracy": 0.95,
+      "mean_get_confidence": 0.197,
+      "mean_analogy_confidence": 0.039
+    },
+    {
+      "attrs_per_record": 24,
+      "dims": 10000,
+      "get_accuracy": 1.0,
+      "analogy_accuracy": 0.61,
+      "mean_get_confidence": 0.161,
+      "mean_analogy_confidence": 0.029
+    },
+    {
+      "attrs_per_record": 40,
+      "dims": 10000,
+      "get_accuracy": 1.0,
+      "analogy_accuracy": 0.24,
+      "mean_get_confidence": 0.125,
+      "mean_analogy_confidence": 0.026
+    }
+  ]
+}

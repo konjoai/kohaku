@@ -45,6 +45,39 @@ There is no true **memory system**.
 
 ---
 
+## ✨ Why kohaku is different — memory that *reasons*
+
+Every other LLM-memory tool (Mem0, Zep/Graphiti, Letta) is the same recipe:
+dense embeddings + vector search + a graph. They all do one thing — **retrieve
+by cosine top-k**. Dense embeddings have no invertible structure, so that's the
+ceiling.
+
+kohaku's hyperdimensional substrate can do **algebra over memory** — something
+that's impossible to copy without changing substrates:
+
+```python
+from kohaku import AnalogicalMemory
+
+mem = AnalogicalMemory()
+mem.add_record("USA",    {"currency": "dollar", "capital": "washington"})
+mem.add_record("Mexico", {"currency": "peso",   "capital": "mexico_city"})
+
+mem.get("USA", "currency").value          # -> "dollar"   (attribute recall)
+mem.analogy("USA", "Mexico", "dollar").value   # -> "peso"  (the dollar of Mexico)
+```
+
+No model call, no extra storage — just binding + bundling + cleanup. That last
+line ("What is the dollar of Mexico?", Kanerva 2010) is **relational transfer
+over an agent's own memory**: learn a preference in one domain, infer the analog
+in another. Try it: `PYTHONPATH=python python3 examples/analogy_demo.py`.
+
+Operating envelope (honest — see `benchmarks/bench_analogy.py`): attribute
+recall stays exact past 40 attributes/record; analogical transfer is ≥95%
+accurate up to ~16 bound pairs/record at 10k-D, then degrades gracefully (every
+answer carries a confidence + margin so you can threshold).
+
+---
+
 ## 🧠 What you learn
 
 * Hyperdimensional computing (HDC)

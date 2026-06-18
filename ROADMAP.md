@@ -165,6 +165,29 @@ CLI · cosmos visualizations.
     faster facade query at N=5000 / 2% candidates (`benchmarks/bench_ann_rerank.py`).
   - **Publishing wheels remains deferred** (out of scope — local/CI builds only).
 
+### 🟣 Track D — Reasoning over memory (the unique wedge)
+
+The differentiator no embedding/vector-DB memory can copy: **algebra over
+memory** via the HDC binding/bundling substrate. Retrieval is table stakes;
+*reasoning* is the moat.
+
+- [x] **D1. Analogical memory.** ✅ (v0.22.0) `kohaku.AnalogicalMemory` — records
+  as superposed `(attribute, value)` bindings; `get` (attribute recall) and
+  `analogy` (the "dollar of Mexico" relational transfer), cleanup via the packed
+  `RetrievalIndex`, confidence + margin on every answer. Capacity benchmarked
+  (`benchmarks/bench_analogy.py`): exact attribute recall past 40 attrs/record;
+  analogy ≥95% to ~16 pairs/record at 10k-D.
+- [ ] **D2. Analogy over the live episodic store** — derive records from
+  enriched memories (role/attribute extraction) so `analogy` works on what the
+  agent actually remembered, not just hand-built records. Wire into the `Memory`
+  facade (`Memory.analogy(...)`).
+- [ ] **D3. Compositional / multi-cue queries** — combine binding with the
+  existing `chain_query` and Hopfield cleanup for "reason across N hops with
+  denoising" — relational questions answered in-substrate, no model call.
+- [ ] **D4. Sequence & schema encoding** — permutation-based ordered records
+  (event sequences, recipes) and schema templates, so structured episodes are
+  first-class.
+
 ## 4. Suggested first sprint
 
 Track A in full (A1–A4) — it is all low-risk, makes the front door honest,
