@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, List, Optional, Sequence
 
+from kohaku._index import index_over
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.provenance import ProvenanceGraph
 
@@ -249,6 +250,8 @@ class MemoryHealthAnalyzer:
             kept = [e for e in self.store.episodic._entries if e.id not in target]
             removed = len(self.store.episodic._entries) - len(kept)
             self.store.episodic._entries = kept
+            if removed:
+                self.store.episodic._mark_mutated()  # invalidate index cache
             for eid in ids:
                 self.store._meta.pop(eid, None)
                 if self.provenance is not None:
@@ -294,9 +297,11 @@ class MemoryHealthAnalyzer:
         n = len(entries)
         if n < 2 or self.max_duplicate_pairs == 0:
             return out
+        idx = index_over(entries)
         for i in range(n):
+            sims = idx.all_scores(entries[i].key.data)
             for j in range(i + 1, n):
-                sim = float(entries[i].key.cosine_similarity(entries[j].key))
+                sim = float(sims[j])
                 if sim >= self.duplicate_threshold:
                     out.append(DuplicatePair(
                         a_id=entries[i].id, b_id=entries[j].id,

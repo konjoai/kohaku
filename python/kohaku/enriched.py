@@ -35,6 +35,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from kohaku._index import index_for
 from kohaku._pure import DIMS, EpisodicMemory, HyperVector
 from kohaku.enriched_meta import (
     DEFAULT_HALF_LIFE_DAYS,
@@ -282,8 +283,14 @@ class EnrichedMemoryStore:
         any_set = {_normalise_tag(t) for t in (tags_any or []) if _normalise_tag(t)}
         all_set = {_normalise_tag(t) for t in (tags_all or []) if _normalise_tag(t)}
 
+        # One batched cosine pass over a per-memory cached index (Rust popcount
+        # when built, else NumPy matmul), aligned to entry order, instead of a
+        # per-entry Python cosine call. Filters below still gate which rows count.
+        entries = self._mem.entries()
+        sims = index_for(self._mem, entries).all_scores(query_key.data)
+
         scored: List[EnrichedRetrievalResult] = []
-        for e in self._mem.entries():
+        for pos, e in enumerate(entries):
             if candidate_ids is not None and e.id not in candidate_ids:
                 continue
             meta = self._meta.get(e.id)
@@ -297,7 +304,7 @@ class EnrichedMemoryStore:
                 continue
             if all_set and not all_set.issubset(meta.tags):
                 continue
-            sim = float(e.key.cosine_similarity(query_key))
+            sim = float(sims[pos])
             if min_similarity is not None and sim < min_similarity:
                 continue
             sal = meta.salience(
@@ -426,6 +433,7 @@ class EnrichedMemoryStore:
         # we don't want to expose one (would break the FIFO/timestamp contract).
         kept = [e for e in self._mem._entries if e.id not in drop_set]
         self._mem._entries = kept
+        self._mem._mark_mutated()  # invalidate the retrieval-index cache
         for eid in drop_ids:
             self._meta.pop(eid, None)
         return drop_ids

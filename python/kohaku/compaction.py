@@ -2,19 +2,10 @@
 from __future__ import annotations
 import logging
 from typing import List, Set
-from ._pure import EpisodicMemory, MemoryEntry
+from ._index import index_over
+from ._pure import EpisodicMemory
 
 logger = logging.getLogger(__name__)
-
-
-def cosine_similarity(a: "MemoryEntry", b: "MemoryEntry") -> float:
-    """Cosine similarity between the keys of two MemoryEntry objects."""
-    return a.key.cosine_similarity(b.key)
-
-
-def _entry_cosine(a: MemoryEntry, b: MemoryEntry) -> float:
-    """Cosine similarity between two entry keys."""
-    return a.key.cosine_similarity(b.key)
 
 
 def find_duplicates(
@@ -30,16 +21,21 @@ def find_duplicates(
     n = len(entries)
     groups: List[Set[int]] = []
     visited: Set[int] = set()
+    if n < 2:
+        return groups
 
+    # Batched cosine: one resident index, one scored pass per pivot row, instead
+    # of an O(n²) Python cosine double loop.
+    idx = index_over(entries)
     for i in range(n):
         if entries[i].id in visited:
             continue
+        sims = idx.all_scores(entries[i].key.data)
         group: Set[int] = {entries[i].id}
         for j in range(i + 1, n):
             if entries[j].id in visited:
                 continue
-            sim = _entry_cosine(entries[i], entries[j])
-            if sim >= similarity_threshold:
+            if sims[j] >= similarity_threshold:
                 group.add(entries[j].id)
                 visited.add(entries[j].id)
         if len(group) > 1:
@@ -71,6 +67,7 @@ def deduplicate(
 
     # Rebuild _entries list in-place, keeping only non-removed entries
     memory._entries[:] = [e for e in memory._entries if e.id not in ids_to_remove]
+    memory._mark_mutated()  # invalidate the retrieval-index cache
     removed = len(ids_to_remove)
     logger.info("deduplicate: removed %d near-duplicate entries", removed)
     return removed
@@ -87,7 +84,10 @@ def compact(memory: EpisodicMemory, target_utilization: float = 0.7) -> int:
     removed = deduplicate(memory)
     target = int(memory._capacity * target_utilization)
     # Evict oldest entries (front of the list = oldest, since FIFO)
+    evicted = 0
     while len(memory._entries) > target:
         memory._entries.pop(0)
-        removed += 1
-    return removed
+        evicted += 1
+    if evicted:
+        memory._mark_mutated()  # invalidate the retrieval-index cache
+    return removed + evicted

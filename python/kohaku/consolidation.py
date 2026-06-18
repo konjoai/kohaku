@@ -26,6 +26,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
+import numpy as np
+
+from kohaku._index import RetrievalIndex
 from kohaku._pure import EpisodicMemory, HyperVector
 
 
@@ -69,12 +72,16 @@ def consolidate(
 
     for entry in memory.entries():
         best_idx: int = -1
-        best_sim: float = similarity_threshold
-        for idx, cluster in enumerate(clusters):
-            sim = cluster.centroid_key.cosine_similarity(entry.key)
-            if sim > best_sim:
-                best_sim = sim
-                best_idx = idx
+        if clusters:
+            # Batch the entry-vs-centroid scan: one packed pass over the current
+            # centroids picks the nearest. Centroids mutate as clusters grow, so
+            # the index is rebuilt per entry (cheap — bit-packing, not float MAC).
+            centroids = np.stack([c.centroid_key.data for c in clusters])
+            ranked = RetrievalIndex(centroids).topk(entry.key.data, 1)
+            # Merge only on a strict improvement over the threshold, matching the
+            # original `sim > best_sim` (top-1 tiebreak is lowest index, as before).
+            if ranked and ranked[0][1] > similarity_threshold:
+                best_idx = ranked[0][0]
 
         if best_idx == -1:
             # Seed a new cluster from this entry alone

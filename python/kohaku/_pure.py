@@ -136,6 +136,17 @@ class EpisodicMemory:
     def __len__(self) -> int:
         return len(self._entries)
 
+    def _mark_mutated(self) -> None:
+        """Bump the generation counter after a direct ``_entries`` edit.
+
+        ``EpisodicMemory`` has no public delete API (it would break the
+        FIFO/timestamp contract), so a few modules edit ``_entries`` in place
+        (compaction, conflict/health/bulk deletes). They must call this so the
+        retrieval-index cache (``kohaku._index``) invalidates — otherwise a
+        query after a delete reuses an index built over the old entry list.
+        """
+        self._generation += 1
+
     @property
     def is_empty(self) -> bool:
         return len(self._entries) == 0

@@ -29,6 +29,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Set, Tuple
 
+from kohaku._index import index_over
 from kohaku.enriched import EnrichedMemoryStore
 
 logger = logging.getLogger(__name__)
@@ -207,11 +208,15 @@ def detect_conflicts(
 
     entries = store.episodic.entries()
     out: List[ConflictPair] = []
+    # Batched cosine: score each pivot row against all others in one pass; the
+    # heuristic text scoring still runs per candidate pair.
+    idx = index_over(entries)
     for i in range(len(entries)):
         ei = entries[i]
+        sims = idx.all_scores(ei.key.data)
         for j in range(i + 1, len(entries)):
             ej = entries[j]
-            sim = float(ei.key.cosine_similarity(ej.key))
+            sim = float(sims[j])
             score, reasons = _score_pair(
                 ei.label, ej.label, sim,
                 similarity_threshold=similarity_threshold,
@@ -281,6 +286,8 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
     kept = [e for e in store.episodic._entries if e.id not in target]
     removed = len(store.episodic._entries) - len(kept)
     store.episodic._entries = kept
+    if removed:
+        store.episodic._mark_mutated()  # invalidate the retrieval-index cache
     for eid in target:
         store._meta.pop(eid, None)
         if store.provenance is not None:

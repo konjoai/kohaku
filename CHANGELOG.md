@@ -2,6 +2,48 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.20.0] — 2026-06-18
+
+### Added — Track C1 slice 3: batch the O(n²) scans onto RetrievalIndex
+
+Slice 2 built the resident packed index and wired it into single-memory
+retrieval. Slice 3 puts it to work on the remaining all-pairs / batch
+similarity scans, replacing per-pair Python `cosine_similarity` loops with one
+packed index and a scored pass per pivot row.
+
+- **Ported scans** (Rust popcount when built, else NumPy matmul; identical
+  results):
+  - `importance.ImportanceScorer._uniqueness_scores` — O(n²) → one index, one
+    `all_scores` per row.
+  - `compaction.find_duplicates`, `memory_health._duplicate_pairs`,
+    `conflicts.detect_conflicts` — same batched pass; the heuristic text scoring
+    in conflict detection still runs per candidate pair.
+  - `consolidation.consolidate` — the entry-vs-centroid scan now picks the
+    nearest centroid via a packed `topk`; rebuilt per entry since centroids
+    mutate as clusters grow.
+  - `EnrichedMemoryStore.query` (the facade retrieval path) — one batched cosine
+    pass over a **cached** per-memory index, aligned to entry order; filters
+    still gate which rows count.
+- **New `kohaku._index.index_over(entries)`** — builds a one-off `RetrievalIndex`
+  over a fixed entry set; the shared primitive for the batch scans above.
+- **Measured ~15–22× faster** than the naive O(n²) Python loop for the
+  all-pairs uniqueness scan (`benchmarks/bench_scans.py`).
+
+### Fixed
+- **Stale index cache after direct deletes.** Slice 2's per-memory index cache
+  keys on `EpisodicMemory._generation`, but compaction / conflict-resolve /
+  health-delete / bulk-delete / expiry edit `_entries` in place, bypassing the
+  counter — so a `query` after such a delete could reuse an index built over the
+  old entry list (wrong rows or `IndexError`). Added `EpisodicMemory._mark_mutated()`
+  and call it at every direct-mutation site. Regression test in `test_index.py`.
+
+### Changed
+- Removed dead code surfaced by the refactor: `compaction.cosine_similarity` /
+  `_entry_cosine` (unused), plus a few stale imports in touched modules.
+- `__init__.py` / `python/pyproject.toml` / root `pyproject.toml` — version `0.20.0`.
+
+> Wheels remain unpublished (local/CI builds only).
+
 ## [0.19.0] — 2026-06-17
 
 ### Added — Track C1 slice 2: zero-copy FFI + resident packed index
