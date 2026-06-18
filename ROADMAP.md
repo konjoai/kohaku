@@ -120,8 +120,12 @@ CLI · cosmos visualizations.
   claim true; or (b) **reposition**: relabel as a Python-first engine with an
   optional Rust kernel, and stop advertising performance the runtime doesn't
   deliver. Pick one; the current limbo is the worst option.
-- **C2. Consolidate the demos** into one maintained `kohaku-live.html` and move
-  the rest to an `demo/archive/` so the product surface stops fragmenting.
+- [x] **C2. Consolidate the demos.** ✅ (v0.21.0) Maintained demo is
+  `kohaku-live.html`; four redundant memory-map iterations moved to
+  `demo/archive/`. `memory_map.html` (viz API) and `index.html`
+  (`demo/server.py`) are retained because the servers serve them — full
+  single-page collapse would require rewiring those endpoints (deferred).
+  `demo/README.md` documents the canonical surface.
 - [x] **C3. Benchmarks as a gate.** ✅ (v0.17.0) `benchmarks/run_benchmarks.py`
   (latency exact vs ANN, ANN agreement, `.hkb` vs JSON size) + six invariant
   gates in `test_benchmarks.py` run in CI. Surfaced + fixed an ANN default that
@@ -155,6 +159,10 @@ CLI · cosmos visualizations.
     the all-pairs uniqueness scan (`benchmarks/bench_scans.py`). Also fixed a
     slice-2 latent bug: direct `_entries` deletes now bump `_generation` so the
     index cache can't go stale.
+  - [x] Follow-up (v0.21.0): **unified ANN + RetrievalIndex.** The facade query
+    now packs and scores only the ANN candidate rows when `candidate_ids` is
+    supplied (`index_over`), so LSH narrowing actually saves work — **~72×**
+    faster facade query at N=5000 / 2% candidates (`benchmarks/bench_ann_rerank.py`).
   - **Publishing wheels remains deferred** (out of scope — local/CI builds only).
 
 ## 4. Suggested first sprint
