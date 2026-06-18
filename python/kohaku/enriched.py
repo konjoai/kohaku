@@ -35,7 +35,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from kohaku._index import index_for
+from kohaku._index import index_for, index_over
 from kohaku._pure import DIMS, EpisodicMemory, HyperVector
 from kohaku.enriched_meta import (
     DEFAULT_HALF_LIFE_DAYS,
@@ -283,14 +283,22 @@ class EnrichedMemoryStore:
         any_set = {_normalise_tag(t) for t in (tags_any or []) if _normalise_tag(t)}
         all_set = {_normalise_tag(t) for t in (tags_all or []) if _normalise_tag(t)}
 
-        # One batched cosine pass over a per-memory cached index (Rust popcount
-        # when built, else NumPy matmul), aligned to entry order, instead of a
-        # per-entry Python cosine call. Filters below still gate which rows count.
+        # Score with the packed RetrievalIndex. When an ANN narrowed the scan
+        # (candidate_ids set), pack and score *only* those rows — so the index
+        # narrowing actually saves work — otherwise score the full memory via the
+        # cached resident index. Either way exact cosine is the re-ranker; the
+        # filters below still gate which scored rows survive.
         entries = self._mem.entries()
-        sims = index_for(self._mem, entries).all_scores(query_key.data)
+        if candidate_ids is None:
+            scores = index_for(self._mem, entries).all_scores(query_key.data)
+            sims_by_id = {e.id: float(scores[i]) for i, e in enumerate(entries)}
+        else:
+            cand = [e for e in entries if e.id in candidate_ids]
+            scores = index_over(cand).all_scores(query_key.data)
+            sims_by_id = {e.id: float(scores[i]) for i, e in enumerate(cand)}
 
         scored: List[EnrichedRetrievalResult] = []
-        for pos, e in enumerate(entries):
+        for e in entries:
             if candidate_ids is not None and e.id not in candidate_ids:
                 continue
             meta = self._meta.get(e.id)
@@ -304,7 +312,7 @@ class EnrichedMemoryStore:
                 continue
             if all_set and not all_set.issubset(meta.tags):
                 continue
-            sim = float(sims[pos])
+            sim = sims_by_id[e.id]
             if min_similarity is not None and sim < min_similarity:
                 continue
             sal = meta.salience(

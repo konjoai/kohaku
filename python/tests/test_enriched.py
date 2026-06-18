@@ -288,3 +288,34 @@ def test_enriched_result_to_dict():
     assert d["importance"] == 0.7
     assert "salience" in d and "trust" in d
     assert d["valid_until"] is None
+
+
+# ─────────────── ANN-narrowed packed sub-index re-ranking (C1 follow-up) ──────
+
+
+def test_candidate_ids_packed_subindex_agrees_with_full_scan():
+    """An ANN-narrowed query (candidate_ids) must return exactly the candidate
+    subset, ranked identically to a full exact scan filtered to those ids."""
+    store = EnrichedMemoryStore()
+    ids = [_store_with_phrase(store, f"phrase number {i}") for i in range(20)]
+    probe = HyperVector.random(seed=hash("phrase number 3") & 0xFFFF)
+
+    full = store.query(probe, top_k=20, reinforce_hits=False)
+    full_rank = [r.entry_id for r in full]
+
+    cand = {ids[3], ids[7], ids[11], ids[15]}
+    narrowed = store.query(probe, top_k=20, candidate_ids=cand, reinforce_hits=False)
+    narrowed_rank = [r.entry_id for r in narrowed]
+
+    # Only candidates come back…
+    assert set(narrowed_rank) == cand
+    # …and in the same relative order as the full ranking restricted to them.
+    assert narrowed_rank == [eid for eid in full_rank if eid in cand]
+
+
+def test_empty_candidate_set_returns_nothing():
+    store = EnrichedMemoryStore()
+    for i in range(5):
+        _store_with_phrase(store, f"item {i}")
+    probe = HyperVector.random(seed=1)
+    assert store.query(probe, top_k=5, candidate_ids=set(), reinforce_hits=False) == []

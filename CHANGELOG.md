@@ -2,6 +2,33 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.21.0] — 2026-06-18
+
+### Changed — unify ANN narrowing with the packed RetrievalIndex
+
+`EnrichedMemoryStore.query` (the facade retrieval path) now composes the two
+index systems instead of running them past each other:
+
+- When an ANN (`LSHIndex` via `Memory(ann=True)`) supplies `candidate_ids`, the
+  query packs and scores **only those candidate rows** (`index_over(candidates)`)
+  — so the ANN narrowing actually saves work. Previously (since v0.20.0) it
+  scored the whole store and then discarded non-candidates.
+- Without `candidate_ids`, the full exact scan still runs over the cached
+  resident index. Exact cosine remains the re-ranker in both paths — the ANN
+  never invents a match.
+- **~72× faster** facade query at N=5000 with a 2%-of-store candidate set
+  (`benchmarks/bench_ann_rerank.py`); the win grows with store size.
+
+### Changed — demo consolidation (C2)
+- Archived four redundant memory-map iterations (`memory_map_cosmic`,
+  `memory_map_cosmos`, `memory_map_dashboard`, `dashboard`) to `demo/archive/`.
+  The maintained demo is `kohaku-live.html`; `memory_map.html` (viz API) and
+  `index.html` (`demo/server.py`) remain because the servers serve them. New
+  `demo/README.md` documents the canonical surface.
+- `__init__.py` / `python/pyproject.toml` / root `pyproject.toml` — version `0.21.0`.
+
+> Wheels remain unpublished (local/CI builds only).
+
 ## [0.20.0] — 2026-06-18
 
 ### Added — Track C1 slice 3: batch the O(n²) scans onto RetrievalIndex
