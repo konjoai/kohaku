@@ -2,6 +2,39 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.22.0] — 2026-06-18
+
+### Added — Track D: reasoning over memory (`AnalogicalMemory`)
+
+The capability no embedding / vector-DB memory can do — **algebra over memory**,
+with no model call. `kohaku.AnalogicalMemory` stores each record as a
+superposition of bound `(attribute, value)` pairs over a deterministic symbol
+vocabulary, which makes two operations fall out of the VSA algebra:
+
+- **Attribute query** — `get("USA", "currency") -> "dollar"` (unbind the
+  attribute, clean up against the value codebook via the packed `RetrievalIndex`).
+- **Analogical transfer** — `analogy("USA", "Mexico", "dollar") -> "peso"`,
+  the classic "What is the dollar of Mexico?" (Kanerva 2010), now over an
+  agent's own memory. For agents: transfer a learned value/preference across
+  domains in-substrate (e.g. "aisle" seat on flights → the train analog).
+- Every answer is an `AnalogyResult(value, confidence, ranked)` with a `.margin`,
+  so results are thresholdable — honest about the lossy superposition.
+- **Capacity (measured, `benchmarks/bench_analogy.py`, 10k-D):** attribute
+  recall is exact past 40 attributes/record; analogical transfer is ≥95%
+  accurate up to ~16 bound pairs/record, then degrades gracefully.
+
+Symbols are deterministic random bipolar vectors seeded by a stable hash of the
+symbol text (orthogonal by construction) — intentionally *not* the
+lexical/semantic encoder, which would make symbols sharing words collide and
+break the binding algebra.
+
+- New: `python/kohaku/analogy.py`, `python/tests/test_analogy.py` (13 tests),
+  `benchmarks/bench_analogy.py`, `examples/analogy_demo.py`.
+- `__init__.py` exports `AnalogicalMemory`, `AnalogyResult`; README gains a
+  "Why kohaku is different" section. Version `0.22.0`.
+
+> Wheels remain unpublished (local/CI builds only).
+
 ## [0.21.0] — 2026-06-18
 
 ### Changed — unify ANN narrowing with the packed RetrievalIndex
