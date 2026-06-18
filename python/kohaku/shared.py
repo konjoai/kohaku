@@ -171,6 +171,33 @@ class SharedMemoryPool:
                 )
         return scope
 
+    def _query_agent(
+        self, agent_id: str, query_key: HyperVector, top_k: int
+    ) -> List[SharedRetrievalResult]:
+        """Top-k from a single namespace, tagged with its ``agent_id``.
+
+        The per-namespace unit of work, shared by the sync :meth:`query` and the
+        concurrent fan-out in :class:`~kohaku._async.AsyncSharedMemoryPool`.
+        """
+        return [
+            SharedRetrievalResult(
+                agent_id=agent_id,
+                entry_id=r.entry_id,
+                label=r.label,
+                similarity=r.similarity,
+                value=r.value,
+            )
+            for r in query_topk(self._agents[agent_id], query_key, top_k)
+        ]
+
+    @staticmethod
+    def _merge(
+        hits: List[SharedRetrievalResult], top_k: int
+    ) -> List[SharedRetrievalResult]:
+        """Re-rank pooled per-namespace hits and keep the global top-k."""
+        hits.sort(key=lambda h: h.similarity, reverse=True)
+        return hits[:top_k]
+
     def query(
         self,
         query_key: HyperVector,
@@ -187,18 +214,8 @@ class SharedMemoryPool:
             return []
         hits: List[SharedRetrievalResult] = []
         for agent_id in self._read_scope(agents):
-            for r in query_topk(self._agents[agent_id], query_key, top_k):
-                hits.append(
-                    SharedRetrievalResult(
-                        agent_id=agent_id,
-                        entry_id=r.entry_id,
-                        label=r.label,
-                        similarity=r.similarity,
-                        value=r.value,
-                    )
-                )
-        hits.sort(key=lambda h: h.similarity, reverse=True)
-        return hits[:top_k]
+            hits.extend(self._query_agent(agent_id, query_key, top_k))
+        return self._merge(hits, top_k)
 
     def size(self, agent_id: str) -> int:
         """Number of entries in an agent's namespace (0 if unknown)."""

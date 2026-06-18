@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.30.0"
+__version__ = "0.31.0"
 
 # Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
 # The optional Rust extension *accelerates* hot loops (see kohaku._accel); it
@@ -20,7 +20,11 @@ from kohaku.memory_facade import Memory, MemoryHit
 from kohaku.semantic import EmbeddingEncoder, project_to_hypervector
 from kohaku.ann import LSHIndex
 from kohaku.system import SystemBundle, save_system, load_system
-from kohaku._async import AsyncEpisodicMemory
+from kohaku._async import (
+    AsyncEpisodicMemory,
+    AsyncTenantMemoryStore,
+    AsyncSharedMemoryPool,
+)
 from kohaku._index import RetrievalIndex
 from kohaku._query import RetrievalResult, query, query_threshold
 from kohaku.context import ContextConfig, ContextMemoryManager
@@ -147,6 +151,8 @@ __all__ = [
     "HyperVector",
     "EpisodicMemory",
     "AsyncEpisodicMemory",
+    "AsyncTenantMemoryStore",
+    "AsyncSharedMemoryPool",
     "RetrievalResult",
     "RetrievalIndex",
     "query",

@@ -2,6 +2,28 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.31.0] — 2026-06-18
+
+### Added — Async wrappers for the multi-agent stores
+
+The multi-agent stores were sync-only, so an async app would block its event
+loop calling them (CLAUDE.md: never call blocking Rust from the event loop).
+Both now have async wrappers mirroring `AsyncEpisodicMemory`.
+
+- `AsyncTenantMemoryStore` — `store` / `retrieve` / `save` / `load` run in the
+  default thread pool; read-only accessors (sizes, ids) pass straight through.
+- `AsyncSharedMemoryPool` — same, plus a **concurrent fan-out** `query`: each
+  selected namespace is searched in its own worker thread (the Rust popcount
+  kernel releases the GIL, so a large fleet's namespaces search in parallel),
+  then merged with the **exact same ranking** as the sync path. Honours the
+  poisoning-defense knobs (`duplicate_threshold`, `rate_limit`).
+- The sync `SharedMemoryPool.query` was refactored to share `_query_agent` /
+  `_merge` with the async fan-out — one ranking implementation, no duplication.
+
+New `python/tests/test_async_stores.py` (7 tests), including a sync/async
+ranking-parity check. Exports `AsyncTenantMemoryStore`, `AsyncSharedMemoryPool`.
+Version `0.31.0`.
+
 ## [0.30.0] — 2026-06-18
 
 ### Added — Poisoning defense for SharedMemoryPool
