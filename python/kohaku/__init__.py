@@ -1,7 +1,7 @@
 """Kohaku — HDC episodic memory. Uses Rust extension when available, pure-Python otherwise."""
 from __future__ import annotations
 
-__version__ = "0.25.0"
+__version__ = "0.26.0"
 
 # Pure-Python is the canonical, API-complete correctness baseline (CLAUDE.md).
 # The optional Rust extension *accelerates* hot loops (see kohaku._accel); it

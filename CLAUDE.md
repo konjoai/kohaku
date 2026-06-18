@@ -40,7 +40,7 @@ python -m pytest tests/ -x                       # Python test suite
 | `python/kohaku/__init__.py` | Auto-detects Rust extension, falls back to pure-Python |
 | `python/kohaku/context.py` | `ContextMemoryManager` — sliding-window store sized to token budget |
 | `python/kohaku/attention.py` | `attention_weighted_encode` — HV encoding weighted by attention scores |
-| `python/kohaku/openai_compat.py` | `MemoryMiddleware` — augment/learn from OpenAI-compatible exchanges |
+| `python/kohaku/openai_compat.py` | `MemoryMiddleware` — augment/learn from OpenAI-compatible exchanges; optional `AnalogicalMemory` mines structured facts passively |
 | `python/kohaku/persistence.py` | JSON + `.hkb` binary save/load |
 | `python/kohaku/consolidation.py` | Greedy semantic clustering into centroid memories |
 | `python/kohaku/decay.py` | `DecayConfig` + `query_with_decay` — exponential temporal decay |

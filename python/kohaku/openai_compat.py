@@ -3,13 +3,25 @@
 Intercepts OpenAI-style ``messages`` lists, retrieves relevant memories from a
 ``ContextMemoryManager``, and injects them as a system message prefix.  The module
 is self-contained and requires no external dependencies beyond ``kohaku`` itself.
+
+When an :class:`~kohaku.AnalogicalMemory` is supplied, the middleware also mines
+**structured facts** from the conversation as it flows — turning passing prose
+("my flight seat preference is aisle") into ``(subject, attribute, value)``
+records the agent can later *reason* over, not just recall. Facts are extracted
+from **user** messages only by default: the user is the trustworthy source of
+their own preferences and world, whereas assistant text may be model-generated.
+Extraction is high-precision (see :mod:`kohaku.extraction`) — prose it can't
+confidently parse contributes nothing, so no fabricated facts leak in.
 """
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
+    from kohaku.analogy import AnalogicalMemory
     from kohaku.context import ContextMemoryManager
+    from kohaku.extraction import Triple
 
 
 class MemoryMiddleware:
@@ -28,11 +40,18 @@ class MemoryMiddleware:
 
     def __init__(
         self,
-        manager: "ContextMemoryManager",
+        manager: ContextMemoryManager,
         inject_as_role: str = "system",
+        *,
+        analogical: Optional[AnalogicalMemory] = None,
+        learn_facts_from: str = "user",
     ) -> None:
+        if learn_facts_from not in ("user", "assistant", "both"):
+            raise ValueError("learn_facts_from must be 'user', 'assistant', or 'both'")
         self.manager = manager
         self.inject_as_role = inject_as_role
+        self.analogical = analogical
+        self.learn_facts_from = learn_facts_from
 
     # ------------------------------------------------------------------
     # Core operations
@@ -74,17 +93,25 @@ class MemoryMiddleware:
         injected: dict = {"role": self.inject_as_role, "content": context_block}
         return [injected] + list(messages)
 
-    def learn_from_exchange(self, messages: list[dict]) -> None:
-        """Store assistant responses as memories keyed by the preceding user message.
+    def learn_from_exchange(self, messages: list[dict]) -> List[Triple]:
+        """Store assistant responses episodically and mine structured facts.
 
         Scans the message list for consecutive user→assistant pairs and stores each
         assistant response in the ``ContextMemoryManager`` so future queries can
-        retrieve it as a relevant memory.
+        retrieve it as a relevant memory. When an ``AnalogicalMemory`` was supplied,
+        also extracts ``(subject, attribute, value)`` triples from the configured
+        message roles into it, so later turns can *reason* over what was said.
 
         Parameters
         ----------
         messages:
             OpenAI-style list of ``{"role": ..., "content": ...}`` dicts.
+
+        Returns
+        -------
+        list[Triple]
+            The structured facts learned this call (empty when no analogical store
+            is attached or nothing parsed). Never raises on unparseable prose.
         """
         for i, msg in enumerate(messages):
             if not isinstance(msg, dict):
@@ -107,3 +134,19 @@ class MemoryMiddleware:
                     value=assistant_content,
                     label="assistant_response",
                 )
+        return self._learn_facts(messages)
+
+    def _learn_facts(self, messages: list[dict]) -> List[Triple]:
+        """Extract triples from the configured roles into the analogical store."""
+        if self.analogical is None:
+            return []
+        if self.learn_facts_from == "both":
+            roles = {"user", "assistant"}
+        else:
+            roles = {self.learn_facts_from}
+        learned: List[Triple] = []
+        for msg in messages:
+            if not isinstance(msg, dict) or msg.get("role") not in roles:
+                continue
+            learned.extend(self.analogical.learn(str(msg.get("content", ""))))
+        return learned

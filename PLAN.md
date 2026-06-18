@@ -316,3 +316,9 @@ that lets it run on what an agent actually read.
   Honest benchmark (`benchmarks/bench_extraction.py`): precision 1.0, recall
   0.789, F1 0.882 — every miss is an unsupported phrasing, zero false positives.
   Exports `Triple`, `extract_triples`, `records_from_texts`. 21 tests. v0.25.0.
+- [x] **Passive fact mining in middleware** (`python/kohaku/openai_compat.py`) —
+  `MemoryMiddleware(manager, *, analogical=None, learn_facts_from="user")`.
+  `learn_from_exchange` now also extracts triples from conversation turns into an
+  optional `AnalogicalMemory`, so reasoning-ready facts accumulate during normal
+  chat. `learn_facts_from` ∈ {`user` (default, trustworthy source), `assistant`,
+  `both`}; returns `list[Triple]`. 8 tests (`test_openai_compat.py`). v0.26.0.

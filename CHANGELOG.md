@@ -2,6 +2,31 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.26.0] — 2026-06-18
+
+### Added — Track D: passive fact mining in the OpenAI-compatible middleware
+
+The extraction bridge (v0.25.0) becomes *passive*: `MemoryMiddleware` now learns
+structured facts from the conversation as it flows, so an agent accumulates
+reasoning-ready records during normal chat — no explicit `learn()` calls.
+
+- `MemoryMiddleware(manager, *, analogical=None, learn_facts_from="user")` — pass
+  an `AnalogicalMemory` and `learn_from_exchange` extracts `(subject, attribute,
+  value)` triples into it alongside the existing episodic storage of replies.
+- `learn_facts_from` selects the trustworthy source: `"user"` (default — the
+  user is the source of truth about their own preferences/world), `"assistant"`,
+  or `"both"`. Extracting from the user only, by default, keeps model-generated
+  text out of the reasoning store.
+- `learn_from_exchange` now returns `list[Triple]` (the facts mined this call;
+  empty when no analogical store is attached or nothing parsed) — previously
+  returned `None`, so existing callers are unaffected.
+
+High-precision extraction means unparseable chatter ("hey, how's it going?")
+contributes nothing — no fabricated facts leak into reasoning.
+
+- New: `python/tests/test_openai_compat.py` (8 tests). `openai_compat.py` gains
+  the optional analogical wiring; no new dependencies. Version `0.26.0`.
+
 ## [0.25.0] — 2026-06-18
 
 ### Added — Track D: free-text → triple extraction (the prose→reasoning bridge)
