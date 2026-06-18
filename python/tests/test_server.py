@@ -190,3 +190,100 @@ def test_clear_resets_size_to_zero(client: TestClient) -> None:
     assert client.get("/memory/stats").json()["size"] == 1
     client.delete("/memory/clear")
     assert client.get("/memory/stats").json()["size"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Shared pool endpoints (cross-agent: per-agent write, read-all union)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_store_returns_accepted(client: TestClient) -> None:
+    resp = client.post(
+        "/agents/store", json={"agent_id": "a1", "text": "fact one", "label": "f1"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["stored"] is True
+    assert body["reason"] == "accepted"
+    assert body["agent_id"] == "a1"
+    assert body["size"] == 1
+
+
+def test_agent_query_unions_across_agents(client: TestClient) -> None:
+    client.post("/agents/store", json={"agent_id": "a1", "text": "alpha", "label": "A"})
+    client.post("/agents/store", json={"agent_id": "a2", "text": "beta", "label": "B"})
+    # Query with a2's text — the union surfaces it, tagged with a2.
+    resp = client.post("/agents/query", json={"text": "beta", "top_k": 1})
+    assert resp.status_code == 200
+    hit = resp.json()["results"][0]
+    assert hit["agent_id"] == "a2"
+    assert hit["label"] == "B"
+
+
+def test_agent_query_scoped_to_subset(client: TestClient) -> None:
+    client.post(
+        "/agents/store", json={"agent_id": "a1", "text": "shared", "label": "A"}
+    )
+    client.post(
+        "/agents/store", json={"agent_id": "a2", "text": "shared", "label": "B"}
+    )
+    resp = client.post(
+        "/agents/query", json={"text": "shared", "top_k": 5, "agents": ["a1"]}
+    )
+    assert {h["agent_id"] for h in resp.json()["results"]} == {"a1"}
+
+
+def test_list_agents_and_drop(client: TestClient) -> None:
+    client.post("/agents/store", json={"agent_id": "a1", "text": "x"})
+    client.post("/agents/store", json={"agent_id": "a2", "text": "y"})
+    listed = client.get("/agents").json()
+    assert listed["count"] == 2
+    assert listed["total_size"] == 2
+    assert {n["id"] for n in listed["namespaces"]} == {"a1", "a2"}
+    # Drop one via query param (supports arbitrary ids).
+    assert client.delete("/agents", params={"agent_id": "a1"}).status_code == 204
+    assert client.get("/agents").json()["count"] == 1
+
+
+def test_agent_store_empty_id_rejected(client: TestClient) -> None:
+    resp = client.post("/agents/store", json={"agent_id": "", "text": "x"})
+    assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Tenant endpoints (isolated: per-tenant read + write)
+# ---------------------------------------------------------------------------
+
+
+def test_tenant_store_and_isolated_query(client: TestClient) -> None:
+    client.post(
+        "/tenants/store", json={"tenant_id": "t1", "text": "secret", "label": "S"}
+    )
+    client.post(
+        "/tenants/store", json={"tenant_id": "t2", "text": "other", "label": "O"}
+    )
+    # t2 querying t1's text must NOT see t1's memory (isolation).
+    resp = client.post(
+        "/tenants/query", json={"tenant_id": "t2", "text": "secret", "top_k": 5}
+    )
+    assert resp.status_code == 200
+    assert all(r["label"] != "S" for r in resp.json()["results"])
+    # t1 sees its own.
+    own = client.post(
+        "/tenants/query", json={"tenant_id": "t1", "text": "secret", "top_k": 1}
+    )
+    assert own.json()["results"][0]["label"] == "S"
+
+
+def test_list_tenants_and_drop(client: TestClient) -> None:
+    client.post("/tenants/store", json={"tenant_id": "t1", "text": "x"})
+    listed = client.get("/tenants").json()
+    assert listed["count"] == 1
+    assert listed["total_size"] == 1
+    assert client.delete("/tenants", params={"tenant_id": "t1"}).status_code == 204
+    assert client.get("/tenants").json()["count"] == 0
+
+
+def test_tenant_query_too_long_text_rejected(client: TestClient) -> None:
+    resp = client.post("/tenants/query", json={"tenant_id": "t1", "text": "z" * 1001})
+    assert resp.status_code == 422
