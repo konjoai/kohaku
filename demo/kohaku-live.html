@@ -259,6 +259,19 @@ canvas.chart{width:100%;display:block;}
 .rel-type{font-family:'SF Mono',monospace;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(93,232,218,.15);color:var(--teal);}
 .rel-label{flex:1;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rel-sim{font-family:'SF Mono',monospace;font-size:9px;color:var(--amber);}
+
+/* ── Bridge RAG ── */
+.bridge-doc{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:7px;font-size:11px;}
+.bridge-doc .bd-id{font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);min-width:28px;}
+.bridge-doc .bd-text{flex:1;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bridge-doc .bd-sim{font-family:'SF Mono',monospace;font-size:9px;color:var(--teal);}
+.bridge-doc .bd-decay{font-family:'SF Mono',monospace;font-size:9px;color:var(--amber);}
+.bridge-drop{border:1.5px dashed rgba(255,184,108,.22);border-radius:10px;padding:18px;text-align:center;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);cursor:pointer;transition:all .2s ease;background:rgba(255,184,108,.02);}
+.bridge-drop:hover,.bridge-drop.dragover,.bridge-drop.drag-over{border-color:rgba(255,184,108,.5);background:rgba(255,184,108,.06);color:var(--amber);}
+
+/* ── Analogy solver ── */
+.analogy-row{display:flex;align-items:center;gap:6px;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);}
+.analogy-sep{color:var(--fg-2);font-size:12px;padding:0 2px;}
 </style>
 </head>
 <body>
@@ -549,6 +562,7 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab" onclick="switchTab('encode')" data-tab="encode">HDC Encode</button>
     <button class="dock-tab" onclick="switchTab('heatmap')" data-tab="heatmap">Heatmap</button>
     <button class="dock-tab" onclick="switchTab('relationships')" data-tab="relationships">Relations</button>
+    <button class="dock-tab" onclick="switchTab('bridge')" data-tab="bridge">Bridge RAG</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -608,6 +622,19 @@ canvas.chart{width:100%;display:block;}
         </div>
       </div>
       <div id="exportPreview" style="margin-top:12px;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);"></div>
+      <!-- Import -->
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:8px;">Import Memories (JSON)</div>
+        <div class="bridge-drop" id="importDrop" onclick="document.getElementById('importFile').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="event.preventDefault();this.classList.remove('drag-over');handleImportDrop(event.dataTransfer.files)">
+          <div style="font-size:22px;margin-bottom:4px;">⊕</div>
+          <div style="font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);">drop JSON here or click to browse</div>
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImportFile(this.files)" />
+        </div>
+        <div id="importStatus" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);margin-top:6px;"></div>
+      </div>
     </div>
 
     <!-- Episodes -->
@@ -685,6 +712,23 @@ canvas.chart{width:100%;display:block;}
           <div id="bundleStats" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);display:grid;grid-template-columns:1fr 1fr;gap:3px;"></div>
         </div>
       </div>
+      <!-- Analogy Solver (A:B::C:?) -->
+      <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">VSA Analogy Solver · A:B::C:?</div>
+        <div class="analogy-row">
+          <input id="analogyA" type="text" placeholder="A" maxlength="80" style="flex:1;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:inherit;font-size:12px;padding:6px 8px;outline:none;" />
+          <span class="analogy-sep">:</span>
+          <input id="analogyB" type="text" placeholder="B" maxlength="80" style="flex:1;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:inherit;font-size:12px;padding:6px 8px;outline:none;" />
+          <span class="analogy-sep">::</span>
+          <input id="analogyC" type="text" placeholder="C" maxlength="80" style="flex:1;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:inherit;font-size:12px;padding:6px 8px;outline:none;" />
+          <span class="analogy-sep">: ?</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-sm" style="background:rgba(167,139,250,.08);color:var(--violet);border:1px solid rgba(167,139,250,.25);" onclick="solveAnalogy()"><span class="btn-text">⌬ Solve</span></button>
+          <div id="analogyAnswer" style="font-family:'SF Mono',monospace;font-size:10px;color:var(--amber);flex:1;"></div>
+        </div>
+        <div id="analogyMatches" style="display:flex;flex-direction:column;gap:3px;max-height:80px;overflow-y:auto;scrollbar-width:thin;"></div>
+      </div>
     </div>
 
     <!-- Similarity Heatmap -->
@@ -705,6 +749,36 @@ canvas.chart{width:100%;display:block;}
       </div>
       <div id="conflictList" style="display:flex;flex-direction:column;gap:8px;">
         <div style="color:var(--fg-2);font-size:11px">loading conflicts…</div>
+      </div>
+    </div>
+
+    <!-- Bridge RAG dock pane -->
+    <div class="dock-pane" id="paneBridge">
+      <div class="dock-cols">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Ingest Documents</div>
+          <textarea id="bridgeDocsInput" placeholder="Paste documents here — one per line…" rows="5" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:12px;padding:8px 10px;resize:vertical;outline:none;" maxlength="4000"></textarea>
+          <div id="bridgeIngestStats" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);"></div>
+          <button class="btn btn-primary btn-sm" onclick="bridgeIngest()"><span class="btn-text">⊕ Ingest</span></button>
+          <div style="border-top:1px solid var(--border);padding-top:10px;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px;">Retrieve with Decay</div>
+            <div class="field" style="margin-bottom:6px;"><input id="bridgeQuery" type="text" placeholder="query the RAG store…" maxlength="200" /></div>
+            <div class="field" style="margin-bottom:6px;">
+              <label>Half-life (days)</label>
+              <div class="slider-row">
+                <input type="range" id="bridgeHalfLife" min="1" max="90" value="30" step="1" style="flex:1;accent-color:var(--teal);" oninput="document.getElementById('bridgeHLVal').textContent=this.value+'d'" />
+                <span id="bridgeHLVal" style="font-family:'SF Mono',monospace;font-size:11px;color:var(--teal);min-width:32px;">30d</span>
+              </div>
+            </div>
+            <button class="btn btn-teal btn-sm" onclick="bridgeRetrieve()"><span class="btn-text">⌕ Retrieve</span></button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Results</div>
+          <div id="bridgeResults" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;scrollbar-width:thin;">
+            <div style="color:var(--fg-2);font-size:10px">ingest documents · then retrieve…</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1068,6 +1142,31 @@ function renderCosmos(now, dt) {
   }
   CTX.letterSpacing = '0px';
   CTX.textAlign = 'left';
+  CTX.restore();
+
+  // Cluster hull ellipses — bounding ellipse per cluster at low opacity
+  CTX.save();
+  for (const [c, cc] of clusterCenters) {
+    if (cc.n < 2) continue;
+    const cx2 = cc.x/cc.n + PX, cy2 = cc.y/cc.n + PY;
+    // Compute per-axis spread
+    let sx2 = 0, sy2 = 0;
+    for (const sn of S.simNodes) {
+      if ((sn.data.cluster ?? 0) !== c) continue;
+      const dx = (sn.x+W/2+PX) - cx2, dy = (sn.y+H/2+PY) - cy2;
+      if (dx*dx > sx2) sx2 = dx*dx;
+      if (dy*dy > sy2) sy2 = dy*dy;
+    }
+    const rx = Math.sqrt(sx2)*1.35 + 22, ry = Math.sqrt(sy2)*1.35 + 22;
+    const rgb = CLUSTER_RGB[c % CLUSTER_RGB.length];
+    const alpha = 0.018 + 0.008*Math.sin(now*0.0005+c*2.1);
+    CTX.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+    CTX.lineWidth = 1.0;
+    CTX.setLineDash([4,14]);
+    CTX.lineDashOffset = -(now*0.008 + c*3.7) % 18;
+    CTX.beginPath(); CTX.ellipse(cx2, cy2, rx, ry, 0, 0, TAU); CTX.stroke();
+    CTX.setLineDash([]);
+  }
   CTX.restore();
 
   // Relationship arcs (colored by type, drawn under nodes)
@@ -2894,6 +2993,175 @@ function renderCompareProbe(hvA, hvB) {
     `<span>cosine: ${cos.toFixed(4)}</span><span>hamming: ${(hamming/hvA.length*100).toFixed(1)}%</span>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  BRIDGE RAG
+// ═══════════════════════════════════════════════════════════════════════════
+async function bridgeIngest() {
+  const raw = document.getElementById('bridgeDocsInput')?.value?.trim();
+  if (!raw) { toast('Paste documents to ingest', 'err'); return; }
+  const docs = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if (!docs.length) { toast('No non-empty lines found', 'err'); return; }
+  const statsEl = document.getElementById('bridgeIngestStats');
+  if (statsEl) statsEl.textContent = 'ingesting…';
+  const btn = document.querySelector('#paneBridge .btn-primary');
+  if (btn) setLoading(btn, true);
+  if (!S.live) {
+    // Offline simulation
+    await new Promise(r=>setTimeout(r, 420));
+    if (statsEl) statsEl.textContent = `✓ ${docs.length} doc(s) queued (offline simulation)`;
+    if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text'); if(sp){sp.innerHTML=sp.dataset.orig||'⊕ Ingest';} }
+    toast(`Simulated ingest of ${docs.length} docs`, 'ok');
+    actLog('store', `bridge: ${docs.length} docs`);
+    return;
+  }
+  try {
+    const d = await apiFetch('/bridge/ingest', {method:'POST', body:{documents: docs}});
+    const ids = d.entry_ids || [];
+    const chunks = d.total_chunks || ids.length;
+    if (statsEl) statsEl.textContent = `✓ ${ids.length} entries · ${chunks} chunks stored`;
+    toast(`Bridge: ingested ${ids.length} memories`, 'ok');
+    actLog('store', `bridge: ${ids.length} entries`);
+    await refreshGraph(); await loadMemories();
+  } catch(e) {
+    if (statsEl) statsEl.textContent = 'ingest failed: '+e.message;
+    toast('Bridge ingest failed: '+e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text'); if(sp){sp.innerHTML=sp.dataset.orig||'⊕ Ingest';} }
+  }
+}
+
+async function bridgeRetrieve() {
+  const q = document.getElementById('bridgeQuery')?.value?.trim();
+  if (!q) { toast('Enter a query', 'err'); return; }
+  const hl = parseFloat(document.getElementById('bridgeHalfLife')?.value) || 30;
+  const resEl = document.getElementById('bridgeResults');
+  if (resEl) resEl.innerHTML = '<div style="color:var(--fg-2);font-size:10px">retrieving…</div>';
+  const btn = document.querySelector('#paneBridge .btn-teal');
+  if (btn) setLoading(btn, true);
+  if (!S.live) {
+    // Offline: search by cosine similarity over simNodes
+    await new Promise(r=>setTimeout(r,300));
+    const qv = encodeText(q);
+    const hits = S.simNodes.map((sn,i)=>({
+      label: sn.data.label,
+      similarity: hvCosine(qv, sn.data._hv || encodeText(sn.data.label)),
+      decay: sn.data.decay_weight ?? 0.7,
+      id: i,
+    })).sort((a,b)=>b.similarity*b.decay - a.similarity*a.decay).slice(0,5);
+    if (resEl) resEl.innerHTML = hits.map((h,i)=>`
+      <div class="bridge-doc">
+        <span class="bd-id">${i+1}</span>
+        <span class="bd-text">${escHtml(h.label.slice(0,60))}</span>
+        <span class="bd-sim">${h.similarity.toFixed(3)}</span>
+        <span class="bd-decay">${h.decay.toFixed(2)}↓</span>
+      </div>`).join('') || '<div style="color:var(--fg-2);font-size:10px">no results</div>';
+    if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text'); if(sp){sp.innerHTML=sp.dataset.orig||'⌕ Retrieve';} }
+    toast(`Offline: top ${hits.length} matches`, 'ok');
+    return;
+  }
+  try {
+    const d = await apiFetch('/bridge/retrieve', {method:'POST', body:{query:q, half_life:hl, floor:0.01}});
+    const results = d.results || [];
+    if (resEl) resEl.innerHTML = results.length
+      ? results.slice(0,10).map((r,i)=>`
+          <div class="bridge-doc">
+            <span class="bd-id">${i+1}</span>
+            <span class="bd-text" title="${escHtml(r.text||r.chunk||'')}">
+              ${escHtml((r.text||r.chunk||'?').slice(0,60))}
+            </span>
+            <span class="bd-sim">${(r.similarity||r.score||0).toFixed(3)}</span>
+            <span class="bd-decay">${(r.decay_weight||1).toFixed(2)}↓</span>
+          </div>`).join('')
+      : '<div style="color:var(--fg-2);font-size:10px">no results found</div>';
+    toast(`Bridge: ${results.length} results (hl=${hl}d)`, 'ok');
+    actLog('query', 'bridge: '+q.slice(0,16));
+  } catch(e) {
+    if (resEl) resEl.innerHTML = `<div style="color:var(--rose);font-size:10px">${escHtml(e.message)}</div>`;
+    toast('Bridge retrieve failed: '+e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text'); if(sp){sp.innerHTML=sp.dataset.orig||'⌕ Retrieve';} }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  VSA ANALOGY SOLVER  A:B::C:?  →  D = bind(bind(C,B),A)
+// ═══════════════════════════════════════════════════════════════════════════
+function solveAnalogy() {
+  const tA = document.getElementById('analogyA')?.value?.trim();
+  const tB = document.getElementById('analogyB')?.value?.trim();
+  const tC = document.getElementById('analogyC')?.value?.trim();
+  const ansEl = document.getElementById('analogyAnswer');
+  const matchEl = document.getElementById('analogyMatches');
+  if (!tA || !tB || !tC) { toast('Fill in A, B and C', 'err'); return; }
+  const hvA = encodeText(tA), hvB = encodeText(tB), hvC = encodeText(tC);
+  // VSA analogy: A:B::C:D  ⟹  D = bind(bind(C, B), A)
+  // because bind(bind(A,B),A) = B (self-inverse), so D≈B shifted by C
+  const hvD = hvBind(hvBind(hvC, hvB), hvA);
+  // Search memories for closest match to D
+  const candidates = S.simNodes.map(sn=>{
+    const lbl = sn.data.label || '';
+    const hv = sn.data._hv || encodeText(lbl);
+    const sim = hvCosine(hvD, hv);
+    return {label: lbl, sim};
+  }).sort((a,b)=>b.sim-a.sim).slice(0,5);
+  // Also try to derive label from components
+  const topMatch = candidates[0];
+  if (ansEl) {
+    if (topMatch) {
+      ansEl.textContent = `→ "${topMatch.label.slice(0,30)}" (cos ${topMatch.sim.toFixed(4)})`;
+    } else {
+      ansEl.textContent = '→ (no memory store yet)';
+    }
+  }
+  if (matchEl) {
+    matchEl.innerHTML = candidates.slice(0,5).map((c,i)=>`
+      <div class="bridge-doc" style="padding:4px 8px;">
+        <span class="bd-id">${i+1}</span>
+        <span class="bd-text">${escHtml(c.label.slice(0,40))}</span>
+        <span class="bd-sim">${c.sim.toFixed(4)}</span>
+      </div>`).join('') || '<div style="color:var(--fg-2);font-size:10px">no memories to search</div>';
+  }
+  toast(`Analogy: ${tA}:${tB}::${tC}:? → "${(topMatch?.label||'?').slice(0,20)}"`, 'ok');
+  actLog('query', `analogy ${tA}:${tB}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  IMPORT MEMORIES
+// ═══════════════════════════════════════════════════════════════════════════
+function handleImportDrop(files) { if (files && files[0]) readImportFile(files[0]); }
+function handleImportFile(files) { if (files && files[0]) readImportFile(files[0]); }
+function readImportFile(file) {
+  if (!file.name.endsWith('.json')) { toast('Only .json files supported', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    let data;
+    try { data = JSON.parse(e.target.result); } catch { toast('Invalid JSON', 'err'); return; }
+    await importMemories(data);
+  };
+  reader.readAsText(file);
+}
+async function importMemories(data) {
+  const statusEl = document.getElementById('importStatus');
+  if (statusEl) statusEl.textContent = 'importing…';
+  if (!S.live) {
+    if (statusEl) statusEl.textContent = '✓ Offline: import simulated (no backend)';
+    toast('Offline: import simulated', 'ok');
+    return;
+  }
+  try {
+    const payload = Array.isArray(data) ? data : (data.memories || data.items || [data]);
+    const d = await apiFetch('/memories/import', {method:'POST', body:{memories: payload}});
+    const n = d.imported || d.count || payload.length;
+    if (statusEl) statusEl.textContent = `✓ ${n} memories imported`;
+    toast(`Imported ${n} memories`, 'ok');
+    actLog('store', `import ${n}`);
+    await refreshGraph(); await loadMemories();
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'import failed: '+e.message;
+    toast('Import failed: '+e.message, 'err');
+  }
+}
+
 function escHtml(s) {
   return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -2969,6 +3237,7 @@ function switchTab(name) {
   if (name==='timeline') loadTimeline();
   if (name==='heatmap') renderHeatmap();
   if (name==='relationships') loadRelationshipsPane();
+  if (name==='bridge') { document.getElementById('bridgeResults').innerHTML='<div style="color:var(--fg-2);font-size:10px">ingest documents · then retrieve…</div>'; }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
