@@ -24,7 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.84
+      # Pinned: edition2024 deps need >= 1.85, and an armed clippy::pedantic gate
+      # must match a locally-verifiable toolchain (bump deliberately + re-verify).
+      - uses: dtolnay/rust-toolchain@1.94
         with: {components: "rustfmt, clippy"}
       - uses: Swatinem/rust-cache@v2
         with: {shared-key: "konjo-${{ github.repository }}"}
@@ -64,7 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.84
+      # Pinned to match G1 (edition2024 deps need >= 1.85).
+      - uses: dtolnay/rust-toolchain@1.94
         with: {components: llvm-tools-preview}
       - uses: Swatinem/rust-cache@v2
         with: {shared-key: "konjo-${{ github.repository }}"}
