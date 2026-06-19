@@ -17,7 +17,7 @@ bridge ships in this repo and kyro pulls it via `pip install kohaku`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 from kohaku._pure import DIMS, EpisodicMemory
 from kohaku._query import query as _episodic_query
@@ -25,7 +25,7 @@ from kohaku.attention import encode_text
 from kohaku.decay import DecayConfig, query_with_decay
 
 
-Document = Union[str, dict]
+Document = Union[str, dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ class RetrievedChunk:
     decayed_similarity: Optional[float]
     age: int
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "entry_id": self.entry_id,
             "doc_id": self.doc_id,

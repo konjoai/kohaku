@@ -25,7 +25,7 @@ directly:
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple, cast
 
 import numpy as np
 
@@ -94,7 +94,7 @@ class LSHIndex:
         # (num_tables, hash_bits) projections → sign bits → packed int per table.
         projections = self._planes @ vec  # (num_tables, hash_bits)
         bits = (projections >= 0.0).astype(np.int64)
-        return bits @ self._powers  # (num_tables,)
+        return cast("np.ndarray", bits @ self._powers)  # (num_tables,)
 
     def add(self, entry_id: int, vector: "HyperVector | np.ndarray") -> None:
         """Index a vector under ``entry_id`` (replacing any prior entry)."""
@@ -124,10 +124,10 @@ class LSHIndex:
         self._tables = [{} for _ in range(self.num_tables)]
         self._vectors = {}
 
-    def candidates(self, vector: "HyperVector | np.ndarray") -> set:
+    def candidates(self, vector: "HyperVector | np.ndarray") -> Set[int]:
         """Union of entry ids sharing a bucket with ``vector`` in any table."""
         vec = _as_float_vector(vector)
-        found: set = set()
+        found: Set[int] = set()
         for table, key in zip(self._tables, self._bucket_keys(vec)):
             bucket = table.get(int(key))
             if bucket:
@@ -158,7 +158,7 @@ class LSHIndex:
             for cid in cand
         ]
         scored.sort(key=lambda pair: pair[1], reverse=True)
-        return scored[:top_k]
+        return cast("List[Tuple[int, float]]", scored[:top_k])
 
     @classmethod
     def from_memory(

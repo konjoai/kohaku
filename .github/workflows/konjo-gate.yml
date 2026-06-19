@@ -4,8 +4,8 @@ name: "Konjo Quality Gate — Wall 2"
 # `continue-on-error` removed and now fail the job (and the aggregate gate) on
 # violation — they are verified clean repo-wide. Steps marked "WARN-ONLY" still
 # carry `continue-on-error: true` because pre-existing debt would break CI; each
-# is armed once its debt is cleared (mypy strict, file size, complexity,
-# coverage threshold, mutation). Do not add new
+# is armed once its debt is cleared (file size, complexity, coverage threshold,
+# mutation). Do not add new
 # `continue-on-error` steps; clear the debt and arm instead.
 #
 on:
@@ -58,6 +58,14 @@ jobs:
       # ARMED (blocking): repo format-swept clean.
       - name: ruff format
         run: ruff format --check .
+      # ARMED (blocking): first-party code is mypy --strict clean. Run via
+      # `python -m mypy` with the package + api deps installed so third-party
+      # types (numpy/fastapi/pydantic) resolve; ignore_missing_imports in
+      # python/pyproject.toml covers the rest (sentence-transformers, the Rust ext).
+      - name: mypy (strict)
+        run: |
+          pip install -e "./python[api]" --quiet
+          cd python && python -m mypy --strict kohaku/
       - name: vulture
         continue-on-error: true
         run: vulture . --min-confidence 80

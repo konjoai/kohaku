@@ -105,5 +105,5 @@ class StreamingConsolidator:
         self.start()
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: object) -> None:
         self.stop()

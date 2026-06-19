@@ -32,7 +32,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from kohaku.attention import encode_text
 from kohaku.enriched import EnrichedMemoryStore
@@ -52,7 +52,7 @@ class ExportBundle:
     memory_count: int
     tag_count: int
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "format": self.format,
             "payload": self.payload,
@@ -68,10 +68,10 @@ class ImportReport:
     imported: int
     skipped_duplicates: int
     skipped_invalid: int
-    new_ids: tuple
+    new_ids: Tuple[int, ...]
     duplicate_of: Dict[int, int]  # incoming-index → existing entry_id
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "imported": int(self.imported),
             "skipped_duplicates": int(self.skipped_duplicates),
@@ -84,9 +84,9 @@ class ImportReport:
 # ──────────────────────────── export ───────────────────────────────────────
 
 
-def _memory_records(store: EnrichedMemoryStore) -> List[dict]:
+def _memory_records(store: EnrichedMemoryStore) -> List[Dict[str, Any]]:
     """Build the canonical record list — same shape across all formats."""
-    records: List[dict] = []
+    records: List[Dict[str, Any]] = []
     for e in store.episodic.entries():
         meta = store.get_metadata(e.id)
         if meta is None:
@@ -215,7 +215,7 @@ def export_memories(store: EnrichedMemoryStore, fmt: str = "json") -> ExportBund
 def _parse_dt(value: Optional[str]) -> Optional[datetime]:
     if value in (None, ""):
         return None
-    raw = value.strip()
+    raw = cast(str, value).strip()
     if raw.endswith("Z"):
         raw = raw[:-1] + "+00:00"
     try:
@@ -307,7 +307,7 @@ def import_memories(
     )
 
 
-def _coerce_records(data: Any) -> List[dict]:
+def _coerce_records(data: Any) -> List[Dict[str, Any]]:
     """Accept either a full export envelope or a bare list of memory dicts."""
     if isinstance(data, list):
         return [r for r in data if isinstance(r, dict)]
@@ -320,7 +320,7 @@ def _coerce_records(data: Any) -> List[dict]:
 
 def import_iter(
     store: EnrichedMemoryStore,
-    records: Iterable[dict],
+    records: Iterable[Dict[str, Any]],
     *,
     dedup_threshold: float = DEFAULT_DEDUP_THRESHOLD,
 ) -> ImportReport:

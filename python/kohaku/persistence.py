@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import struct
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 import numpy as np
 
@@ -249,7 +249,7 @@ def save_namespaces(
     directory: PathLike,
     *,
     fmt: str,
-    config: dict,
+    config: dict[str, Any],
 ) -> None:
     """Write a ``{id: EpisodicMemory}`` registry to ``directory``.
 
@@ -277,7 +277,7 @@ def save_namespaces(
 
 def load_namespaces(
     directory: PathLike, *, fmt: str
-) -> tuple[dict, dict[str, EpisodicMemory]]:
+) -> tuple[dict[str, Any], dict[str, EpisodicMemory]]:
     """Read back a registry written by :func:`save_namespaces`.
 
     Returns ``(config, namespaces)``. Raises ``FileNotFoundError`` if the

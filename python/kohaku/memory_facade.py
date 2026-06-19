@@ -27,7 +27,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from kohaku._pure import DIMS, HyperVector
 from kohaku.analogy import AnalogicalMemory, AnalogyResult
@@ -65,7 +65,7 @@ class MemoryHit:
     importance: float
     tags: tuple[str, ...]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "text": self.text,
@@ -144,7 +144,7 @@ class Memory:
             self._analogical = AnalogicalMemory(dims=self._dims)
         return self._analogical
 
-    def add_record(self, name: str, fields: dict) -> None:
+    def add_record(self, name: str, fields: dict[str, Any]) -> None:
         """Store a structured record (``{attribute: value}``) for reasoning.
 
         Distinct from :meth:`store` (free-text episodic memory): records power

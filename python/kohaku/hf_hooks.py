@@ -37,7 +37,7 @@ class KohakuMemoryCallbackStub:
 # ---------------------------------------------------------------------------
 
 try:
-    from transformers import TrainerCallback  # type: ignore[import]
+    from transformers import TrainerCallback
 
     class KohakuMemoryCallback(TrainerCallback):  # type: ignore[misc]
         """HuggingFace ``TrainerCallback`` that stores attention activations as hypervectors.
@@ -86,7 +86,7 @@ try:
             # HF models expose ``attentions`` on their output objects when
             # ``output_attentions=True`` is set; we record the mean if available.
             try:
-                import numpy as np  # type: ignore[import]
+                import numpy as np
 
                 outputs = kwargs.get("outputs")
                 if (
@@ -120,7 +120,7 @@ try:
             args: object,
             state: object,
             control: object,
-            logs: dict | None = None,
+            logs: dict[str, object] | None = None,
             **kwargs: object,
         ) -> None:
             """Called by HF Trainer when metrics are logged.

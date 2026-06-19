@@ -174,9 +174,9 @@ class TimelineBucket:
     bucket_start: datetime
     bucket_end: datetime
     count: int
-    memories: List[dict]
+    memories: List[dict[str, Any]]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "bucket_start": self.bucket_start.isoformat(),
             "bucket_end": self.bucket_end.isoformat(),
@@ -224,7 +224,7 @@ def bucket_timeline(
         raise ValueError("start must be <= end")
 
     # Stage 1: assign each memory to its bucket start.
-    binned: dict[datetime, List[dict]] = {}
+    binned: dict[datetime, List[dict[str, Any]]] = {}
     for m in memories:
         vf = _to_dt(_attr(m, "valid_from"))
         if vf is None:
@@ -271,7 +271,9 @@ def bucket_timeline(
     return out
 
 
-def _preview_memory(m: Any, text_field: str, id_field: str, truncate: int) -> dict:
+def _preview_memory(
+    m: Any, text_field: str, id_field: str, truncate: int
+) -> dict[str, Any]:
     text = str(_attr(m, text_field) or "")
     if truncate > 0 and len(text) > truncate:
         text = text[: truncate - 1] + "…"

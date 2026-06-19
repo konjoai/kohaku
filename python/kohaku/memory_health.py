@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from kohaku._index import index_over
 from kohaku.enriched import EnrichedMemoryStore
@@ -42,7 +42,7 @@ def _age_from_valid_from(meta: Any, now: datetime) -> float:
     if vf.tzinfo is None:
         vf = vf.replace(tzinfo=timezone.utc)
     delta = now - vf
-    return max(0.0, delta.total_seconds() / 86_400.0)
+    return max(0.0, float(delta.total_seconds()) / 86_400.0)
 
 
 DEFAULT_STALE_DAYS: int = 30
@@ -64,7 +64,7 @@ class DuplicatePair:
     label_a: str
     label_b: str
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "a_id": int(self.a_id),
             "b_id": int(self.b_id),
@@ -82,7 +82,7 @@ class StaleMemory:
     last_accessed: Optional[str]
     reinforcement_count: int
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "entry_id": int(self.entry_id),
             "label": self.label,
@@ -107,7 +107,7 @@ class MemoryHealthReport:
     stale_days: int = DEFAULT_STALE_DAYS
     duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "total_memories": int(self.total_memories),
             "stale_memories": int(self.stale_memories),
@@ -244,7 +244,7 @@ class MemoryHealthAnalyzer:
         days: Optional[int] = None,
         dry_run: bool = True,
         now: Optional[datetime] = None,
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """Delete stale memories (or report what *would* be deleted under dry_run)."""
         stale = self.list_stale(days=days, now=now)
         ids = [s.entry_id for s in stale]

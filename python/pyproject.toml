@@ -22,5 +22,13 @@ kohaku = "kohaku.cli:main"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
+[tool.mypy]
+strict = true
+# The lint environment doesn't install runtime deps (numpy, fastapi, …) and
+# numpy has no strict-friendly stubs anyway, so unresolved third-party imports
+# are treated as untyped (Any) rather than failing. First-party code is still
+# fully checked under --strict.
+ignore_missing_imports = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["kohaku"]

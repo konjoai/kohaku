@@ -79,7 +79,7 @@ class WriteValidator:
         self._memory = memory
         self._duplicate_threshold = duplicate_threshold
         self._rate_limits: Dict[str, RateLimit] = rate_limits or {}
-        self._store_times: Dict[str, deque] = defaultdict(deque)
+        self._store_times: Dict[str, deque[float]] = defaultdict(deque)
 
     def validate(
         self,

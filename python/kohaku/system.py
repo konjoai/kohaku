@@ -27,7 +27,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.enriched_meta import MemoryMetadata, _aware
@@ -55,7 +55,7 @@ class SystemBundle:
     relationships: Optional[RelationshipStore] = None
 
 
-def _meta_to_dict(meta: MemoryMetadata) -> dict:
+def _meta_to_dict(meta: MemoryMetadata) -> Dict[str, Any]:
     return {
         "entry_id": meta.entry_id,
         "valid_from": meta.valid_from.isoformat(),
@@ -69,7 +69,7 @@ def _meta_to_dict(meta: MemoryMetadata) -> dict:
     }
 
 
-def _meta_from_dict(d: dict) -> MemoryMetadata:
+def _meta_from_dict(d: Dict[str, Any]) -> MemoryMetadata:
     return MemoryMetadata(
         entry_id=int(d["entry_id"]),
         valid_from=datetime.fromisoformat(d["valid_from"]),
@@ -100,7 +100,7 @@ def _backup_sqlite(store: object, dest: Path) -> None:
 
 def save_system(
     store: EnrichedMemoryStore,
-    directory: "str | os.PathLike",
+    directory: "str | os.PathLike[str]",
     *,
     provenance: Optional[ProvenanceGraph] = None,
     versions: Optional[VersionStore] = None,
@@ -117,7 +117,7 @@ def save_system(
     save_binary(store.episodic, directory / _MEMORY_FILE)
 
     metadata = [
-        _meta_to_dict(store.get_metadata(e.id))
+        _meta_to_dict(cast(MemoryMetadata, store.get_metadata(e.id)))
         for e in store.episodic.entries()
         if store.get_metadata(e.id) is not None
     ]
@@ -152,7 +152,7 @@ def save_system(
     _atomic_json(directory / _MANIFEST_FILE, manifest)
 
 
-def load_system(directory: "str | os.PathLike") -> SystemBundle:
+def load_system(directory: "str | os.PathLike[str]") -> SystemBundle:
     """Reconstruct a :class:`SystemBundle` written by :func:`save_system`."""
     directory = Path(directory)
     manifest_path = directory / _MANIFEST_FILE

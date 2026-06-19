@@ -25,11 +25,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from kohaku.enriched import EnrichedMemoryStore
 from kohaku.portability import ExportBundle, export_csv, export_markdown
 from kohaku.portability import export_json as _portability_export_json
+from kohaku.provenance import ProvenanceGraph
+from kohaku.relationships import RelationshipStore
 from kohaku.versions import VersionStore, update_memory
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ class BatchUpdateReport:
     errors: List[Dict[str, Any]] = field(default_factory=list)
     results: List[Dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "processed": int(self.processed),
             "updated": int(self.updated),
@@ -64,7 +66,7 @@ class BatchDeleteReport:
     deleted_ids: Tuple[int, ...]
     errors: List[Dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "processed": int(self.processed),
             "deleted": int(self.deleted),
@@ -156,7 +158,7 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
         store._meta.pop(eid, None)
         if store.provenance is not None:
             try:
-                store.provenance.delete(eid)
+                cast(ProvenanceGraph, store.provenance).delete(eid)
             except (AttributeError, OSError) as exc:
                 logger.warning(
                     "provenance delete failed for %s (%s)",
@@ -165,7 +167,7 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
                 )
         if store.versions is not None:
             try:
-                store.versions.delete(eid)
+                cast(VersionStore, store.versions).delete(eid)
             except (AttributeError, OSError) as exc:
                 logger.warning(
                     "version delete failed for %s (%s)",
@@ -179,7 +181,7 @@ def batch_delete_by_ids(
     store: EnrichedMemoryStore,
     ids: List[int],
     *,
-    relationships: "Optional[object]" = None,
+    relationships: "Optional[RelationshipStore]" = None,
 ) -> BatchDeleteReport:
     """Delete the listed memory ids. Missing ids are reported in ``errors``."""
     if not isinstance(ids, list):
@@ -228,7 +230,7 @@ def batch_delete_by_filter(
     source: Optional[str] = None,
     tags_any: Optional[List[str]] = None,
     max_importance: Optional[float] = None,
-    relationships: "Optional[object]" = None,
+    relationships: "Optional[RelationshipStore]" = None,
     now: Optional[datetime] = None,
 ) -> BatchDeleteReport:
     """Drop every live memory that matches all of the supplied filters.
@@ -335,10 +337,10 @@ class _SubsetView:
         return _SubsetEpisodic(self._store, self._wanted)
 
     @property
-    def provenance(self):
+    def provenance(self) -> Any:
         return self._store.provenance
 
-    def get_metadata(self, entry_id: int):
+    def get_metadata(self, entry_id: int) -> Any:
         if entry_id not in self._wanted:
             return None
         return self._store.get_metadata(entry_id)
@@ -351,5 +353,5 @@ class _SubsetEpisodic:
         self._store = store
         self._wanted = wanted
 
-    def entries(self):
+    def entries(self) -> List[Any]:
         return [e for e in self._store.episodic.entries() if e.id in self._wanted]
