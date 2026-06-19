@@ -289,6 +289,41 @@ canvas.chart{width:100%;display:block;}
 #rmTargetInput{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:12px;padding:7px 10px;outline:none;transition:border-color .18s;}
 #rmTargetInput:focus{border-color:rgba(255,184,108,.35);}
 
+/* ── Mini-map ── */
+#miniMap{position:fixed;bottom:60px;left:16px;z-index:70;border:1px solid var(--border);border-radius:8px;background:rgba(2,2,8,.82);backdrop-filter:blur(10px);cursor:crosshair;opacity:0.78;transition:opacity .2s ease;}
+#miniMap:hover{opacity:1;}
+
+/* ── Shortcut overlay ── */
+#shortcutOverlay{position:fixed;inset:0;z-index:400;background:rgba(2,2,8,.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;}
+#shortcutOverlay.show{display:flex;}
+.so-inner{background:var(--glass-2);border:1px solid var(--border-2);border-radius:18px;padding:26px 30px;width:420px;max-width:calc(100vw - 32px);box-shadow:0 30px 80px rgba(0,0,0,.8);}
+.so-title{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--fg-2);margin-bottom:16px;}
+.so-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;}
+.so-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:10.5px;}
+.so-key{font-family:'SF Mono',monospace;background:rgba(255,184,108,.1);border:1px solid rgba(255,184,108,.25);border-radius:5px;padding:2px 7px;color:var(--amber);font-size:9.5px;white-space:nowrap;}
+.so-desc{color:var(--fg-1);}
+.so-close{margin-top:16px;text-align:center;font-family:'SF Mono',monospace;font-size:9.5px;color:var(--fg-2);cursor:pointer;letter-spacing:1px;}
+
+/* ── Memory edit overlay ── */
+#editOverlay{position:fixed;z-index:250;display:none;flex-direction:column;gap:6px;background:rgba(7,7,15,.95);backdrop-filter:blur(16px);border:1px solid var(--border-2);border-radius:11px;padding:12px 14px;width:240px;box-shadow:0 16px 50px rgba(0,0,0,.7);}
+#editOverlay.show{display:flex;}
+#editOverlay input{background:rgba(0,0,0,.5);border:1px solid rgba(255,184,108,.3);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:12px;padding:6px 9px;outline:none;width:100%;}
+#editOverlay .eo-label{font-family:'SF Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg-2);}
+
+/* ── Detail card: tags + validate ── */
+.dc-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
+.dc-tag-chip{font-family:'SF Mono',monospace;font-size:9px;padding:2px 7px;border-radius:99px;background:rgba(255,184,108,.1);border:1px solid rgba(255,184,108,.2);color:var(--amber);display:inline-flex;align-items:center;gap:4px;cursor:default;}
+.dc-tag-chip .rm-x{cursor:pointer;opacity:.6;font-size:10px;line-height:1;}
+.dc-tag-chip .rm-x:hover{opacity:1;color:var(--rose);}
+.dc-tag-add{display:flex;gap:4px;margin-top:5px;}
+.dc-tag-add input{flex:1;background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:6px;color:var(--fg-0);font-size:11px;padding:4px 7px;outline:none;min-width:0;}
+.dc-tag-add input:focus{border-color:rgba(255,184,108,.3);}
+.dc-validate-row{margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:6px;}
+.dc-validate-badge{font-family:'SF Mono',monospace;font-size:9px;padding:2px 8px;border-radius:99px;display:none;}
+.dc-validate-badge.pass{background:rgba(109,232,138,.12);border:1px solid rgba(109,232,138,.3);color:var(--green);display:inline;}
+.dc-validate-badge.warn{background:rgba(255,184,108,.1);border:1px solid rgba(255,184,108,.25);color:var(--amber);display:inline;}
+.dc-validate-badge.fail{background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.25);color:var(--rose);display:inline;}
+
 </style>
 </head>
 <body>
@@ -838,7 +873,57 @@ canvas.chart{width:100%;display:block;}
       <div class="dn-head">version history</div>
       <div id="dcVersions"></div>
     </div>
+    <!-- Tags section -->
+    <div id="dcTagSection" class="dc-neighbors" style="display:none;">
+      <div class="dn-head">tags</div>
+      <div class="dc-tags" id="dcTags"></div>
+      <div class="dc-tag-add">
+        <input id="dcTagInput" type="text" placeholder="add tag…" maxlength="40"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addTagToSelected();}" />
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;font-size:9px;" onclick="addTagToSelected()">+</button>
+      </div>
+    </div>
+    <!-- Validate + edit row -->
+    <div class="dc-validate-row">
+      <button class="btn btn-sm" style="background:rgba(93,232,218,.07);color:var(--teal);border:1px solid rgba(93,232,218,.22);font-size:9px;padding:4px 10px;" onclick="validateSelected()"><span class="btn-text">✓ Validate</span></button>
+      <button class="btn btn-sm" style="background:rgba(255,184,108,.06);color:var(--amber);border:1px solid rgba(255,184,108,.18);font-size:9px;padding:4px 10px;" onclick="editSelected()">✎ Edit</button>
+      <span id="dcValidateBadge" class="dc-validate-badge"></span>
+    </div>
     <div id="dcCompareHint" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);letter-spacing:1px;">SHIFT+CLICK another node to compare</div>
+  </div>
+</div>
+
+<!-- Mini-map -->
+<canvas id="miniMap" width="110" height="75" title="Graph overview — click to center"></canvas>
+
+<!-- Shortcut overlay -->
+<div id="shortcutOverlay" onclick="if(event.target===this)toggleShortcuts()">
+  <div class="so-inner">
+    <div class="so-title">Keyboard Shortcuts</div>
+    <div class="so-grid">
+      <div class="so-row"><span class="so-desc">Search / query</span><span class="so-key">/</span></div>
+      <div class="so-row"><span class="so-desc">Store memory</span><span class="so-key">Ctrl ↵</span></div>
+      <div class="so-row"><span class="so-desc">Warp mode</span><span class="so-key">Space</span></div>
+      <div class="so-row"><span class="so-desc">Refresh graph</span><span class="so-key">Ctrl R</span></div>
+      <div class="so-row"><span class="so-desc">Compare nodes</span><span class="so-key">Shift click</span></div>
+      <div class="so-row"><span class="so-desc">Context menu</span><span class="so-key">Right-click</span></div>
+      <div class="so-row"><span class="so-desc">Close panels</span><span class="so-key">Esc</span></div>
+      <div class="so-row"><span class="so-desc">Edit label</span><span class="so-key">Dbl-click</span></div>
+      <div class="so-row"><span class="so-desc">Pin node</span><span class="so-key">Ctx → Pin</span></div>
+      <div class="so-row"><span class="so-desc">This overlay</span><span class="so-key">?</span></div>
+    </div>
+    <div class="so-close" onclick="toggleShortcuts()">press ? or click outside to close</div>
+  </div>
+</div>
+
+<!-- Inline label edit overlay -->
+<div id="editOverlay">
+  <div class="eo-label">Edit Label</div>
+  <input id="editInput" type="text" maxlength="200" placeholder="memory label…"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();submitLabelEdit();}if(event.key==='Escape')closeEditOverlay();" />
+  <div style="display:flex;gap:6px;">
+    <button class="btn btn-primary btn-sm" onclick="submitLabelEdit()"><span class="btn-text">✓ Save</span></button>
+    <button class="btn btn-secondary btn-sm" onclick="closeEditOverlay()">Cancel</button>
   </div>
 </div>
 
@@ -2744,6 +2829,12 @@ function showDetailCard(idx) {
     }).catch(()=>{});
   }
 
+  // Tags section
+  loadDetailCardTags(nd.entry_id || null);
+  // Reset validate badge
+  const vbadge = document.getElementById('dcValidateBadge');
+  if (vbadge) { vbadge.className='dc-validate-badge'; vbadge.textContent=''; }
+
   // Show shift+click compare hint
   const hint = document.getElementById('dcCompareHint');
   if (hint) hint.style.display = 'block';
@@ -3362,6 +3453,223 @@ async function importMemories(data) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  MINI-MAP
+// ═══════════════════════════════════════════════════════════════════════════
+const MM = document.getElementById('miniMap');
+const MMCTX = MM ? MM.getContext('2d') : null;
+const MM_W = 110, MM_H = 75;
+
+function renderMiniMap() {
+  if (!MMCTX || !S.simNodes.length) return;
+  MMCTX.clearRect(0, 0, MM_W, MM_H);
+  MMCTX.fillStyle = 'rgba(2,2,8,0.55)';
+  MMCTX.fillRect(0, 0, MM_W, MM_H);
+  // Find bounding box of all nodes
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for (const sn of S.simNodes) {
+    if (sn.x < minX) minX=sn.x; if (sn.x > maxX) maxX=sn.x;
+    if (sn.y < minY) minY=sn.y; if (sn.y > maxY) maxY=sn.y;
+  }
+  const pad = 8;
+  const scaleX = (MM_W - pad*2) / Math.max(maxX-minX, 1);
+  const scaleY = (MM_H - pad*2) / Math.max(maxY-minY, 1);
+  const sc = Math.min(scaleX, scaleY);
+  const offX = pad + (MM_W - pad*2 - (maxX-minX)*sc) / 2 - minX*sc;
+  const offY = pad + (MM_H - pad*2 - (maxY-minY)*sc) / 2 - minY*sc;
+  // Edges
+  for (const e of S.edges) {
+    if (e.similarity < 0.35) continue;
+    const a = _snById.get(e.source), b = _snById.get(e.target);
+    if (!a || !b) continue;
+    MMCTX.strokeStyle = `rgba(255,235,200,${(e.similarity-0.3)*0.2})`;
+    MMCTX.lineWidth = 0.5;
+    MMCTX.beginPath();
+    MMCTX.moveTo(a.x*sc+offX, a.y*sc+offY);
+    MMCTX.lineTo(b.x*sc+offX, b.y*sc+offY);
+    MMCTX.stroke();
+  }
+  // Nodes
+  for (let i = 0; i < S.simNodes.length; i++) {
+    const sn = S.simNodes[i];
+    const mx = sn.x*sc+offX, my = sn.y*sc+offY;
+    const rgb = CLUSTER_RGB[sn.data.cluster % CLUSTER_RGB.length];
+    const r = i===S.selectedIdx ? 2.4 : i===S.hoverIdx ? 2.0 : 1.2;
+    MMCTX.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${i===S.selectedIdx?1:0.7})`;
+    MMCTX.beginPath(); MMCTX.arc(mx, my, r, 0, TAU); MMCTX.fill();
+  }
+  // Selected highlight
+  if (S.selectedIdx >= 0 && S.simNodes[S.selectedIdx]) {
+    const sn = S.simNodes[S.selectedIdx];
+    MMCTX.strokeStyle = 'rgba(255,215,0,0.8)';
+    MMCTX.lineWidth = 1;
+    MMCTX.beginPath(); MMCTX.arc(sn.x*sc+offX, sn.y*sc+offY, 4, 0, TAU); MMCTX.stroke();
+  }
+}
+
+if (MM) {
+  MM.addEventListener('click', e=>{
+    // Compute which sim-space region was clicked and select nearest node
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for (const sn of S.simNodes) {
+      if(sn.x<minX)minX=sn.x;if(sn.x>maxX)maxX=sn.x;
+      if(sn.y<minY)minY=sn.y;if(sn.y>maxY)maxY=sn.y;
+    }
+    const pad=8, sc=Math.min((MM_W-pad*2)/Math.max(maxX-minX,1),(MM_H-pad*2)/Math.max(maxY-minY,1));
+    const offX=pad+(MM_W-pad*2-(maxX-minX)*sc)/2-minX*sc;
+    const offY=pad+(MM_H-pad*2-(maxY-minY)*sc)/2-minY*sc;
+    const rect=MM.getBoundingClientRect();
+    const cx=(e.clientX-rect.left)*(MM_W/rect.width), cy=(e.clientY-rect.top)*(MM_H/rect.height);
+    const simX=(cx-offX)/sc, simY=(cy-offY)/sc;
+    let bestI=-1, bestD=Infinity;
+    S.simNodes.forEach((sn,i)=>{const d=(sn.x-simX)**2+(sn.y-simY)**2;if(d<bestD){bestD=d;bestI=i;}});
+    if (bestI>=0) { S.selectedIdx=bestI; showDetailCard(bestI); }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SHORTCUT OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleShortcuts() {
+  document.getElementById('shortcutOverlay').classList.toggle('show');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INLINE LABEL EDITOR
+// ═══════════════════════════════════════════════════════════════════════════
+let _editTarget = -1;
+function openEditOverlay(idx) {
+  const sn = S.simNodes[idx]; if (!sn) return;
+  _editTarget = idx;
+  const el = document.getElementById('editOverlay');
+  const input = document.getElementById('editInput');
+  input.value = sn.data.label || '';
+  const sx = sn._sx ?? sn.x+W/2, sy = sn._sy ?? sn.y+H/2;
+  let ex = sx + 18, ey = sy - 30;
+  if (ex + 250 > W) ex = sx - 258;
+  if (ey + 90 > H) ey = H - 100;
+  el.style.left = ex+'px'; el.style.top = ey+'px';
+  el.classList.add('show');
+  setTimeout(()=>input.select(), 60);
+}
+function closeEditOverlay() {
+  document.getElementById('editOverlay').classList.remove('show');
+  _editTarget = -1;
+}
+async function submitLabelEdit() {
+  const sn = S.simNodes[_editTarget]; if (!sn) return;
+  const newLabel = document.getElementById('editInput').value.trim();
+  if (!newLabel) { toast('Label cannot be empty', 'err'); return; }
+  closeEditOverlay();
+  const entryId = sn.data.entry_id || sn.id;
+  if (!S.live) {
+    sn.data.label = newLabel;
+    toast('Label updated (offline)', 'ok');
+    return;
+  }
+  const btn = document.querySelector('#editOverlay .btn-primary');
+  try {
+    await apiFetch(`/memories/${entryId}`, {method:'PUT', body:{label:newLabel, editor:'live-ui'}});
+    sn.data.label = newLabel;
+    toast('Label updated ✓', 'ok');
+    actLog('store', 'edit: '+newLabel.slice(0,18));
+    await refreshGraph(); await loadMemories();
+  } catch(e) { toast('Edit failed: '+e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DETAIL CARD: TAGS + VALIDATE
+// ═══════════════════════════════════════════════════════════════════════════
+let _dcEntryId = null;
+let _dcTags = [];
+
+function loadDetailCardTags(entryId) {
+  _dcEntryId = entryId;
+  _dcTags = [];
+  const sec = document.getElementById('dcTagSection');
+  const tagsEl = document.getElementById('dcTags');
+  if (!sec) return;
+  sec.style.display = 'none';
+  if (!S.live || !entryId) return;
+  apiFetch(`/memories/${entryId}/tags`).then(d=>{
+    _dcTags = d.tags || d.items || (Array.isArray(d) ? d : []);
+    renderDcTags();
+    sec.style.display = 'block';
+  }).catch(()=>{
+    // Show empty tag section anyway so user can add
+    sec.style.display = 'block';
+    renderDcTags();
+  });
+}
+function renderDcTags() {
+  const el = document.getElementById('dcTags');
+  if (!el) return;
+  el.innerHTML = _dcTags.map(t=>`
+    <span class="dc-tag-chip">${escHtml(t)}<span class="rm-x" onclick="removeTagFromSelected('${escHtml(t)}')">×</span></span>
+  `).join('') || '<span style="color:var(--fg-2);font-size:9px;font-family:SF Mono,monospace">no tags</span>';
+}
+async function addTagToSelected() {
+  const input = document.getElementById('dcTagInput');
+  const tag = input?.value?.trim();
+  if (!tag || !_dcEntryId) return;
+  input.value = '';
+  if (!S.live) {
+    if (!_dcTags.includes(tag)) _dcTags.push(tag);
+    renderDcTags(); return;
+  }
+  try {
+    await apiFetch(`/memories/${_dcEntryId}/tags`, {method:'POST', body:{tags:[tag]}});
+    if (!_dcTags.includes(tag)) _dcTags.push(tag);
+    renderDcTags();
+    toast('Tag added: '+tag, 'ok');
+  } catch(e) { toast('Tag add failed: '+e.message, 'err'); }
+}
+async function removeTagFromSelected(tag) {
+  if (!_dcEntryId) return;
+  if (!S.live) {
+    _dcTags = _dcTags.filter(t=>t!==tag); renderDcTags(); return;
+  }
+  try {
+    await apiFetch(`/memories/${_dcEntryId}/tags?tag=${encodeURIComponent(tag)}`, {method:'DELETE'});
+    _dcTags = _dcTags.filter(t=>t!==tag);
+    renderDcTags();
+    toast('Tag removed: '+tag, 'ok');
+  } catch(e) { toast('Tag remove failed: '+e.message, 'err'); }
+}
+
+async function validateSelected() {
+  const sn = S.simNodes[S.selectedIdx]; if (!sn) return;
+  const badge = document.getElementById('dcValidateBadge');
+  if (badge) { badge.className='dc-validate-badge'; badge.textContent='…'; badge.style.display='inline'; }
+  const btn = document.querySelector('.dc-validate-row .btn:first-child');
+  if (btn) setLoading(btn, true);
+  if (!S.live) {
+    if (badge) { badge.className='dc-validate-badge pass'; badge.textContent='✓ pass (sim)'; }
+    if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text'); if(sp)sp.innerHTML=sp.dataset.orig||'✓ Validate'; }
+    return;
+  }
+  try {
+    const d = await apiFetch('/memories/validate', {method:'POST', body:{type:'text', input:sn.data.label||'', source:sn.data._source||'user_input'}});
+    if (badge) {
+      if (d.accepted) {
+        badge.className='dc-validate-badge pass';
+        badge.textContent=`✓ accepted · sim ${(d.nearest_similarity||0).toFixed(3)}`;
+      } else {
+        badge.className='dc-validate-badge fail';
+        badge.textContent=`✕ ${(d.reason||'rejected').slice(0,22)}`;
+      }
+    }
+  } catch(e) {
+    if (badge) { badge.className='dc-validate-badge warn'; badge.textContent='? validate failed'; }
+  } finally {
+    if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text'); if(sp)sp.innerHTML=sp.dataset.orig||'✓ Validate'; }
+  }
+}
+
+function editSelected() {
+  if (S.selectedIdx >= 0) openEditOverlay(S.selectedIdx);
+}
+
 function escHtml(s) {
   return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -3489,6 +3797,14 @@ CV.addEventListener('click',e=>{
   }
 });
 
+// Double-click to edit label inline
+CV.addEventListener('dblclick', e=>{
+  const idx = findStar(e.clientX, e.clientY);
+  if (idx < 0) return;
+  S.selectedIdx = idx;
+  openEditOverlay(idx);
+});
+
 // Right-click context menu on nodes
 let _ctxTarget = -1;
 CV.addEventListener('contextmenu', e=>{
@@ -3566,6 +3882,7 @@ document.addEventListener('keydown', e => {
     toast(S.warpMode?'⚡ Warp engaged — SPACE to disengage':'Warp off','ok');
     return;
   }
+  if (e.key==='?' && !inInput) { e.preventDefault(); toggleShortcuts(); return; }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3592,6 +3909,7 @@ function loop(now) {
   stepSim(dt);
   updateSnById();
   renderCosmos(now, dt);
+  renderMiniMap();
   requestAnimationFrame(loop);
 }
 
