@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn identical_vectors_have_cosine_one() {
         let v = vec![1i8, -1, 1, 1, -1];
-        let out = cosine_topk(&v, &[v.clone()], 1);
+        let out = cosine_topk(&v, std::slice::from_ref(&v), 1);
         approx(out[0].1, 1.0);
     }
 
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn handles_dims_beyond_one_word() {
         let q: Vec<i8> = (0..130).map(|i| if i % 2 == 0 { 1 } else { -1 }).collect();
-        let out = cosine_topk(&q, &[q.clone()], 1);
+        let out = cosine_topk(&q, std::slice::from_ref(&q), 1);
         approx(out[0].1, 1.0);
     }
 

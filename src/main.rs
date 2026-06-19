@@ -1,3 +1,7 @@
+// Benchmark statistics cast element counts and nanosecond durations to f64 for
+// reporting; the precision loss is immaterial to a throughput figure.
+#![allow(clippy::cast_precision_loss)]
+
 use clap::{Parser, Subcommand};
 use std::time::Instant;
 
@@ -49,7 +53,7 @@ fn print_separator(widths: &[usize]) {
 fn print_row(cells: &[&str], widths: &[usize]) {
     print!("|");
     for (&w, cell) in widths.iter().zip(cells.iter()) {
-        print!(" {:<w$} |", cell);
+        print!(" {cell:<w$} |");
     }
     println!();
 }
@@ -69,7 +73,7 @@ fn print_table(headers: &[&str], rows: &[Vec<String>]) {
     print_row(headers, &widths);
     print_separator(&widths);
     for row in rows {
-        let cells: Vec<&str> = row.iter().map(|s| s.as_str()).collect();
+        let cells: Vec<&str> = row.iter().map(String::as_str).collect();
         print_row(&cells, &widths);
     }
     print_separator(&widths);
@@ -157,8 +161,7 @@ fn run_demo() {
         let top_labels: Vec<&str> = results.iter().take(2).map(|r| r.label.as_str()).collect();
         println!();
         println!(
-            "  → Top-2 labels: {:?} (expected \"apple\" and \"bicycle\" in some order)",
-            top_labels
+            "  → Top-2 labels: {top_labels:?} (expected \"apple\" and \"bicycle\" in some order)"
         );
     }
 

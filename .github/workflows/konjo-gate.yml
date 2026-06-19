@@ -4,8 +4,8 @@ name: "Konjo Quality Gate — Wall 2"
 # `continue-on-error` removed and now fail the job (and the aggregate gate) on
 # violation — they are verified clean repo-wide. Steps marked "WARN-ONLY" still
 # carry `continue-on-error: true` because pre-existing debt would break CI; each
-# is armed once its debt is cleared (clippy::pedantic, mypy strict, file size,
-# complexity, coverage threshold, mutation). Do not add new
+# is armed once its debt is cleared (mypy strict, file size, complexity,
+# coverage threshold, mutation). Do not add new
 # `continue-on-error` steps; clear the debt and arm instead.
 #
 on:
@@ -34,9 +34,9 @@ jobs:
       # ARMED (blocking): verified clean repo-wide. See "phased arming" note below.
       - name: cargo fmt
         run: cargo fmt --all -- --check
-      # WARN-ONLY: 61 pre-existing clippy::pedantic findings — arm after cleanup.
+      # ARMED (blocking): clean repo-wide (curated pedantic allows in lib.rs /
+      # main.rs with rationale).
       - name: clippy
-        continue-on-error: true
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::pedantic -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::todo -D clippy::dbg_macro
       - name: cargo audit
         continue-on-error: true
