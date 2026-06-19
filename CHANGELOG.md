@@ -2,6 +2,30 @@
 
 All notable changes to Kohaku are documented here.
 
+## [0.32.0] — 2026-06-18
+
+### Added — REST surface for the multi-agent stores
+
+The `SharedMemoryPool` and `TenantMemoryStore` were library-only; the packaged
+FastAPI server (`kohaku.create_app` / `kohaku.serve`) now exposes both over HTTP,
+following the existing text-encoded convention (clients send text, the server
+encodes to hypervectors — raw vectors never cross the wire).
+
+- **Shared pool** (cross-agent: per-agent write, read-all union):
+  `POST /agents/store`, `POST /agents/query` (optional `agents` scope, returns
+  hits tagged with the originating agent), `GET /agents` (namespace list +
+  totals), `DELETE /agents?agent_id=...`. Writes report the pool's
+  poisoning-defense outcome (`stored`, `reason`).
+- **Tenant store** (isolated: per-tenant read + write):
+  `POST /tenants/store`, `POST /tenants/query` (isolated — no cross-tenant
+  read), `GET /tenants`, `DELETE /tenants?tenant_id=...`.
+- Namespace ids travel in the request body / query params (not the path), so
+  ids containing slashes or unicode work. Inputs are validated at the boundary
+  by pydantic (non-empty ids, text length, `top_k`/`threshold` bounds).
+
+New tests in `python/tests/test_server.py` (8 added, 28 total). `server.py`
+stays under the 500-line limit. Version `0.32.0`.
+
 ## [0.31.0] — 2026-06-18
 
 ### Added — Async wrappers for the multi-agent stores
