@@ -238,6 +238,27 @@ canvas.chart{width:100%;display:block;}
 #warpBadge{position:fixed;top:58px;right:16px;z-index:110;background:rgba(93,232,218,.12);border:1px solid rgba(93,232,218,.35);border-radius:99px;padding:4px 13px;font-family:'SF Mono',monospace;font-size:9.5px;color:var(--teal);display:none;letter-spacing:2px;animation:warpPulse 1.2s ease-in-out infinite;}
 #warpBadge.show{display:block;}
 @keyframes warpPulse{0%,100%{box-shadow:0 0 0 0 rgba(93,232,218,.3);}50%{box-shadow:0 0 0 6px rgba(93,232,218,0);}}
+
+/* ── Stats strip ── */
+#statsStrip{position:fixed;top:52px;left:0;right:0;height:28px;z-index:55;background:rgba(2,2,8,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;padding:0 16px;overflow:hidden;}
+.ss-item{display:flex;align-items:center;gap:5px;padding:0 10px;border-right:1px solid var(--border);font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);white-space:nowrap;}
+.ss-item:first-child{padding-left:0;}
+.ss-item:last-child{border-right:none;}
+.ss-val{color:var(--amber-2);}
+.ss-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.06);min-width:36px;overflow:hidden;}
+.ss-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--amber),var(--gold));transition:width .6s ease;}
+
+/* ── Tag cloud ── */
+.tag-cloud-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.tag-pill{font-family:'SF Mono',monospace;font-size:9px;padding:2px 8px;border-radius:99px;border:1px solid rgba(255,184,108,.18);color:var(--fg-1);cursor:pointer;transition:all .15s ease;background:rgba(255,184,108,.05);}
+.tag-pill:hover,.tag-pill.active{background:rgba(255,184,108,.14);border-color:rgba(255,184,108,.4);color:var(--amber);}
+.tag-pill .tp-count{margin-left:4px;color:var(--fg-2);font-size:8px;}
+
+/* ── Relationship list ── */
+.rel-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:7px;font-size:11px;}
+.rel-type{font-family:'SF Mono',monospace;font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(93,232,218,.15);color:var(--teal);}
+.rel-label{flex:1;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rel-sim{font-family:'SF Mono',monospace;font-size:9px;color:var(--amber);}
 </style>
 </head>
 <body>
@@ -275,6 +296,19 @@ canvas.chart{width:100%;display:block;}
     <button class="h-btn" id="btnRight" onclick="toggleRight()">Panels ☰</button>
   </div>
 </header>
+
+<!-- Stats strip -->
+<div id="statsStrip" style="display:none;">
+  <div class="ss-item">uptime <span class="ss-val" id="ssUptime">—</span></div>
+  <div class="ss-item">dims <span class="ss-val" id="ssDims">—</span></div>
+  <div class="ss-item">episodic <span class="ss-val" id="ssEpisodic">—</span>/<span class="ss-val" id="ssCap">—</span>
+    <div class="ss-bar"><div class="ss-bar-fill" id="ssEpisodicBar" style="width:0%"></div></div>
+  </div>
+  <div class="ss-item">semantic <span class="ss-val" id="ssSemantic">—</span></div>
+  <div class="ss-item">iterations <span class="ss-val" id="ssIter">—</span></div>
+  <div class="ss-item" id="ssTagItem" style="display:none;">tags <span class="ss-val" id="ssTagCount">—</span></div>
+  <div class="ss-item" id="ssRelItem" style="display:none;">rels <span class="ss-val" id="ssRelCount">—</span></div>
+</div>
 
 <!-- Left panel: Memory Console -->
 <div class="panel" id="panelLeft">
@@ -457,6 +491,50 @@ canvas.chart{width:100%;display:block;}
       </div>
     </div>
 
+    <!-- Tag Cloud -->
+    <div class="rp-section">
+      <h3>Tag Cloud <span id="tagFilterLabel" style="color:var(--amber);font-weight:400;font-size:9px;margin-left:4px;display:none;"></span></h3>
+      <div class="tag-cloud-wrap" id="tagCloud">
+        <div style="color:var(--fg-2);font-size:10px">—</div>
+      </div>
+      <button class="btn btn-sm" id="tagClearBtn" onclick="clearTagFilter()" style="margin-top:6px;display:none;background:transparent;border:1px solid var(--border);color:var(--fg-2);font-size:9px;">✕ clear filter</button>
+    </div>
+
+    <!-- Relationships -->
+    <div class="rp-section">
+      <h3>Relationships</h3>
+      <div id="relCounts" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;"></div>
+      <div id="relList" style="display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto;scrollbar-width:thin;"></div>
+      <button class="btn btn-secondary btn-full btn-sm" style="margin-top:8px;" onclick="loadRelationships()">↻ Refresh</button>
+    </div>
+
+    <!-- Rescore + Stale Sweeper -->
+    <div class="rp-section">
+      <h3>Importance Rescore</h3>
+      <p style="font-size:11px;color:var(--fg-2);margin-bottom:8px;">Recompute importance from frequency · recency · uniqueness · depth.</p>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="runRescore(true)"><span class="btn-text">↻ Dry Run</span></button>
+        <button class="btn btn-primary btn-sm" onclick="runRescore(false)"><span class="btn-text">▶ Apply</span></button>
+      </div>
+      <div id="rescoreReport" style="display:none;margin-top:8px;"></div>
+    </div>
+
+    <div class="rp-section">
+      <h3>Stale Sweeper</h3>
+      <div class="field" style="margin-bottom:6px;">
+        <label>Stale threshold (days)</label>
+        <div class="slider-row">
+          <input type="range" id="staleDays" min="7" max="180" value="30" step="7" style="flex:1;accent-color:var(--rose);" oninput="document.getElementById('staleDaysVal').textContent=this.value+'d'" />
+          <span id="staleDaysVal" style="font-family:'SF Mono',monospace;font-size:11px;color:var(--rose);min-width:32px;">30d</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="loadStale()"><span class="btn-text">⌕ List Stale</span></button>
+        <button class="btn btn-sm" style="background:rgba(255,107,138,.08);color:var(--rose);border:1px solid rgba(255,107,138,.2);" onclick="purgeStale(false)"><span class="btn-text">✕ Purge</span></button>
+      </div>
+      <div id="staleList" style="margin-top:8px;max-height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;"></div>
+    </div>
+
   </div>
 </div>
 
@@ -470,6 +548,7 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab" onclick="switchTab('timeline')" data-tab="timeline">Timeline</button>
     <button class="dock-tab" onclick="switchTab('encode')" data-tab="encode">HDC Encode</button>
     <button class="dock-tab" onclick="switchTab('heatmap')" data-tab="heatmap">Heatmap</button>
+    <button class="dock-tab" onclick="switchTab('relationships')" data-tab="relationships">Relations</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -629,6 +708,16 @@ canvas.chart{width:100%;display:block;}
       </div>
     </div>
 
+    <!-- Relationships dock pane -->
+    <div class="dock-pane" id="paneRelationships">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Memory Relationships Graph</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadRelationshipsPane()">↻ Refresh</button>
+      </div>
+      <div id="relPaneCounts" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div id="relPaneList" style="display:flex;flex-direction:column;gap:5px;overflow-y:auto;max-height:200px;scrollbar-width:thin;"></div>
+    </div>
+
   </div>
 </div>
 
@@ -776,6 +865,10 @@ const S = {
   loading: {},
   pinnedIds: new Set(),
   warpMode: false,
+  tagCloud: {},
+  tagFilter: null,
+  relationships: [],
+  stats: null,
 };
 
 let W = 0, H = 0, DPR = 1;
@@ -976,6 +1069,37 @@ function renderCosmos(now, dt) {
   CTX.letterSpacing = '0px';
   CTX.textAlign = 'left';
   CTX.restore();
+
+  // Relationship arcs (colored by type, drawn under nodes)
+  if (S.relationships.length > 0) {
+    CTX.save();
+    const REL_COLORS = {similar:[255,215,0],opposite:[255,107,138],causes:[93,232,218],supports:[109,232,138],contradicts:[167,139,250]};
+    const byEntryId = new Map(S.simNodes.map(n=>[String(n.data.entry_id||n.id),n]));
+    const drawnArcs = new Set();
+    for (const rel of S.relationships.slice(0,60)) {
+      const key = [rel.source_id,rel.target_id].sort().join('_');
+      if (drawnArcs.has(key)) continue;
+      drawnArcs.add(key);
+      const snA = byEntryId.get(String(rel.source_id||rel.from_id));
+      const snB = byEntryId.get(String(rel.target_id||rel.to_id));
+      if (!snA || !snB) continue;
+      const ax = snA.x+W/2+PX, ay = snA.y+H/2+PY;
+      const bx = snB.x+W/2+PX, by = snB.y+H/2+PY;
+      const relType = (rel.relation_type||rel.type||'similar').toLowerCase();
+      const rc = REL_COLORS[relType] || [255,184,108];
+      const pulse = 0.18 + 0.08*Math.abs(Math.sin(now*0.0018 + ax*0.003));
+      CTX.strokeStyle = `rgba(${rc[0]},${rc[1]},${rc[2]},${pulse})`;
+      CTX.lineWidth = 0.7 + (rel.strength||rel.weight||0.5)*0.8;
+      CTX.setLineDash([2,6]);
+      CTX.lineDashOffset = -(now*0.02 % 8);
+      const mx = (ax+bx)/2, my = (ay+by)/2;
+      const dx = bx-ax, dy = by-ay, len = Math.sqrt(dx*dx+dy*dy)+0.01;
+      const cx2 = mx - dy/len*24, cy2 = my + dx/len*24;
+      CTX.beginPath(); CTX.moveTo(ax,ay); CTX.quadraticCurveTo(cx2,cy2,bx,by); CTX.stroke();
+    }
+    CTX.setLineDash([]);
+    CTX.restore();
+  }
 
   // Warp mode hyperspace streaks
   if (S.warpMode) {
@@ -2471,6 +2595,187 @@ function actLog(type, label) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  STATS STRIP
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadStats() {
+  if (!S.live) return;
+  try {
+    const d = await apiFetch('/stats');
+    S.stats = d;
+    const strip = document.getElementById('statsStrip');
+    if (strip) strip.style.display = 'flex';
+    const fmt = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n||0);
+    const upSec = Math.round(d.uptime_seconds||0);
+    const upStr = upSec<60?upSec+'s':upSec<3600?Math.floor(upSec/60)+'m':Math.floor(upSec/3600)+'h';
+    document.getElementById('ssUptime').textContent = upStr;
+    document.getElementById('ssDims').textContent = d.dims||'—';
+    document.getElementById('ssEpisodic').textContent = fmt(d.episodic_size);
+    document.getElementById('ssCap').textContent = fmt(d.episodic_capacity);
+    const fill = d.episodic_capacity ? Math.round(d.episodic_size/d.episodic_capacity*100) : 0;
+    document.getElementById('ssEpisodicBar').style.width = fill+'%';
+    document.getElementById('ssSemantic').textContent = fmt(d.semantic_concepts);
+    document.getElementById('ssIter').textContent = fmt(d.learning_iterations);
+  } catch { /* silently skip */ }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TAG CLOUD
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadTagCloud() {
+  if (!S.live) return;
+  try {
+    const d = await apiFetch('/memories/tags');
+    S.tagCloud = d.tags || {};
+    renderTagCloud(S.tagCloud);
+    const ssTag = document.getElementById('ssTagItem');
+    if (ssTag) { ssTag.style.display='flex'; document.getElementById('ssTagCount').textContent=d.count||0; }
+  } catch { /* skip */ }
+}
+function renderTagCloud(tags) {
+  const el = document.getElementById('tagCloud');
+  if (!el) return;
+  const entries = Object.entries(tags).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) { el.innerHTML='<div style="color:var(--fg-2);font-size:10px">no tags yet</div>'; return; }
+  const maxCnt = entries[0][1] || 1;
+  el.innerHTML = entries.slice(0,24).map(([tag,cnt]) => {
+    const size = 9 + Math.round((cnt/maxCnt)*4);
+    const active = S.tagFilter===tag ? ' active' : '';
+    return `<span class="tag-pill${active}" style="font-size:${size}px" onclick="filterByTag('${escHtml(tag)}')">${escHtml(tag)}<span class="tp-count">${cnt}</span></span>`;
+  }).join('');
+}
+function filterByTag(tag) {
+  if (S.tagFilter===tag) { clearTagFilter(); return; }
+  S.tagFilter=tag;
+  const lbl = document.getElementById('tagFilterLabel');
+  if (lbl) { lbl.textContent='· '+tag; lbl.style.display='inline'; }
+  const btn = document.getElementById('tagClearBtn');
+  if (btn) btn.style.display='';
+  renderTagCloud(S.tagCloud);
+  if (!S.live) { renderMemList(); return; }
+  apiFetch('/memories/search',{params:{q:tag,limit:40}}).then(d=>{
+    S.memories=Array.isArray(d)?d:(d.results||d.memories||[]);
+    renderMemList();
+    toast(`Filtered: ${S.memories.length} memories tagged "${tag}"`, 'ok');
+  }).catch(()=>{ renderMemList(); });
+}
+function clearTagFilter() {
+  S.tagFilter=null;
+  document.getElementById('tagFilterLabel').style.display='none';
+  document.getElementById('tagClearBtn').style.display='none';
+  renderTagCloud(S.tagCloud);
+  loadMemories();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RELATIONSHIPS
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadRelationships() {
+  if (!S.live) return;
+  try {
+    const d = await apiFetch('/memories/relationships');
+    S.relationships = d.relationships || [];
+    const counts = d.counts_by_type || {};
+    // Update right-panel summary
+    const relCounts = document.getElementById('relCounts');
+    if (relCounts) {
+      const REL_COLORS2 = {similar:'var(--amber)',opposite:'var(--rose)',causes:'var(--teal)',supports:'var(--green)',contradicts:'var(--violet)'};
+      relCounts.innerHTML = Object.entries(counts).map(([t,c])=>
+        `<span class="tag-pill" style="border-color:rgba(93,232,218,.2)">${t}<span class="tp-count">${c}</span></span>`
+      ).join('');
+    }
+    const relList = document.getElementById('relList');
+    if (relList) {
+      relList.innerHTML = S.relationships.slice(0,12).map(r=>`
+        <div class="rel-item">
+          <span class="rel-type">${escHtml(r.relation_type||r.type||'?')}</span>
+          <span class="rel-label">${escHtml((r.source_label||'?').slice(0,20))} → ${escHtml((r.target_label||'?').slice(0,20))}</span>
+          <span class="rel-sim">${(r.strength||r.weight||0).toFixed(2)}</span>
+        </div>`).join('') || '<div style="color:var(--fg-2);font-size:10px">no relationships</div>';
+    }
+    const ssRel = document.getElementById('ssRelItem');
+    if (ssRel) { ssRel.style.display='flex'; document.getElementById('ssRelCount').textContent=S.relationships.length; }
+  } catch { /* skip */ }
+}
+async function loadRelationshipsPane() {
+  await loadRelationships();
+  const countsEl = document.getElementById('relPaneCounts');
+  const listEl = document.getElementById('relPaneList');
+  if (countsEl && S.relationships !== undefined) {
+    const d = await apiFetch('/memories/relationships').catch(()=>({relationships:[],counts_by_type:{}}));
+    const counts = d.counts_by_type || {};
+    countsEl.innerHTML = Object.entries(counts).length
+      ? Object.entries(counts).map(([t,c])=>
+          `<span class="tag-pill">${t}: <span style="color:var(--amber)">${c}</span></span>`
+        ).join('')
+      : '<span style="font-size:10px;color:var(--fg-2)">none</span>';
+    if (listEl) listEl.innerHTML = (d.relationships||[]).slice(0,40).map(r=>`
+      <div class="rel-item">
+        <span class="rel-type">${escHtml(r.relation_type||r.type||'?')}</span>
+        <span class="rel-label">${escHtml((r.source_label||String(r.source_id||'?')).slice(0,22))} → ${escHtml((r.target_label||String(r.target_id||'?')).slice(0,22))}</span>
+        <span class="rel-sim">${(r.strength||r.weight||0).toFixed(3)}</span>
+      </div>`).join('') || '<div style="color:var(--fg-2);font-size:10px">no relationships found</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RESCORE
+// ═══════════════════════════════════════════════════════════════════════════
+async function runRescore(dryRun) {
+  if (!S.live) { toast('Rescore requires live backend', 'err'); return; }
+  const el = document.getElementById('rescoreReport');
+  try {
+    const d = await apiFetch('/memories/rescore', {method:'POST', body:{dry_run:dryRun}});
+    if (el) {
+      el.style.display='block';
+      const updated = d.updated||d.rescored||0;
+      const delta = d.avg_delta !== undefined ? d.avg_delta.toFixed(4) : '—';
+      el.innerHTML=`<div class="cons-report">
+        <div class="cr-row"><span>${dryRun?'[dry run] would update':'updated'}</span><span class="cr-val">${updated}</span></div>
+        <div class="cr-row"><span>avg Δ importance</span><span class="cr-val">${delta}</span></div>
+        <div class="cr-row"><span>status</span><span class="cr-val" style="color:var(--green)">${dryRun?'preview':'applied'}</span></div>
+      </div>`;
+    }
+    actLog('rescore', (dryRun?'dry-run':'applied')+' '+( d.updated||0));
+    toast((dryRun?'Dry-run: ':'Applied: ')+(d.updated||0)+' rescored · avg Δ '+(d.avg_delta!==undefined?d.avg_delta.toFixed(4):'—'), 'ok');
+    if (!dryRun) { await refreshGraph(); await loadMemories(); }
+  } catch(e) { toast('Rescore failed: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STALE SWEEPER
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadStale() {
+  if (!S.live) { toast('Stale sweeper requires live backend','err'); return; }
+  const days = parseInt(document.getElementById('staleDays')?.value)||30;
+  const el = document.getElementById('staleList');
+  if (el) el.innerHTML='<div style="color:var(--fg-2);font-size:10px">loading…</div>';
+  try {
+    const d = await apiFetch('/memories/health/stale', {params:{days}});
+    const items = d.items || [];
+    if (el) el.innerHTML = items.length
+      ? items.slice(0,20).map(m=>`
+          <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:6px;font-size:10px;">
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-1)">${escHtml((m.label||'?').slice(0,32))}</span>
+            <span style="font-family:SF Mono,monospace;font-size:9px;color:var(--rose)">${m.age_days??'?'}d</span>
+          </div>`).join('')
+      : '<div style="color:var(--green);font-size:10px;font-family:SF Mono,monospace">✓ no stale memories</div>';
+    toast(`${items.length} stale memories (>${days}d)`, items.length?'ok':'ok');
+  } catch(e) { toast('Stale check failed: '+e.message,'err'); }
+}
+async function purgeStale(dryRun=false) {
+  if (!S.live) { toast('Purge requires live backend','err'); return; }
+  const days = parseInt(document.getElementById('staleDays')?.value)||30;
+  try {
+    const d = await apiFetch(`/memories/stale?days=${days}&dry_run=${dryRun}`,{method:'DELETE'});
+    const n = d.deleted||d.count||0;
+    toast((dryRun?'Dry-run: ':'Purged: ')+n+' stale memories', 'ok');
+    actLog('delete', n+' stale');
+    if (!dryRun) { await refreshGraph(); await loadMemories(); spawnNova(W/2,H/2,[255,107,138]); }
+    await loadStale();
+  } catch(e) { toast('Purge failed: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  HDC OPERATIONS (Bundle · Bind · Permute · Unbind)
 // ═══════════════════════════════════════════════════════════════════════════
 function hvBind(a, b) {
@@ -2663,6 +2968,7 @@ function switchTab(name) {
   if (name==='conflicts') loadConflicts();
   if (name==='timeline') loadTimeline();
   if (name==='heatmap') renderHeatmap();
+  if (name==='relationships') loadRelationshipsPane();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2829,6 +3135,9 @@ async function poll() {
   await loadHealth();
   await loadTrustWeights();
   await loadConsHistory();
+  await loadStats();
+  await loadTagCloud();
+  await loadRelationships();
   pollTimer = setTimeout(poll, POLL_INTERVAL);
 }
 
