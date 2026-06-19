@@ -324,6 +324,20 @@ canvas.chart{width:100%;display:block;}
 .dc-validate-badge.warn{background:rgba(255,184,108,.1);border:1px solid rgba(255,184,108,.25);color:var(--amber);display:inline;}
 .dc-validate-badge.fail{background:rgba(255,107,138,.1);border:1px solid rgba(255,107,138,.25);color:var(--rose);display:inline;}
 
+/* ── Lasso selection ── */
+#lassoRect{position:fixed;pointer-events:none;border:1.5px dashed rgba(167,139,250,.65);background:rgba(167,139,250,.04);z-index:85;display:none;border-radius:3px;}
+
+/* ── Batch ops bar ── */
+#batchBar{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:80;background:rgba(7,7,15,.94);backdrop-filter:blur(18px);border:1px solid rgba(167,139,250,.35);border-radius:14px;padding:8px 16px;display:none;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.75);animation:batchIn .22s cubic-bezier(.34,1.56,.64,1) both;}
+#batchBar.show{display:flex;}
+@keyframes batchIn{from{opacity:0;transform:translateX(-50%) translateY(8px) scale(.96);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
+#batchCount{font-family:'SF Mono',monospace;font-size:10px;color:var(--violet);letter-spacing:1.5px;white-space:nowrap;}
+.batch-btn{background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.28);border-radius:8px;color:var(--violet);font-family:'SF Mono',monospace;font-size:10px;letter-spacing:1px;padding:5px 12px;cursor:pointer;transition:all .15s ease;}
+.batch-btn:hover{background:rgba(167,139,250,.18);color:#fff;}
+.batch-btn.danger{background:rgba(255,107,138,.07);border-color:rgba(255,107,138,.25);color:var(--rose);}
+.batch-btn.danger:hover{background:rgba(255,107,138,.18);}
+.batch-sep{width:1px;height:18px;background:rgba(255,255,255,.1);}
+
 </style>
 </head>
 <body>
@@ -896,6 +910,19 @@ canvas.chart{width:100%;display:block;}
 <!-- Mini-map -->
 <canvas id="miniMap" width="110" height="75" title="Graph overview — click to center"></canvas>
 
+<!-- Lasso selection rect -->
+<div id="lassoRect"></div>
+
+<!-- Batch ops bar -->
+<div id="batchBar">
+  <span id="batchCount">0 selected</span>
+  <div class="batch-sep"></div>
+  <button class="batch-btn" onclick="batchExport()">↓ Export</button>
+  <button class="batch-btn danger" onclick="batchDelete()">✕ Delete</button>
+  <div class="batch-sep"></div>
+  <button class="batch-btn" onclick="clearSelection()" style="color:var(--fg-2);border-color:var(--border);">✕ Clear</button>
+</div>
+
 <!-- Shortcut overlay -->
 <div id="shortcutOverlay" onclick="if(event.target===this)toggleShortcuts()">
   <div class="so-inner">
@@ -1069,6 +1096,9 @@ const S = {
   tagFilter: null,
   relationships: [],
   stats: null,
+  selectedIds: new Set(),  // lasso-selected node IDs
+  sweepEffects: [],         // consolidation sweep animations
+  scanEffects: [],          // query scan beam animations
 };
 
 let W = 0, H = 0, DPR = 1;
@@ -1160,7 +1190,7 @@ function initSim(nodes, edges) {
     if (p) { p.data = node; return p; }
     const ang = (i * 2.399963229) % TAU;
     const r = 100 + Math.random() * 200;
-    return { id: node.id, x: Math.cos(ang)*r, y: Math.sin(ang)*r, vx:0, vy:0, data: node, _born: performance.now(), _breathPhase: Math.random()*TAU };
+    return { id: node.id, x: Math.cos(ang)*r, y: Math.sin(ang)*r, vx:0, vy:0, data: node, _born: performance.now(), _breathPhase: Math.random()*TAU, _z: Math.random() };
   });
   S.edges = edges;
 }
@@ -1488,9 +1518,10 @@ function renderCosmos(now, dt) {
       : 1;
     if (salienceAlpha < 0.02) { sn._sx = sx; sn._sy = sy; sn._sr = 0; continue; }
     const breathe = 1 + 0.055*Math.sin(now*0.0019 + (sn._breathPhase||0));
-    const baseR = (2.2 + imp*2.4 + Math.log1p(rc)*0.8) * breathe;
+    const zFactor = 0.80 + (sn._z ?? 0.5) * 0.20;
+    const baseR = (2.2 + imp*2.4 + Math.log1p(rc)*0.8) * breathe * zFactor;
     const tw = 0.88 + 0.12*Math.sin(now*0.002 + sn.x*0.01 + i);
-    const bright = (0.4 + 0.6*decay) * tw * salienceAlpha;
+    const bright = (0.4 + 0.6*decay) * tw * salienceAlpha * (0.7 + (sn._z ?? 0.5)*0.3);
 
     if (sn._flash > 0) {
       sn._flash = Math.max(0, sn._flash - dt*1.8);
@@ -1608,6 +1639,17 @@ function renderCosmos(now, dt) {
       CTX.beginPath(); CTX.arc(sx-baseR-3,sy-baseR-3,2,0,TAU); CTX.fill();
     }
 
+    // Lasso-selected node ring
+    if (S.selectedIds.has(sn.id)) {
+      const pulse = 0.55 + 0.35*Math.abs(Math.sin(now*0.003 + i*0.4));
+      CTX.strokeStyle = `rgba(167,139,250,${pulse})`;
+      CTX.lineWidth = 1.2;
+      CTX.setLineDash([3,4]);
+      CTX.lineDashOffset = now*0.04;
+      CTX.beginPath(); CTX.arc(sx,sy,baseR*3.8,0,TAU); CTX.stroke();
+      CTX.setLineDash([]);
+    }
+
     // Label — always show for salient/active/hit nodes
     const isActive = i === S.hoverIdx || i === S.selectedIdx;
     const isHit = S.queryHits.includes(node.id) || S.queryHits.includes(String(node.entry_id));
@@ -1666,6 +1708,56 @@ function renderCosmos(now, dt) {
     }
   }
   CTX.restore();
+
+  // Consolidation sweep — violet ring expanding from center
+  if (S.sweepEffects.length) {
+    CTX.save();
+    const aliveSwp = [];
+    for (const sw of S.sweepEffects) {
+      const t = clamp((now - sw.born) / sw.dur, 0, 1);
+      if (t >= 1) continue;
+      aliveSwp.push(sw);
+      const et = easeOut(t);
+      const r = et * Math.max(W, H) * 0.82;
+      const alpha = (1-t) * 0.16;
+      const g = CTX.createRadialGradient(W/2+PX, H/2+PY, r*0.62, W/2+PX, H/2+PY, r);
+      g.addColorStop(0, 'rgba(167,139,250,0)');
+      g.addColorStop(0.65, `rgba(167,139,250,${alpha})`);
+      g.addColorStop(1, 'rgba(167,139,250,0)');
+      CTX.fillStyle = g;
+      CTX.beginPath(); CTX.arc(W/2+PX, H/2+PY, r, 0, TAU); CTX.fill();
+      CTX.strokeStyle = `rgba(167,139,250,${(1-t)*0.55})`;
+      CTX.lineWidth = 2.8*(1-t);
+      CTX.shadowBlur = 14*(1-t); CTX.shadowColor = 'rgba(167,139,250,0.5)';
+      CTX.beginPath(); CTX.arc(W/2+PX, H/2+PY, r, 0, TAU); CTX.stroke();
+      CTX.shadowBlur = 0;
+    }
+    S.sweepEffects = aliveSwp;
+    CTX.restore();
+  }
+
+  // Query scan beam — teal vertical sweep across canvas
+  if (S.scanEffects.length) {
+    CTX.save();
+    const aliveScn = [];
+    for (const sc2 of S.scanEffects) {
+      const t = clamp((now - sc2.born) / sc2.dur, 0, 1);
+      if (t > 1.1) continue;
+      aliveScn.push(sc2);
+      const x = easeOut(t) * W;
+      const a2 = t < 0.15 ? t/0.15 : t > 0.85 ? (1-t)/0.15 : 1;
+      const g2 = CTX.createLinearGradient(x-55, 0, x+55, 0);
+      g2.addColorStop(0, 'rgba(93,232,218,0)');
+      g2.addColorStop(0.5, `rgba(93,232,218,${a2*0.13})`);
+      g2.addColorStop(1, 'rgba(93,232,218,0)');
+      CTX.fillStyle = g2; CTX.fillRect(x-55, 0, 110, H);
+      CTX.strokeStyle = `rgba(93,232,218,${a2*0.45})`;
+      CTX.lineWidth = 0.7;
+      CTX.beginPath(); CTX.moveTo(x, 0); CTX.lineTo(x, H); CTX.stroke();
+    }
+    S.scanEffects = aliveScn;
+    CTX.restore();
+  }
 
   // Nova explosions
   CTX.save();
@@ -1919,6 +2011,7 @@ async function triggerConsolidate() {
     actLog('consolidate', data.prototypes_created+' prototypes');
     toast('Consolidation complete · '+data.prototypes_created+' prototypes', 'ok');
     spawnConsolidationNovas();
+    S.sweepEffects.push({born: performance.now(), dur: 1900});
     await refreshGraph();
     await loadMemories();
   } catch(e) {
@@ -2031,6 +2124,7 @@ async function queryMemory() {
     const hitIds = new Set(hits.map(h => String(h.entry_id)));
     S.queryHits = hits.map(h => String(h.entry_id));
     S.queryHitsBorn = performance.now();
+    S.scanEffects.push({born: performance.now(), dur: 1100});
 
     // Spawn retrieval paths from a probe point
     const probX = W/2, probY = H*0.35;
@@ -3454,6 +3548,98 @@ async function importMemories(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  LASSO SELECTION + BATCH OPS
+// ═══════════════════════════════════════════════════════════════════════════
+let _lassoing = false, _lassoX0 = 0, _lassoY0 = 0, _lassoX1 = 0, _lassoY1 = 0;
+
+CV.addEventListener('mousedown', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  _lassoing = true;
+  _lassoX0 = _lassoX1 = e.clientX;
+  _lassoY0 = _lassoY1 = e.clientY;
+  updateLassoRect();
+});
+CV.addEventListener('mousemove', e => {
+  if (!_lassoing) return;
+  _lassoX1 = e.clientX; _lassoY1 = e.clientY;
+  updateLassoRect();
+});
+window.addEventListener('mouseup', () => {
+  if (!_lassoing) return;
+  _lassoing = false;
+  commitLassoSelection();
+  hideLassoRect();
+});
+
+function updateLassoRect() {
+  const el = document.getElementById('lassoRect');
+  if (!el) return;
+  const x = Math.min(_lassoX0,_lassoX1), y = Math.min(_lassoY0,_lassoY1);
+  const w = Math.abs(_lassoX1-_lassoX0), h = Math.abs(_lassoY1-_lassoY0);
+  el.style.cssText += `;left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:${w>4&&h>4?'block':'none'}`;
+}
+function hideLassoRect() {
+  const el = document.getElementById('lassoRect');
+  if (el) el.style.display = 'none';
+}
+function commitLassoSelection() {
+  const x0 = Math.min(_lassoX0,_lassoX1), x1 = Math.max(_lassoX0,_lassoX1);
+  const y0 = Math.min(_lassoY0,_lassoY1), y1 = Math.max(_lassoY0,_lassoY1);
+  if (x1-x0 < 6 || y1-y0 < 6) return;
+  S.selectedIds.clear();
+  for (const sn of S.simNodes) {
+    if (sn._sx && sn._sx >= x0 && sn._sx <= x1 && sn._sy >= y0 && sn._sy <= y1)
+      S.selectedIds.add(sn.id);
+  }
+  updateBatchBar();
+  if (S.selectedIds.size) toast(`Selected ${S.selectedIds.size} memories`, 'ok');
+}
+function updateBatchBar() {
+  const bar = document.getElementById('batchBar');
+  const cnt = document.getElementById('batchCount');
+  if (!bar) return;
+  bar.classList.toggle('show', S.selectedIds.size > 0);
+  if (cnt) cnt.textContent = S.selectedIds.size + ' selected';
+}
+function clearSelection() {
+  S.selectedIds.clear();
+  updateBatchBar();
+}
+async function batchDelete() {
+  if (!S.selectedIds.size) return;
+  const n = S.selectedIds.size;
+  if (!confirm(`Delete ${n} selected memories? This cannot be undone.`)) return;
+  if (!S.live) {
+    S.simNodes = S.simNodes.filter(sn => !S.selectedIds.has(sn.id));
+    clearSelection();
+    toast(`Deleted ${n} memories (offline)`, 'ok');
+    return;
+  }
+  const ids = [...S.selectedIds].map(id => {
+    const sn = _snById.get(id);
+    return sn ? Number(sn.data.entry_id || sn.id) : null;
+  }).filter(Boolean);
+  try {
+    await apiFetch('/memories/batch-delete', {method:'POST', body:{ids}});
+    toast(`Deleted ${ids.length} memories`, 'ok');
+    actLog('delete', `batch: ${ids.length}`);
+    clearSelection();
+    spawnNova(W/2, H/2, [255,107,138]);
+    await refreshGraph(); await loadMemories();
+  } catch(e) { toast('Batch delete failed: '+e.message, 'err'); }
+}
+async function batchExport() {
+  const items = [...S.selectedIds].map(id => {
+    const sn = _snById.get(id);
+    return sn ? {id: sn.data.entry_id||sn.id, label: sn.data.label, cluster: sn.data.cluster,
+                  importance: sn.data._importance, decay_weight: sn.data.decay_weight} : null;
+  }).filter(Boolean);
+  download(JSON.stringify({memories: items}, null, 2), 'kohaku-selection.json', 'application/json');
+  toast(`Exported ${items.length} memories`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  MINI-MAP
 // ═══════════════════════════════════════════════════════════════════════════
 const MM = document.getElementById('miniMap');
@@ -3845,6 +4031,9 @@ document.addEventListener('keydown', e => {
   const inInput = ['INPUT','TEXTAREA','SELECT'].includes(tag);
   if (e.key === 'Escape') {
     hideDetailCard();
+    closeEditOverlay();
+    document.getElementById('shortcutOverlay')?.classList.remove('show');
+    if (S.selectedIds.size) { clearSelection(); return; }
     document.getElementById('panelLeft').classList.remove('open');
     document.getElementById('panelRight').classList.remove('open');
     document.getElementById('btnLeft').classList.remove('active');
