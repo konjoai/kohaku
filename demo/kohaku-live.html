@@ -206,7 +206,7 @@ canvas.chart{width:100%;display:block;}
 @keyframes actSlide{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
 .act-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
 /* ── Toast ── */
-#toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 #toast .toast-inner{background:linear-gradient(135deg,var(--bg-3),var(--bg-2));border:1px solid var(--border-2);border-radius:999px;padding:9px 20px;font-family:'SF Mono',monospace;font-size:11px;color:var(--fg-0);white-space:nowrap;box-shadow:0 14px 40px rgba(0,0,0,.5);}
 #toast.ok .toast-inner{border-color:rgba(109,232,138,.3);color:var(--green);}
@@ -290,7 +290,7 @@ canvas.chart{width:100%;display:block;}
 #rmTargetInput:focus{border-color:rgba(255,184,108,.35);}
 
 /* ── Mini-map ── */
-#miniMap{position:fixed;bottom:60px;left:16px;z-index:70;border:1px solid var(--border);border-radius:8px;background:rgba(2,2,8,.82);backdrop-filter:blur(10px);cursor:crosshair;opacity:0.78;transition:opacity .2s ease;}
+#miniMap{position:fixed;bottom:76px;left:16px;z-index:70;border:1px solid var(--border);border-radius:8px;background:rgba(2,2,8,.82);backdrop-filter:blur(10px);cursor:crosshair;opacity:0.78;transition:opacity .2s ease;}
 #miniMap:hover{opacity:1;}
 
 /* ── Shortcut overlay ── */
@@ -327,8 +327,26 @@ canvas.chart{width:100%;display:block;}
 /* ── Lasso selection ── */
 #lassoRect{position:fixed;pointer-events:none;border:1.5px dashed rgba(167,139,250,.65);background:rgba(167,139,250,.04);z-index:85;display:none;border-radius:3px;}
 
+/* ── Focus mode ── */
+#focusBadge{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:110;background:rgba(255,184,108,.12);border:1px solid rgba(255,184,108,.4);border-radius:99px;padding:4px 14px 4px 10px;font-family:'SF Mono',monospace;font-size:9.5px;color:var(--amber);display:none;letter-spacing:1.5px;gap:7px;align-items:center;white-space:nowrap;animation:focusPulse 1.6s ease-in-out infinite;}
+#focusBadge.show{display:flex;}
+@keyframes focusPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,184,108,.25);}50%{box-shadow:0 0 0 7px rgba(255,184,108,0);}}
+#focusVignette{position:fixed;inset:0;z-index:50;pointer-events:none;background:radial-gradient(ellipse at center,transparent 28%,rgba(2,2,8,.82) 100%);opacity:0;transition:opacity .5s ease;}
+#focusVignette.show{opacity:1;}
+
+/* ── Memory ticker ── */
+#memTicker{position:fixed;bottom:44px;left:0;right:0;z-index:68;height:28px;background:rgba(2,2,8,.80);backdrop-filter:blur(12px);border-top:1px solid var(--border);overflow:hidden;display:flex;align-items:center;}
+#memTicker.hidden{display:none;}
+.ticker-track{display:flex;gap:0;will-change:transform;animation:tickerScroll 40s linear infinite;}
+.ticker-track:hover{animation-play-state:paused;}
+.ticker-item{display:inline-flex;align-items:center;gap:6px;padding:0 18px;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);white-space:nowrap;border-right:1px solid var(--border);cursor:pointer;transition:color .15s;}
+.ticker-item:hover{color:var(--amber);}
+.ticker-item .ti-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.ticker-item .ti-src{font-size:8px;opacity:.6;}
+@keyframes tickerScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
 /* ── Batch ops bar ── */
-#batchBar{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:80;background:rgba(7,7,15,.94);backdrop-filter:blur(18px);border:1px solid rgba(167,139,250,.35);border-radius:14px;padding:8px 16px;display:none;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.75);animation:batchIn .22s cubic-bezier(.34,1.56,.64,1) both;}
+#batchBar{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:82;background:rgba(7,7,15,.94);backdrop-filter:blur(18px);border:1px solid rgba(167,139,250,.35);border-radius:14px;padding:8px 16px;display:none;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.75);animation:batchIn .22s cubic-bezier(.34,1.56,.64,1) both;}
 #batchBar.show{display:flex;}
 @keyframes batchIn{from{opacity:0;transform:translateX(-50%) translateY(8px) scale(.96);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
 #batchCount{font-family:'SF Mono',monospace;font-size:10px;color:var(--violet);letter-spacing:1.5px;white-space:nowrap;}
@@ -337,6 +355,9 @@ canvas.chart{width:100%;display:block;}
 .batch-btn.danger{background:rgba(255,107,138,.07);border-color:rgba(255,107,138,.25);color:var(--rose);}
 .batch-btn.danger:hover{background:rgba(255,107,138,.18);}
 .batch-sep{width:1px;height:18px;background:rgba(255,255,255,.1);}
+#batchTagInput{background:rgba(0,0,0,.5);border:1px solid rgba(167,139,250,.3);border-radius:6px;color:var(--fg-0);font-family:'SF Mono',monospace;font-size:10px;padding:4px 8px;outline:none;width:90px;transition:border-color .15s;}
+#batchTagInput:focus{border-color:rgba(167,139,250,.6);}
+#batchTagInput::placeholder{color:var(--fg-2);}
 
 </style>
 </head>
@@ -913,12 +934,26 @@ canvas.chart{width:100%;display:block;}
 <!-- Lasso selection rect -->
 <div id="lassoRect"></div>
 
+<!-- Focus mode vignette overlay -->
+<div id="focusVignette"></div>
+
+<!-- Focus mode badge -->
+<div id="focusBadge">⊙ <span id="focusBadgeLabel">focus</span> <span style="opacity:.5;font-size:8px">F to exit</span></div>
+
+<!-- Memory ticker strip -->
+<div id="memTicker" class="hidden">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+
 <!-- Batch ops bar -->
 <div id="batchBar">
   <span id="batchCount">0 selected</span>
   <div class="batch-sep"></div>
   <button class="batch-btn" onclick="batchExport()">↓ Export</button>
   <button class="batch-btn danger" onclick="batchDelete()">✕ Delete</button>
+  <div class="batch-sep"></div>
+  <input id="batchTagInput" type="text" placeholder="⊕ tag…" maxlength="40"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();batchTag(this.value.trim());this.value='';}" />
   <div class="batch-sep"></div>
   <button class="batch-btn" onclick="clearSelection()" style="color:var(--fg-2);border-color:var(--border);">✕ Clear</button>
 </div>
@@ -933,10 +968,13 @@ canvas.chart{width:100%;display:block;}
       <div class="so-row"><span class="so-desc">Warp mode</span><span class="so-key">Space</span></div>
       <div class="so-row"><span class="so-desc">Refresh graph</span><span class="so-key">Ctrl R</span></div>
       <div class="so-row"><span class="so-desc">Compare nodes</span><span class="so-key">Shift click</span></div>
+      <div class="so-row"><span class="so-desc">Focus ego-net</span><span class="so-key">F</span></div>
+      <div class="so-row"><span class="so-desc">Focus on dblclick</span><span class="so-key">Shift dblclick</span></div>
       <div class="so-row"><span class="so-desc">Context menu</span><span class="so-key">Right-click</span></div>
       <div class="so-row"><span class="so-desc">Close panels</span><span class="so-key">Esc</span></div>
       <div class="so-row"><span class="so-desc">Edit label</span><span class="so-key">Dbl-click</span></div>
       <div class="so-row"><span class="so-desc">Pin node</span><span class="so-key">Ctx → Pin</span></div>
+      <div class="so-row"><span class="so-desc">Lasso select</span><span class="so-key">Ctrl drag</span></div>
       <div class="so-row"><span class="so-desc">This overlay</span><span class="so-key">?</span></div>
     </div>
     <div class="so-close" onclick="toggleShortcuts()">press ? or click outside to close</div>
@@ -955,7 +993,7 @@ canvas.chart{width:100%;display:block;}
 </div>
 
 <!-- Activity stream -->
-<div id="activityStream" style="position:fixed;bottom:52px;right:16px;z-index:65;display:flex;flex-direction:column-reverse;gap:4px;pointer-events:none;width:220px;"></div>
+<div id="activityStream" style="position:fixed;bottom:80px;right:16px;z-index:65;display:flex;flex-direction:column-reverse;gap:4px;pointer-events:none;width:220px;"></div>
 
 <!-- Toast -->
 <div id="toast"><div class="toast-inner" id="toastText"></div></div>
@@ -1099,6 +1137,8 @@ const S = {
   selectedIds: new Set(),  // lasso-selected node IDs
   sweepEffects: [],         // consolidation sweep animations
   scanEffects: [],          // query scan beam animations
+  focusMode: false,
+  focusIdx: -1,             // ego-network focus node index
 };
 
 let W = 0, H = 0, DPR = 1;
@@ -1410,6 +1450,18 @@ function renderCosmos(now, dt) {
   // Edges
   CTX.save();
   const hitSet = new Set(S.queryHits);
+  // Focus mode: build ego set
+  const egoSet = new Set();
+  if (S.focusMode && S.focusIdx >= 0) {
+    const focusSn = S.simNodes[S.focusIdx];
+    if (focusSn) {
+      egoSet.add(focusSn.id);
+      for (const e of S.edges) {
+        if (e.source === focusSn.id) egoSet.add(e.target);
+        if (e.target === focusSn.id) egoSet.add(e.source);
+      }
+    }
+  }
   for (const e of S.edges) {
     const a = _snById.get(e.source), b = _snById.get(e.target);
     if (!a || !b) continue;
@@ -1420,10 +1472,14 @@ function renderCosmos(now, dt) {
                                ||hitSet.has(b.data.id)||hitSet.has(String(b.data.entry_id));
     let alpha = clamp((e.similarity - 0.22) * 0.7, 0, 0.35);
     if (alpha < 0.01) continue;
+    // Focus mode dimming
+    const inEgo = egoSet.size === 0 || (egoSet.has(a.id) && egoSet.has(b.id));
+    if (!inEgo) alpha *= 0.04;
     if (eitherHit) {
       const qt = clamp((now-S.queryHitsBorn)/3000,0,1);
       const pulse = 0.3 + 0.5*Math.abs(Math.sin(now*0.006 + e.similarity*8));
       alpha = bothHit ? (1-qt)*0.65*pulse : (1-qt)*0.45*pulse;
+      if (!inEgo) alpha *= 0.04;
       const rgbH = bothHit ? [255,215,0] : [255,184,108];
       CTX.strokeStyle = `rgba(${rgbH[0]},${rgbH[1]},${rgbH[2]},${alpha})`;
       CTX.lineWidth = bothHit ? 1.4 + e.similarity*0.8 : 0.8 + e.similarity*0.5;
@@ -1433,10 +1489,27 @@ function renderCosmos(now, dt) {
       } else { CTX.setLineDash([]); }
     } else {
       CTX.setLineDash([]);
-      CTX.strokeStyle = `rgba(255,235,200,${alpha})`;
-      CTX.lineWidth = 0.5 + e.similarity * 0.6;
+      if (inEgo && e.similarity > 0.72) {
+        // Glowing bright arcs for very strong ego connections
+        CTX.strokeStyle = `rgba(255,235,200,${alpha*1.6})`;
+        CTX.lineWidth = 0.7 + e.similarity * 0.9;
+        CTX.shadowColor = 'rgba(255,215,0,0.3)'; CTX.shadowBlur = 4;
+      } else {
+        CTX.strokeStyle = `rgba(255,235,200,${alpha})`;
+        CTX.lineWidth = 0.5 + e.similarity * 0.6;
+        CTX.shadowBlur = 0;
+      }
     }
-    CTX.beginPath(); CTX.moveTo(ax,ay); CTX.lineTo(bx,by); CTX.stroke();
+    // High-similarity edges: gentle quadratic arc (adds elegance)
+    if (e.similarity > 0.62 && !eitherHit) {
+      const mx = (ax+bx)/2, my = (ay+by)/2;
+      const dx = bx-ax, dy = by-ay, len = Math.sqrt(dx*dx+dy*dy)+0.01;
+      const cx2 = mx - dy/len * 8, cy2 = my + dx/len * 8;
+      CTX.beginPath(); CTX.moveTo(ax,ay); CTX.quadraticCurveTo(cx2,cy2,bx,by); CTX.stroke();
+    } else {
+      CTX.beginPath(); CTX.moveTo(ax,ay); CTX.lineTo(bx,by); CTX.stroke();
+    }
+    CTX.shadowBlur = 0;
   }
   CTX.setLineDash([]);
   CTX.restore();
@@ -1500,7 +1573,18 @@ function renderCosmos(now, dt) {
   for (let i = toRemove.length-1; i>=0; i--) S.retrievalPaths.splice(toRemove[i],1);
   CTX.restore();
 
-  // Stars
+  // Stars — precompute focus ego set once
+  const starEgoSet = new Set();
+  if (S.focusMode && S.focusIdx >= 0) {
+    const focusSn2 = S.simNodes[S.focusIdx];
+    if (focusSn2) {
+      starEgoSet.add(focusSn2.id);
+      for (const e2 of S.edges) {
+        if (e2.source === focusSn2.id) starEgoSet.add(e2.target);
+        if (e2.target === focusSn2.id) starEgoSet.add(e2.source);
+      }
+    }
+  }
   CTX.save();
   for (let i = 0; i < S.simNodes.length; i++) {
     const sn = S.simNodes[i];
@@ -1513,9 +1597,11 @@ function renderCosmos(now, dt) {
     const rc = node._reinforce ?? node.reinforcement_count ?? 0;
     const salience = imp * decay;
     // Salience filter: fade nodes below threshold
-    const salienceAlpha = S.salienceThreshold > 0
+    let salienceAlpha = S.salienceThreshold > 0
       ? clamp((salience - S.salienceThreshold) / 0.1, 0, 1)
       : 1;
+    // Focus mode: dim non-ego nodes to 5%
+    if (starEgoSet.size > 0 && !starEgoSet.has(sn.id)) salienceAlpha *= 0.05;
     if (salienceAlpha < 0.02) { sn._sx = sx; sn._sy = sy; sn._sr = 0; continue; }
     const breathe = 1 + 0.055*Math.sin(now*0.0019 + (sn._breathPhase||0));
     const zFactor = 0.80 + (sn._z ?? 0.5) * 0.20;
@@ -3363,10 +3449,11 @@ document.getElementById('relateModal')?.addEventListener('click', e=>{
 // ═══════════════════════════════════════════════════════════════════════════
 //  RECENT MEMORIES
 // ═══════════════════════════════════════════════════════════════════════════
+let _tickerMemories = [];
 async function loadRecent() {
   if (!S.live) return;
   try {
-    const d = await apiFetch('/memories/recent', {params:{limit:8, since_hours:1}});
+    const d = await apiFetch('/memories/recent', {params:{limit:20, since_hours:24}});
     const items = d.items || [];
     const knownIds = new Set(S.simNodes.map(n=>String(n.data.entry_id||n.id)));
     let newCount = 0;
@@ -3375,7 +3462,36 @@ async function loadRecent() {
       if (id && !knownIds.has(id)) { newCount++; actLog('store', (m.label||'new memory').slice(0,22)); }
     });
     if (newCount > 0) { await refreshGraph(); await loadMemories(); }
+    if (items.length) { _tickerMemories = items; renderTicker(); }
   } catch { /* skip */ }
+}
+function renderTicker() {
+  const track = document.getElementById('tickerTrack');
+  const ticker = document.getElementById('memTicker');
+  if (!track || !ticker) return;
+  if (!_tickerMemories.length) { ticker.classList.add('hidden'); return; }
+  ticker.classList.remove('hidden');
+  const srcColors = {user_input:'#ffb86c',tool_result:'#5de8da',web_search:'#a78bfa',agent_inference:'#ff6b8a'};
+  const items = [..._tickerMemories, ..._tickerMemories]; // duplicate for seamless loop
+  track.innerHTML = items.map(m => {
+    const src = m.source||'user_input';
+    const col = srcColors[src]||'#6a6258';
+    const lbl = (m.label||'memory').slice(0,32);
+    const imp = m.importance!=null ? (m.importance*100).toFixed(0)+'%' : '';
+    return `<div class="ticker-item" onclick="tickerClickMemory('${m.id||m.entry_id||''}')">` +
+      `<span class="ti-dot" style="background:${col}"></span>` +
+      `<span>${lbl}</span>` +
+      `<span class="ti-src">${src.replace('_',' ')}${imp?' · '+imp:''}</span>` +
+      `</div>`;
+  }).join('');
+  // Adjust speed to content width
+  const speed = Math.max(20, items.length * 2.5);
+  track.style.animationDuration = speed + 's';
+}
+function tickerClickMemory(id) {
+  if (!id) return;
+  const idx = S.simNodes.findIndex(sn => String(sn.data.entry_id||sn.id) === String(id));
+  if (idx >= 0) { S.selectedIdx = idx; showDetailCard(idx); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3637,6 +3753,31 @@ async function batchExport() {
   }).filter(Boolean);
   download(JSON.stringify({memories: items}, null, 2), 'kohaku-selection.json', 'application/json');
   toast(`Exported ${items.length} memories`, 'ok');
+}
+async function batchTag(tag) {
+  if (!tag) return;
+  if (!S.selectedIds.size) { toast('No memories selected', 'err'); return; }
+  const ids = [...S.selectedIds];
+  if (!S.live) {
+    ids.forEach(id => {
+      const sn = _snById.get(id);
+      if (sn) { sn.data._tags = [...(sn.data._tags||[]).filter(t=>t!==tag), tag]; }
+    });
+    toast(`Tagged ${ids.length} memories: #${tag} (offline)`, 'ok');
+    return;
+  }
+  let ok = 0, fail = 0;
+  await Promise.all(ids.map(async id => {
+    const sn = _snById.get(id);
+    const eid = sn?.data?.entry_id;
+    if (!eid) return;
+    try {
+      await apiFetch(`/memories/${eid}/tags`, {method:'POST', body:{tags:[tag]}});
+      ok++;
+    } catch { fail++; }
+  }));
+  toast(fail ? `Tagged ${ok}, failed ${fail}` : `Tagged ${ok} memories: #${tag}`, fail ? 'err' : 'ok');
+  if (ok) { await loadMemories(); await refreshGraph(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3983,11 +4124,12 @@ CV.addEventListener('click',e=>{
   }
 });
 
-// Double-click to edit label inline
+// Double-click: Shift = focus mode, plain = edit label
 CV.addEventListener('dblclick', e=>{
   const idx = findStar(e.clientX, e.clientY);
   if (idx < 0) return;
   S.selectedIdx = idx;
+  if (e.shiftKey) { toggleFocusMode(idx); return; }
   openEditOverlay(idx);
 });
 
@@ -4012,10 +4154,30 @@ document.addEventListener('click', e=>{
   if (!e.target.closest('#ctxMenu')) hideCtxMenu();
 });
 function hideCtxMenu(){ document.getElementById('ctxMenu').classList.remove('show'); }
+
+function toggleFocusMode(idx) {
+  if (S.focusMode && S.focusIdx === idx) {
+    S.focusMode = false; S.focusIdx = -1;
+    document.getElementById('focusBadge').classList.remove('show');
+    document.getElementById('focusVignette').classList.remove('show');
+    toast('Focus off', 'ok');
+  } else {
+    S.focusMode = true; S.focusIdx = idx;
+    const sn = S.simNodes[idx];
+    const lbl = sn?.data?.label || 'node';
+    const badge = document.getElementById('focusBadge');
+    const badgeLbl = document.getElementById('focusBadgeLabel');
+    if (badgeLbl) badgeLbl.textContent = lbl.length > 22 ? lbl.slice(0,22)+'…' : lbl;
+    badge?.classList.add('show');
+    document.getElementById('focusVignette').classList.add('show');
+    toast(`⊙ Focus: ${lbl.slice(0,20)}`, 'ok');
+  }
+}
+
 function ctxAction(action){
   hideCtxMenu();
   const sn=S.simNodes[_ctxTarget]; if(!sn) return;
-  if(action==='focus'){ S.selectedIdx=_ctxTarget; showDetailCard(_ctxTarget); spawnNova(sn._sx||sn.x+W/2,sn._sy||sn.y+H/2,CLUSTER_RGB[sn.data.cluster%CLUSTER_RGB.length]); }
+  if(action==='focus'){ toggleFocusMode(_ctxTarget); }
   else if(action==='reinforce'){ reinforceMemory(sn.data.entry_id||sn.id); }
   else if(action==='pin'){
     if(S.pinnedIds.has(sn.id)){ S.pinnedIds.delete(sn.id); toast('Unpinned','ok'); }
@@ -4033,6 +4195,7 @@ document.addEventListener('keydown', e => {
     hideDetailCard();
     closeEditOverlay();
     document.getElementById('shortcutOverlay')?.classList.remove('show');
+    if (S.focusMode) { S.focusMode=false; S.focusIdx=-1; document.getElementById('focusBadge')?.classList.remove('show'); document.getElementById('focusVignette')?.classList.remove('show'); return; }
     if (S.selectedIds.size) { clearSelection(); return; }
     document.getElementById('panelLeft').classList.remove('open');
     document.getElementById('panelRight').classList.remove('open');
@@ -4069,6 +4232,14 @@ document.addEventListener('keydown', e => {
     S.warpMode=!S.warpMode;
     document.getElementById('warpBadge').classList.toggle('show',S.warpMode);
     toast(S.warpMode?'⚡ Warp engaged — SPACE to disengage':'Warp off','ok');
+    return;
+  }
+  if (e.key==='f' && !inInput) {
+    e.preventDefault();
+    if (S.focusMode) { toggleFocusMode(S.focusIdx); return; }
+    const idx = S.selectedIdx >= 0 ? S.selectedIdx : S.hoverIdx;
+    if (idx >= 0) toggleFocusMode(idx);
+    else toast('Hover or select a node first', 'err');
     return;
   }
   if (e.key==='?' && !inInput) { e.preventDefault(); toggleShortcuts(); return; }
