@@ -92,7 +92,7 @@ impl PyEpisodicMemory {
     }
 
     pub fn clear(&mut self) {
-        self.inner.clear()
+        self.inner.clear();
     }
 }
 

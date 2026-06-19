@@ -8,7 +8,7 @@ pub const DIMS: usize = 10_000;
 
 /// Linear Congruential Generator — Knuth multiplicative variant.
 /// Deterministic, fast, sufficient entropy for sign-bit extraction.
-#[inline(always)]
+#[inline]
 fn lcg_next(state: &mut u64) -> u64 {
     *state = state
         .wrapping_mul(6_364_136_223_846_793_005)
@@ -57,7 +57,7 @@ impl HyperVector {
     pub fn bundle(vectors: &[&HyperVector]) -> Self {
         assert!(!vectors.is_empty(), "bundle requires at least one vector");
         let dims = vectors[0].data.len();
-        for v in vectors.iter() {
+        for v in vectors {
             assert_eq!(
                 v.data.len(),
                 dims,
@@ -68,7 +68,7 @@ impl HyperVector {
         let mut sums: Vec<i32> = vec![0; dims];
         for hv in vectors {
             for (s, &x) in sums.iter_mut().zip(hv.data.iter()) {
-                *s += x as i32;
+                *s += i32::from(x);
             }
         }
         let data: Vec<i8> = sums.iter().map(|&s| if s >= 0 { 1 } else { -1 }).collect();
@@ -118,6 +118,9 @@ impl HyperVector {
     ///
     /// For bipolar vectors, dot product / (|a| * |b|).
     /// Two random vectors have expected similarity ≈ 0 (std ≈ 1/sqrt(D)).
+    ///
+    /// # Panics
+    /// Panics if `self` and `other` have different dimensionality.
     pub fn cosine_similarity(&self, other: &HyperVector) -> f32 {
         assert_eq!(
             self.data.len(),
@@ -128,7 +131,7 @@ impl HyperVector {
             .data
             .iter()
             .zip(other.data.iter())
-            .map(|(&a, &b)| (a as i32) * (b as i32))
+            .map(|(&a, &b)| i32::from(a) * i32::from(b))
             .sum();
         // For bipolar ±1 vectors, |v|² = D, so |v| = sqrt(D).
         // Cosine = dot / (sqrt(D) * sqrt(D)) = dot / D.
@@ -140,6 +143,9 @@ impl HyperVector {
     ///
     /// For bipolar vectors, a component differs iff the product is -1.
     /// Relation to cosine: hamming ≈ (1 - cosine) / 2.
+    ///
+    /// # Panics
+    /// Panics if `self` and `other` have different dimensionality.
     pub fn hamming_distance(&self, other: &HyperVector) -> f32 {
         assert_eq!(
             self.data.len(),
@@ -170,7 +176,7 @@ impl fmt::Display for HyperVector {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{:+}", v)?;
+            write!(f, "{v:+}")?;
         }
         if self.data.len() > 8 {
             write!(f, ", ...")?;
