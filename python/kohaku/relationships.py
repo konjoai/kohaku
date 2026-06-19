@@ -42,7 +42,8 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from types import TracebackType
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,10 @@ class Relationship:
     source_id: int
     target_id: int
     relation_type: str
-    metadata: dict
+    metadata: dict[str, Any]
     created_at: float
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "source_id": int(self.source_id),
             "target_id": int(self.target_id),
@@ -114,7 +115,12 @@ class RelationshipStore:
     def __enter__(self) -> "RelationshipStore":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.close()
 
     def __len__(self) -> int:
@@ -128,7 +134,7 @@ class RelationshipStore:
         source_id: int,
         target_id: int,
         relation_type: str,
-        metadata: Optional[dict] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Relationship:
         """Upsert one relationship row."""
         if source_id < 0 or target_id < 0:
@@ -227,7 +233,7 @@ class RelationshipStore:
         """Union of outgoing + incoming edges for ``memory_id``."""
         outgoing = self.list_outgoing(memory_id, relation_type)
         incoming = self.list_incoming(memory_id, relation_type)
-        seen: set[tuple] = set()
+        seen: set[tuple[int, int, str]] = set()
         out: List[Relationship] = []
         for r in outgoing + incoming:
             key = (r.source_id, r.target_id, r.relation_type)
@@ -282,7 +288,7 @@ class RelationshipStore:
         return [_row_to_relationship(r) for r in rows]
 
 
-def _row_to_relationship(row) -> Relationship:
+def _row_to_relationship(row: tuple[Any, ...]) -> Relationship:
     source_id, target_id, relation_type, metadata_json, created_at = row
     try:
         meta = json.loads(metadata_json or "{}")

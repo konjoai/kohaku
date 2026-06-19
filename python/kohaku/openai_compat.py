@@ -57,7 +57,7 @@ class MemoryMiddleware:
     # Core operations
     # ------------------------------------------------------------------
 
-    def augment(self, messages: list[dict]) -> list[dict]:
+    def augment(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
         """Find the last user message, retrieve relevant memories, and prepend a
         system message with the context block when memories are found.
 
@@ -90,10 +90,13 @@ class MemoryMiddleware:
         if not context_block:
             return list(messages)
 
-        injected: dict = {"role": self.inject_as_role, "content": context_block}
+        injected: dict[str, str] = {
+            "role": self.inject_as_role,
+            "content": context_block,
+        }
         return [injected] + list(messages)
 
-    def learn_from_exchange(self, messages: list[dict]) -> List[Triple]:
+    def learn_from_exchange(self, messages: list[dict[str, str]]) -> List[Triple]:
         """Store assistant responses episodically and mine structured facts.
 
         Scans the message list for consecutive user→assistant pairs and stores each
@@ -136,7 +139,7 @@ class MemoryMiddleware:
                 )
         return self._learn_facts(messages)
 
-    def _learn_facts(self, messages: list[dict]) -> List[Triple]:
+    def _learn_facts(self, messages: list[dict[str, str]]) -> List[Triple]:
         """Extract triples from the configured roles into the analogical store."""
         if self.analogical is None:
             return []

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Sequence, Tuple, cast
 
 import numpy as np
 
@@ -120,8 +120,9 @@ class AnalogicalMemory:
     @classmethod
     def from_dict(cls, data: Mapping[str, object]) -> "AnalogicalMemory":
         """Rebuild from :meth:`to_dict` output (symbols are hash-deterministic)."""
-        mem = cls(dims=int(data.get("dims", DIMS)))  # type: ignore[arg-type]
-        for name, fields in dict(data.get("records", {})).items():  # type: ignore[arg-type]
+        mem = cls(dims=int(cast(Any, data.get("dims", DIMS))))
+        records = cast("Mapping[str, Mapping[str, str]]", data.get("records", {}))
+        for name, fields in dict(records).items():
             mem.add_record(name, fields)
         return mem
 

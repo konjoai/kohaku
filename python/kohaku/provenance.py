@@ -43,7 +43,8 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from types import TracebackType
+from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +80,9 @@ class ProvenanceNode:
     children_count: int
     parent_count: int
     created_at: float
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "memory_id": self.memory_id,
             "source_type": self.source_type,
@@ -107,7 +108,7 @@ class ProvenanceGraphResult:
     edges: List[Tuple[str, str]]  # (parent_id, child_id)
     nodes: List[ProvenanceNode]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "root_id": self.root_id,
             "ancestors": [n.to_dict() for n in self.ancestors],
@@ -158,7 +159,12 @@ class ProvenanceGraph:
     def __enter__(self) -> "ProvenanceGraph":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.close()
 
     # ── write ─────────────────────────────────────────────────────────────
@@ -167,7 +173,7 @@ class ProvenanceGraph:
         memory_id: Union[str, int],
         parent_ids: Optional[Iterable[Union[str, int]]] = None,
         source_type: str = "user_input",
-        metadata: Optional[dict] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ProvenanceNode:
         """Upsert one provenance row. Returns the node as it exists after the write.
 
@@ -209,7 +215,7 @@ class ProvenanceGraph:
         self,
         merged_id: Union[str, int],
         source_ids: Iterable[Union[str, int]],
-        metadata: Optional[dict] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> ProvenanceNode:
         """Convenience wrapper for sleep-phase consolidation: emit a node whose
         parents are the merged source memories with ``source_type='consolidation'``."""

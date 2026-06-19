@@ -19,7 +19,7 @@ for exact reconstruction via :meth:`unbind_role`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 from kohaku._pure import DIMS, EpisodicMemory, HyperVector
 from kohaku._query import query
@@ -142,7 +142,7 @@ class EpisodeStore:
         stored = self._stored_roles.get(entry_id)
         if stored is None:
             return None
-        return getattr(stored, role)
+        return cast("Optional[HyperVector]", getattr(stored, role))
 
     def __len__(self) -> int:
         return len(self._memory)

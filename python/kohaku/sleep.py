@@ -34,10 +34,13 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, List, Optional
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 from .consolidation import consolidate
 from ._pure import EpisodicMemory
+
+if TYPE_CHECKING:
+    from .provenance import ProvenanceGraph
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +58,7 @@ class SleepReport:
     memory_freed: int  # episodes_before - episodes_after
     similarity_threshold: float
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "started_at": self.started_at.isoformat(),
             "run_seconds": round(float(self.run_seconds), 4),
@@ -95,7 +98,7 @@ class SleepConsolidator:
         consolidation_interval_minutes: float = 60.0,
         similarity_threshold: float = 0.85,
         on_report: Optional[SleepCallback] = None,
-        provenance: "Optional[object]" = None,
+        provenance: "Optional[ProvenanceGraph]" = None,
     ) -> None:
         if consolidation_interval_minutes <= 0:
             raise ValueError("consolidation_interval_minutes must be > 0")
@@ -152,7 +155,7 @@ class SleepConsolidator:
         self.start()
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: object) -> None:
         self.stop()
 
     # ── core operation ─────────────────────────────────────────────────────

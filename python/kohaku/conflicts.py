@@ -27,10 +27,11 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, cast
 
 from kohaku._index import index_over
 from kohaku.enriched import EnrichedMemoryStore
+from kohaku.provenance import ProvenanceGraph
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ class ConflictPair:
     contradiction_score: float
     reasons: Tuple[str, ...] = ()
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "a_id": int(self.a_id),
             "b_id": int(self.b_id),
@@ -128,7 +129,7 @@ class ConflictResolution:
     removed_ids: Tuple[int, ...]
     action: str  # "keep_a" | "keep_b" | "keep_both" | "dismiss"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "kept_id": int(self.kept_id) if self.kept_id is not None else None,
             "removed_ids": [int(i) for i in self.removed_ids],
@@ -335,5 +336,5 @@ def _remove_entries(store: EnrichedMemoryStore, ids: Iterable[int]) -> int:
     for eid in target:
         store._meta.pop(eid, None)
         if store.provenance is not None:
-            store.provenance.delete(eid)
+            cast(ProvenanceGraph, store.provenance).delete(eid)
     return removed

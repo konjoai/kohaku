@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, cast
 
 from kohaku._pure import HyperVector
 
@@ -64,7 +64,7 @@ class MemoryMetadata:
     importance: float = DEFAULT_IMPORTANCE
     reinforcement_count: int = 0
     created_at: datetime = field(default_factory=_utcnow)
-    tags: set = field(default_factory=set)
+    tags: set[str] = field(default_factory=set)
     forgetting_rate: Optional[float] = None
 
     def __post_init__(self) -> None:
@@ -131,7 +131,10 @@ class MemoryMetadata:
         age = self.age_days(now)
         recency = 0.5 ** (age / effective_hl)
         reinforcement = 1.0 + self.reinforcement_count * reinforcement_k
-        return self.importance * recency * reinforcement * self.trust(trust_weights)
+        return cast(
+            float,
+            self.importance * recency * reinforcement * self.trust(trust_weights),
+        )
 
 
 @dataclass(frozen=True)
@@ -149,9 +152,9 @@ class EnrichedRetrievalResult:
     valid_until: Optional[datetime]
     trust: float
     value: HyperVector
-    tags: tuple = ()  # immutable view for the frozen dataclass
+    tags: tuple[str, ...] = ()  # immutable view for the frozen dataclass
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "entry_id": self.entry_id,
             "label": self.label,

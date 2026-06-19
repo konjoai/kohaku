@@ -19,7 +19,7 @@ rankings are identical either way (proven by the parity tests).
 from __future__ import annotations
 
 import weakref
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 
@@ -66,7 +66,7 @@ class RetrievalIndex:
         if self._rust is not None:
             q = np.ascontiguousarray(query, dtype=np.int8)
             return [(int(i), float(s)) for i, s in self._rust.topk(q, top_k)]
-        return _numpy_cosine_topk(query, self._mat, top_k)
+        return _numpy_cosine_topk(query, cast("np.ndarray", self._mat), top_k)
 
     def all_pairs(self) -> np.ndarray:
         """Full symmetric ``(N, N)`` cosine matrix over every pair of rows.
@@ -85,13 +85,13 @@ class RetrievalIndex:
             return np.asarray(flat, dtype=np.float32).reshape(self._n, self._n)
         # NumPy baseline: bipolar rows share norm √dims, so cosine = MMᵀ / dims.
         # Normalise per-row to stay exact even if a row isn't perfectly ±1.
-        mat = self._mat
+        mat = cast("np.ndarray", self._mat)
         norms = np.linalg.norm(mat, axis=1, keepdims=True)
         norms[norms == 0.0] = 1.0
         unit = mat / norms
         sims = (unit @ unit.T).astype(np.float32)
         np.fill_diagonal(sims, 1.0)
-        return sims
+        return cast("np.ndarray", sims)
 
     def all_scores(self, query: np.ndarray) -> np.ndarray:
         """Cosine of ``query`` against every row, in row order.
@@ -112,7 +112,7 @@ _INDEX_CACHE: "weakref.WeakKeyDictionary[EpisodicMemory, Tuple[int, RetrievalInd
 _INDEX_CACHE = weakref.WeakKeyDictionary()
 
 
-def index_over(entries: Sequence) -> RetrievalIndex:
+def index_over(entries: Sequence[Any]) -> RetrievalIndex:
     """Build a one-off :class:`RetrievalIndex` over the keys of ``entries``.
 
     For all-pairs / batch similarity scans (consolidation, conflict, importance,
@@ -125,7 +125,7 @@ def index_over(entries: Sequence) -> RetrievalIndex:
     return RetrievalIndex(np.stack([e.key.data for e in entries]))
 
 
-def index_for(memory: EpisodicMemory, entries: list) -> RetrievalIndex:
+def index_for(memory: EpisodicMemory, entries: List[Any]) -> RetrievalIndex:
     """Return a :class:`RetrievalIndex` over ``entries``, rebuilt only on change.
 
     ``entries`` must be ``memory.entries()`` (passed in so callers that already

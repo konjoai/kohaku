@@ -24,7 +24,7 @@ a clear :class:`ImportError`, never an import-time crash.
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -109,7 +109,7 @@ class EmbeddingEncoder:
     ) -> None:
         self._embed_fn = embed_fn
         self._model_name = model_name
-        self._model = None  # lazily constructed sentence-transformers model
+        self._model: Any = None  # lazily constructed sentence-transformers model
         self.dims = dims
         self.seed = seed
 
@@ -126,7 +126,7 @@ class EmbeddingEncoder:
             ) from exc
         logger.info("loading sentence-transformers model %r", self._model_name)
         self._model = SentenceTransformer(self._model_name)
-        self._embed_fn = lambda text: self._model.encode(text)  # type: ignore[union-attr]
+        self._embed_fn = lambda text: self._model.encode(text)
         return self._embed_fn
 
     def embed(self, text: str) -> "np.ndarray":

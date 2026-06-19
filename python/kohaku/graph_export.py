@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 
@@ -86,7 +86,7 @@ class MemoryGraph:
     similarity_threshold: float
     exported_at: str  # ISO-8601 UTC
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict."""
         return {
             "n_nodes": self.n_nodes,
@@ -118,7 +118,7 @@ class MemoryGraph:
         """Serialise to a JSON string."""
         return json.dumps(self.to_dict(), indent=2)
 
-    def to_graphiti(self) -> dict:
+    def to_graphiti(self) -> dict[str, Any]:
         """Export as a Graphiti-compatible graph dict.
 
         Memory nodes → Graphiti episodes; memory edges → Graphiti relations.
@@ -169,7 +169,7 @@ class MemoryGraph:
         """Serialise :meth:`to_graphiti` as a JSON string."""
         return json.dumps(self.to_graphiti(), indent=2)
 
-    def to_mem0(self) -> dict:
+    def to_mem0(self) -> dict[str, Any]:
         """Export as a Mem0-compatible memory list.
 
         Each memory node becomes a Mem0 ``memory`` record.  The ``score``

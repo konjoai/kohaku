@@ -32,12 +32,22 @@ import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol
 
 from kohaku._index import index_over
 from kohaku.enriched import EnrichedMemoryStore
 
 logger = logging.getLogger(__name__)
+
+
+class _SupportsDescendants(Protocol):
+    """Minimal provenance surface needed for the depth signal."""
+
+    def get_descendants(
+        self,
+        memory_id: Any,
+        max_depth: int = ...,
+    ) -> List[Any]: ...
 
 
 DEFAULT_HALF_LIFE_DAYS: float = 30.0
@@ -65,7 +75,7 @@ class ImportanceBreakdown:
     importance_before: float
     importance_after: float
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "entry_id": int(self.entry_id),
             "frequency": round(float(self.frequency), 4),
@@ -90,7 +100,7 @@ class RescoreReport:
     weights: Dict[str, float]
     breakdowns: List[ImportanceBreakdown] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "total_memories": int(self.total_memories),
             "updated": int(self.updated),
@@ -129,7 +139,7 @@ class ImportanceScorer:
         self,
         store: EnrichedMemoryStore,
         *,
-        provenance: "Optional[object]" = None,
+        provenance: "Optional[_SupportsDescendants]" = None,
         half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
         freq_cap: int = DEFAULT_FREQ_CAP,
         weights: Optional[Dict[str, float]] = None,
@@ -246,7 +256,7 @@ class ImportanceScorer:
         )
 
     # ── component computations ───────────────────────────────────────────
-    def _uniqueness_scores(self, entries: list) -> Dict[int, float]:
+    def _uniqueness_scores(self, entries: List[Any]) -> Dict[int, float]:
         """Per-memory uniqueness = 1 - max cosine to any other memory.
 
         With < 2 memories every memory is fully unique (1.0).
@@ -266,7 +276,7 @@ class ImportanceScorer:
             scores[ei.id] = 1.0 - best_clamped
         return scores
 
-    def _children_norm(self, entries: list) -> Dict[int, float]:
+    def _children_norm(self, entries: List[Any]) -> Dict[int, float]:
         """Per-memory provenance-depth signal in [0, 1]."""
         if self.provenance is None:
             return {e.id: 0.0 for e in entries}
@@ -292,7 +302,7 @@ class ImportanceScorer:
 def rescore_all(
     store: EnrichedMemoryStore,
     *,
-    provenance: "Optional[object]" = None,
+    provenance: "Optional[_SupportsDescendants]" = None,
     dry_run: bool = False,
     half_life_days: float = DEFAULT_HALF_LIFE_DAYS,
     freq_cap: int = DEFAULT_FREQ_CAP,

@@ -172,7 +172,8 @@ class HopfieldAssociator:
             # convergence: change in normalized state below eps
             if prev is not None:
                 delta = float(
-                    np.linalg.norm(new_q - prev) / max(1.0, np.linalg.norm(new_q))
+                    np.linalg.norm(new_q - prev)
+                    / max(1.0, float(np.linalg.norm(new_q)))
                 )
                 if delta <= eps:
                     converged = True

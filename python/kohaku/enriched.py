@@ -34,7 +34,7 @@ keep working.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from kohaku._index import index_for, index_over
 from kohaku._pure import DIMS, EpisodicMemory, HyperVector
@@ -50,6 +50,10 @@ from kohaku.enriched_meta import (
     _normalise_tag,
     _utcnow,
 )
+
+if TYPE_CHECKING:
+    from kohaku.provenance import ProvenanceGraph
+    from kohaku.versions import VersionStore
 
 __all__ = [
     "DEFAULT_HALF_LIFE_DAYS",
@@ -200,14 +204,14 @@ class EnrichedMemoryStore:
             forgetting_rate=forgetting_rate,
         )
         if self.provenance is not None:
-            self.provenance.record(
+            cast("ProvenanceGraph", self.provenance).record(
                 memory_id=eid,
                 parent_ids=list(parent_ids or []),
                 source_type=source,
                 metadata={"label": label},
             )
         if self.versions is not None:
-            self.versions.record(
+            cast("VersionStore", self.versions).record(
                 memory_id=eid,
                 label=label,
                 source=source,
@@ -220,7 +224,7 @@ class EnrichedMemoryStore:
         return eid
 
     # ── tagging ───────────────────────────────────────────────────────────
-    def add_tags(self, entry_id: int, tags: List[str]) -> Optional[set]:
+    def add_tags(self, entry_id: int, tags: List[str]) -> Optional[set[str]]:
         """Union the given tags into the entry's tag set. Returns the new
         set, or None if the entry is unknown."""
         meta = self._meta.get(entry_id)
@@ -232,7 +236,7 @@ class EnrichedMemoryStore:
                 meta.tags.add(normalised)
         return set(meta.tags)
 
-    def remove_tags(self, entry_id: int, tags: List[str]) -> Optional[set]:
+    def remove_tags(self, entry_id: int, tags: List[str]) -> Optional[set[str]]:
         """Difference the given tags from the entry's tag set. Returns the
         new set, or None if the entry is unknown."""
         meta = self._meta.get(entry_id)
@@ -242,7 +246,7 @@ class EnrichedMemoryStore:
             meta.tags.discard(_normalise_tag(t))
         return set(meta.tags)
 
-    def get_tags(self, entry_id: int) -> Optional[set]:
+    def get_tags(self, entry_id: int) -> Optional[set[str]]:
         meta = self._meta.get(entry_id)
         return None if meta is None else set(meta.tags)
 
@@ -268,7 +272,7 @@ class EnrichedMemoryStore:
         reinforce_hits: bool = True,
         tags_any: Optional[List[str]] = None,
         tags_all: Optional[List[str]] = None,
-        candidate_ids: Optional[set] = None,
+        candidate_ids: Optional[set[int]] = None,
     ) -> List[EnrichedRetrievalResult]:
         """Return up to ``top_k`` matches, filtered by validity and (optionally)
         source, ranked by ``sort``.
@@ -367,7 +371,7 @@ class EnrichedMemoryStore:
         now: Optional[datetime] = None,
         tags_any: Optional[List[str]] = None,
         tags_all: Optional[List[str]] = None,
-    ) -> List[dict]:
+    ) -> List[Dict[str, Any]]:
         """Inventory all memories with their full metadata.
 
         Ranking is computed without a query vector — ``sort='similarity'`` is
@@ -377,7 +381,7 @@ class EnrichedMemoryStore:
         now = _aware(now or _utcnow())
         any_set = {_normalise_tag(t) for t in (tags_any or []) if _normalise_tag(t)}
         all_set = {_normalise_tag(t) for t in (tags_all or []) if _normalise_tag(t)}
-        items: List[dict] = []
+        items: List[Dict[str, Any]] = []
         for e in self._mem.entries():
             meta = self._meta.get(e.id)
             if meta is None:

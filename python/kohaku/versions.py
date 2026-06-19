@@ -47,10 +47,12 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from types import TracebackType
 from typing import Any, List, Optional, Union
 
 from kohaku.attention import encode_text
-from kohaku.enriched import EnrichedMemoryStore, _aware, _normalise_tag
+from kohaku.enriched import EnrichedMemoryStore
+from kohaku.enriched_meta import _aware, _normalise_tag
 
 logger = logging.getLogger(__name__)
 
@@ -82,13 +84,13 @@ class MemoryVersion:
     label: str
     source: str
     importance: float
-    tags: tuple = ()
+    tags: tuple[str, ...] = ()
     valid_from: Optional[str] = None
     valid_until: Optional[str] = None
     edited_at: float = 0.0
     editor: Optional[str] = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "memory_id": int(self.memory_id),
             "version": int(self.version),
@@ -109,10 +111,10 @@ class UpdateResult:
 
     memory_id: int
     version: int
-    changed_fields: tuple
+    changed_fields: tuple[str, ...]
     hv_re_encoded: bool
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {
             "memory_id": int(self.memory_id),
             "version": int(self.version),
@@ -144,7 +146,12 @@ class VersionStore:
     def __enter__(self) -> "VersionStore":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.close()
 
     # ── core API ──────────────────────────────────────────────────────────
