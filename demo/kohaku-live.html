@@ -220,6 +220,24 @@ canvas.chart{width:100%;display:block;}
   #panelLeft,#panelRight{width:min(290px,85vw);}
   #dock.expanded{height:260px;}
 }
+
+/* ── Context menu ── */
+#ctxMenu{position:fixed;z-index:200;background:rgba(7,7,15,0.96);backdrop-filter:blur(20px);border:1px solid var(--border-2);border-radius:11px;padding:4px;min-width:148px;box-shadow:0 18px 50px rgba(0,0,0,.75);display:none;animation:ctxIn .14s cubic-bezier(.34,1.56,.64,1) both;}
+#ctxMenu.show{display:block;}
+@keyframes ctxIn{from{opacity:0;transform:scale(.92) translateY(-4px);}to{opacity:1;transform:scale(1) translateY(0);}}
+.ctx-item{padding:7px 13px;font-family:'SF Mono',monospace;font-size:10.5px;letter-spacing:.8px;color:var(--fg-1);cursor:pointer;border-radius:7px;display:flex;align-items:center;gap:8px;transition:background .12s,color .12s;}
+.ctx-item:hover{background:rgba(255,184,108,.1);color:var(--amber);}
+.ctx-item.danger:hover{background:rgba(255,107,138,.1);color:var(--rose);}
+.ctx-sep{height:1px;background:var(--border);margin:3px 5px;}
+
+/* ── Compare bar ── */
+#compareBar{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:110;background:rgba(13,13,26,.94);backdrop-filter:blur(16px);border:1px solid rgba(255,215,0,.25);border-radius:99px;padding:5px 16px;font-family:'SF Mono',monospace;font-size:10px;color:var(--gold);display:none;align-items:center;gap:10px;white-space:nowrap;box-shadow:0 8px 30px rgba(255,215,0,.08);}
+#compareBar.show{display:flex;}
+
+/* ── Warp badge ── */
+#warpBadge{position:fixed;top:58px;right:16px;z-index:110;background:rgba(93,232,218,.12);border:1px solid rgba(93,232,218,.35);border-radius:99px;padding:4px 13px;font-family:'SF Mono',monospace;font-size:9.5px;color:var(--teal);display:none;letter-spacing:2px;animation:warpPulse 1.2s ease-in-out infinite;}
+#warpBadge.show{display:block;}
+@keyframes warpPulse{0%,100%{box-shadow:0 0 0 0 rgba(93,232,218,.3);}50%{box-shadow:0 0 0 6px rgba(93,232,218,0);}}
 </style>
 </head>
 <body>
@@ -249,6 +267,9 @@ canvas.chart{width:100%;display:block;}
       <span title="focus query">/&nbsp;query</span>
       <span title="ctrl+enter to submit">⌘↵&nbsp;submit</span>
       <span title="escape to close">⎋&nbsp;close</span>
+      <span title="shift+click for comparison">⇧click&nbsp;compare</span>
+      <span title="space for warp mode">␣&nbsp;warp</span>
+      <span title="right-click node for options">⊡&nbsp;menu</span>
     </div>
     <button class="h-btn" id="btnLeft" onclick="toggleLeft()">☰ Console</button>
     <button class="h-btn" id="btnRight" onclick="toggleRight()">Panels ☰</button>
@@ -564,6 +585,27 @@ canvas.chart{width:100%;display:block;}
           <div id="encodeTokenWaves" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
         </div>
       </div>
+      <!-- Bundle / Bind / Permute operations -->
+      <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;">
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">HDC Operations</div>
+          <div class="dock-cols" style="gap:8px;">
+            <div class="field" style="margin:0"><label>Vector A</label><input id="bundleA" type="text" placeholder="first concept…" maxlength="100" oninput="livePreviewOp()" /></div>
+            <div class="field" style="margin:0"><label>Vector B</label><input id="bundleB" type="text" placeholder="second concept…" maxlength="100" oninput="livePreviewOp()" /></div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-secondary" onclick="runHDCOp('bundle')"><span class="btn-text">⊕ Bundle</span></button>
+            <button class="btn btn-sm btn-teal" onclick="runHDCOp('bind')"><span class="btn-text">⊗ Bind</span></button>
+            <button class="btn btn-sm" style="background:rgba(167,139,250,.08);color:var(--violet);border:1px solid rgba(167,139,250,.25);" onclick="runHDCOp('permute')"><span class="btn-text">↻ Permute A</span></button>
+            <button class="btn btn-sm" style="background:rgba(255,107,138,.08);color:var(--rose);border:1px solid rgba(255,107,138,.2);" onclick="runHDCOp('unbind')"><span class="btn-text">⊗⁻¹ Unbind</span></button>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px;">
+          <div id="bundleResultLabel" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);min-height:14px;"></div>
+          <canvas id="bundleResultWave" height="32" style="width:100%;height:32px;border-radius:5px;background:rgba(0,0,0,.3);display:block;"></canvas>
+          <div id="bundleStats" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);display:grid;grid-template-columns:1fr 1fr;gap:3px;"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Similarity Heatmap -->
@@ -612,6 +654,11 @@ canvas.chart{width:100%;display:block;}
       <div class="dn-head">provenance</div>
       <div id="dcProvenance"></div>
     </div>
+    <div class="dc-neighbors" id="dcVersionSection" style="display:none;">
+      <div class="dn-head">version history</div>
+      <div id="dcVersions"></div>
+    </div>
+    <div id="dcCompareHint" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);letter-spacing:1px;">SHIFT+CLICK another node to compare</div>
   </div>
 </div>
 
@@ -620,6 +667,24 @@ canvas.chart{width:100%;display:block;}
 
 <!-- Toast -->
 <div id="toast"><div class="toast-inner" id="toastText"></div></div>
+
+<!-- Context menu (right-click on cosmos nodes) -->
+<div id="ctxMenu">
+  <div class="ctx-item" onclick="ctxAction('focus')">⊙&nbsp;Focus</div>
+  <div class="ctx-item" onclick="ctxAction('reinforce')">↑&nbsp;Reinforce</div>
+  <div class="ctx-item" id="ctxPinItem" onclick="ctxAction('pin')">⊕&nbsp;Pin</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxAction('delete')">✕&nbsp;Delete</div>
+</div>
+
+<!-- Compare bar (shown when shift+click active) -->
+<div id="compareBar">
+  <span id="compareLabel">— vs —</span>
+  <button onclick="clearCompare()" style="background:transparent;border:none;color:rgba(255,215,0,.55);cursor:pointer;font-size:13px;line-height:1;">✕</button>
+</div>
+
+<!-- Warp mode badge (Space to toggle) -->
+<div id="warpBadge">⚡ WARP</div>
 
 <script>
 "use strict";
@@ -699,6 +764,7 @@ const S = {
   consHistory: [],
   hoverIdx: -1,
   selectedIdx: -1,
+  compareIdx: -1,      // shift+click comparison target
   queryHits: [],       // for retrieval path animation
   queryHitsBorn: 0,
   novas: [],
@@ -708,6 +774,8 @@ const S = {
   memSortMode: 'salience',
   storeTags: [],
   loading: {},
+  pinnedIds: new Set(),
+  warpMode: false,
 };
 
 let W = 0, H = 0, DPR = 1;
@@ -833,11 +901,24 @@ function stepSim(dt) {
     b.fx -= f*dx/d; b.fy -= f*dy/d;
   }
 
+  // Magnetic cursor: nodes within 220px gently drawn toward mouse
+  const msx = _mx - W/2 - _parallaxX, msy = _my - H/2 - _parallaxY;
+  const CURSOR_R = 220;
   for (const nd of sn) {
     nd.fx -= nd.x * FORCE_CENTER;
     nd.fy -= nd.y * FORCE_CENTER;
-    nd.vx = (nd.vx + nd.fx) * FORCE_DAMP;
-    nd.vy = (nd.vy + nd.fy) * FORCE_DAMP;
+    const cdx = msx - nd.x, cdy = msy - nd.y;
+    const cd2 = cdx*cdx + cdy*cdy;
+    if (cd2 < CURSOR_R*CURSOR_R && cd2 > 1) {
+      const cd = Math.sqrt(cd2);
+      const mf = 0.00014 * (1 - cd/CURSOR_R) * (S.warpMode ? 3 : 1);
+      nd.fx += mf * cdx / cd;
+      nd.fy += mf * cdy / cd;
+    }
+    if (S.pinnedIds.has(nd.id)) { nd.vx = 0; nd.vy = 0; nd.fx = 0; nd.fy = 0; continue; }
+    const damp = S.warpMode ? 0.96 : FORCE_DAMP;
+    nd.vx = (nd.vx + nd.fx) * damp;
+    nd.vy = (nd.vy + nd.fy) * damp;
     nd.x += nd.vx * dt * 60;
     nd.y += nd.vy * dt * 60;
   }
@@ -877,6 +958,42 @@ function renderCosmos(now, dt) {
     CTX.fillStyle = g; CTX.beginPath(); CTX.arc(cx,cy,r,0,TAU); CTX.fill();
   }
   CTX.restore();
+
+  // Floating cluster labels over nebulae
+  CTX.save();
+  const CLUSTER_NAMES = ['episodic','semantic','procedural','autobio','world-model'];
+  CTX.textAlign = 'center';
+  for (const [c, cc] of clusterCenters) {
+    if (cc.n === 0) continue;
+    const cx2 = cc.x/cc.n + PX, cy2 = cc.y/cc.n + PY;
+    const rgb = CLUSTER_RGB[c % CLUSTER_RGB.length];
+    const alpha = 0.11 + 0.05*Math.sin(now*0.0004 + c*1.3);
+    CTX.font = '700 10px \'SF Mono\',monospace';
+    CTX.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+    CTX.letterSpacing = '4px';
+    CTX.fillText(CLUSTER_NAMES[c % CLUSTER_NAMES.length].toUpperCase(), cx2, cy2);
+  }
+  CTX.letterSpacing = '0px';
+  CTX.textAlign = 'left';
+  CTX.restore();
+
+  // Warp mode hyperspace streaks
+  if (S.warpMode) {
+    CTX.save();
+    for (let i = 0; i < 64; i++) {
+      const a = (i/64)*TAU;
+      const phase = (now*0.0018 + i*0.055) % 1;
+      const r1 = phase * Math.max(W,H) * 0.6;
+      const r2 = r1 + 50 + Math.abs(Math.sin(i*0.4))*80;
+      CTX.strokeStyle = `rgba(255,235,200,${(1-phase)*0.1})`;
+      CTX.lineWidth = 0.4 + phase*0.6;
+      CTX.beginPath();
+      CTX.moveTo(W/2+Math.cos(a)*r1+PX, H/2+Math.sin(a)*r1+PY);
+      CTX.lineTo(W/2+Math.cos(a)*r2+PX, H/2+Math.sin(a)*r2+PY);
+      CTX.stroke();
+    }
+    CTX.restore();
+  }
 
   // Dust (drifting background stars)
   CTX.save();
@@ -1066,6 +1183,28 @@ function renderCosmos(now, dt) {
       CTX.beginPath(); CTX.arc(sx,sy,baseR*4,0,TAU); CTX.stroke();
     }
 
+    // Compare mode: dashed gold orbit
+    if (i === S.compareIdx) {
+      const pulse = 0.5 + 0.5*Math.abs(Math.sin(now*0.005));
+      CTX.strokeStyle = `rgba(255,215,0,${0.65*pulse})`;
+      CTX.lineWidth = 1.2;
+      CTX.setLineDash([3,5]);
+      CTX.lineDashOffset = now*0.05;
+      CTX.beginPath(); CTX.arc(sx,sy,baseR*5,0,TAU); CTX.stroke();
+      CTX.setLineDash([]);
+    }
+
+    // Pinned: violet dashed ring + dot indicator
+    if (S.pinnedIds.has(sn.id)) {
+      CTX.strokeStyle = 'rgba(167,139,250,0.55)';
+      CTX.lineWidth = 0.9;
+      CTX.setLineDash([2,4]);
+      CTX.beginPath(); CTX.arc(sx,sy,baseR*2.2,0,TAU); CTX.stroke();
+      CTX.setLineDash([]);
+      CTX.fillStyle = 'rgba(167,139,250,0.8)';
+      CTX.beginPath(); CTX.arc(sx-baseR-3,sy-baseR-3,2,0,TAU); CTX.fill();
+    }
+
     // Label — always show for salient/active/hit nodes
     const isActive = i === S.hoverIdx || i === S.selectedIdx;
     const isHit = S.queryHits.includes(node.id) || S.queryHits.includes(String(node.entry_id));
@@ -1104,6 +1243,23 @@ function renderCosmos(now, dt) {
       CTX.strokeStyle = rgba(rgb, alpha);
       CTX.lineWidth = (1 - age) * 1.6;
       CTX.stroke();
+    }
+  }
+  // Comparison beam between selectedIdx and compareIdx
+  if (S.selectedIdx >= 0 && S.compareIdx >= 0 && S.selectedIdx !== S.compareIdx) {
+    const snA = S.simNodes[S.selectedIdx], snB = S.simNodes[S.compareIdx];
+    if (snA && snB && snA._sx && snB._sx) {
+      const ax = snA._sx, ay = snA._sy, bx = snB._sx, by = snB._sy;
+      const pulse = 0.25 + 0.2*Math.abs(Math.sin(now*0.004));
+      CTX.save();
+      CTX.shadowBlur = 8; CTX.shadowColor = 'rgba(255,215,0,0.5)';
+      CTX.strokeStyle = `rgba(255,215,0,${pulse})`;
+      CTX.lineWidth = 0.8;
+      CTX.setLineDash([4,8]);
+      CTX.lineDashOffset = -(now*0.04 % 12);
+      CTX.beginPath(); CTX.moveTo(ax,ay); CTX.lineTo(bx,by); CTX.stroke();
+      CTX.setLineDash([]); CTX.shadowBlur = 0;
+      CTX.restore();
     }
   }
   CTX.restore();
@@ -2232,6 +2388,26 @@ function showDetailCard(idx) {
     }).catch(()=>{});
   }
 
+  // Load version history
+  const verSec = document.getElementById('dcVersionSection');
+  const verEl = document.getElementById('dcVersions');
+  if (verSec) verSec.style.display = 'none';
+  if (S.live && nd.entry_id) {
+    apiFetch(`/memories/${nd.entry_id}/versions`).then(v => {
+      const versions = Array.isArray(v) ? v : (v.versions || v.history || []);
+      if (versions.length && verEl && verSec) {
+        verSec.style.display = 'block';
+        verEl.innerHTML = versions.slice(0,5).map(ver =>
+          `<div class="dn-item"><span class="dn-label">${escHtml((ver.label||ver.content||'—').slice(0,24))}</span><span class="dn-sim" style="color:var(--violet);">v${ver.version||ver.ver||'?'}</span></div>`
+        ).join('');
+      }
+    }).catch(()=>{});
+  }
+
+  // Show shift+click compare hint
+  const hint = document.getElementById('dcCompareHint');
+  if (hint) hint.style.display = 'block';
+
   const card = document.getElementById('detailCard');
   const sx = sn._sx ?? sn.x+W/2, sy = sn._sy ?? sn.y+H/2;
   let cx = sx+24, cy = sy-90;
@@ -2245,6 +2421,10 @@ function showDetailCard(idx) {
 function hideDetailCard() {
   document.getElementById('detailCard').classList.remove('show');
   S.selectedIdx = -1;
+  S.compareIdx = -1;
+  clearCompare();
+  const hint = document.getElementById('dcCompareHint');
+  if (hint) hint.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2288,6 +2468,125 @@ function actLog(type, label) {
   while (el.children.length > 6) el.removeChild(el.lastChild);
   // Fade out after 6s
   setTimeout(() => { entry.style.transition='opacity .5s'; entry.style.opacity='0'; setTimeout(()=>entry.remove(),550); }, 6000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HDC OPERATIONS (Bundle · Bind · Permute · Unbind)
+// ═══════════════════════════════════════════════════════════════════════════
+function hvBind(a, b) {
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) out[i] = a[i] * b[i]; // XOR for bipolar ±1
+  return out;
+}
+function hvPermute(a, steps = 1) {
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) out[(i + steps + DIMS) % DIMS] = a[i];
+  return out;
+}
+function hvBundle(a, b) {
+  const acc = new Float32Array(DIMS);
+  for (let i = 0; i < DIMS; i++) acc[i] = a[i] + b[i];
+  const out = new Int8Array(DIMS);
+  for (let i = 0; i < DIMS; i++) out[i] = acc[i] >= 0 ? 1 : -1;
+  return out;
+}
+function livePreviewOp() { /* placeholder — ops run on button click */ }
+function runHDCOp(op) {
+  const textA = document.getElementById('bundleA')?.value?.trim();
+  const textB = document.getElementById('bundleB')?.value?.trim();
+  if (!textA) { toast('Enter Vector A', 'err'); return; }
+  const hvA = encodeText(textA);
+  const hvB = textB ? encodeText(textB) : lcgBipolar(0n);
+  let result, label, rgb;
+  const statsEl = document.getElementById('bundleStats');
+  if (op === 'bundle') {
+    result = hvBundle(hvA, hvB);
+    const sA = hvCosine(result, hvA).toFixed(4), sB = hvCosine(result, hvB).toFixed(4);
+    label = `bundle(A,B) → sim_A=${sA} sim_B=${sB}`;
+    rgb = [255,215,0];
+    if (statsEl) statsEl.innerHTML =
+      `<span style="color:var(--amber)">sim(A)=${sA}</span><span style="color:var(--amber)">sim(B)=${sB}</span>`+
+      `<span>+1: ${result.filter(x=>x>0).length}</span><span>−1: ${result.filter(x=>x<0).length}</span>`;
+  } else if (op === 'bind') {
+    result = hvBind(hvA, hvB);
+    const sA = hvCosine(result, hvA).toFixed(4), sB = hvCosine(result, hvB).toFixed(4);
+    label = `bind(A⊗B): sim_A=${sA} sim_B=${sB} ≈ 0 (orthogonal)`;
+    rgb = [93,232,218];
+    if (statsEl) statsEl.innerHTML =
+      `<span style="color:var(--teal)">sim(A)=${sA}</span><span style="color:var(--teal)">sim(B)=${sB}</span>`+
+      `<span>unbind: result⊗B=A</span><span>dims: ${DIMS}</span>`;
+    toast(`Bind: result ⊥ both inputs · sim≈${sA}`, 'ok');
+  } else if (op === 'permute') {
+    result = hvPermute(hvA);
+    const sAP = hvCosine(result, hvA).toFixed(4);
+    label = `permute(A,+1): sim(A,ρA)=${sAP} ≈ 0`;
+    rgb = [167,139,250];
+    if (statsEl) statsEl.innerHTML =
+      `<span style="color:var(--violet)">sim(A,ρA)=${sAP}</span><span>≈ orthogonal</span>`+
+      `<span>shift: +1 dim</span><span>dims: ${DIMS}</span>`;
+    toast(`Permute: orthogonal to original, sim=${sAP}`, 'ok');
+  } else if (op === 'unbind') {
+    result = hvBind(hvBind(hvA, hvB), hvB); // A⊗B⊗B = A (self-inverse)
+    const sA = hvCosine(result, hvA).toFixed(4);
+    label = `unbind(A⊗B,B)=A: sim(A)=${sA} ≈ 1.0`;
+    rgb = [255,107,138];
+    if (statsEl) statsEl.innerHTML =
+      `<span style="color:var(--rose)">sim(A)=${sA}</span><span>≈ 1.0 (recovers A)</span>`+
+      `<span>(A⊗B)⊗B=A</span><span>self-inverse</span>`;
+    toast(`Unbind: recovered A with sim=${sA}`, 'ok');
+  }
+  document.getElementById('bundleResultLabel').textContent = label;
+  renderMiniWave(document.getElementById('bundleResultWave'), result, rgb);
+  actLog('hdc', op);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MEMORY COMPARISON
+// ═══════════════════════════════════════════════════════════════════════════
+function showComparison(idxA, idxB) {
+  const snA = S.simNodes[idxA], snB = S.simNodes[idxB];
+  if (!snA || !snB) return;
+  const hvA = snA.data._hv || encodeText(snA.data.label||'');
+  const hvB = snB.data._hv || encodeText(snB.data.label||'');
+  const cos = hvCosine(hvA, hvB);
+  const hamming = hvA.filter((v,i) => v !== hvB[i]).length;
+  const hammingPct = (hamming / hvA.length * 100).toFixed(1);
+  const lblA = snA.data.label.slice(0,14), lblB = snB.data.label.slice(0,14);
+  document.getElementById('compareLabel').textContent =
+    `"${lblA}" ↔ "${lblB}" · cos ${cos.toFixed(4)} · hamming ${hammingPct}%`;
+  document.getElementById('compareBar').classList.add('show');
+  renderCompareProbe(hvA, hvB);
+  // Open right panel to show probe
+  if (!document.getElementById('panelRight').classList.contains('open')) toggleRight();
+  toast(`Compare: cosine ${cos.toFixed(4)} · hamming ${hammingPct}%`, 'ok');
+  actLog('query', 'compare');
+}
+function clearCompare() {
+  document.getElementById('compareBar').classList.remove('show');
+}
+function renderCompareProbe(hvA, hvB) {
+  const cv = document.getElementById('probeWave');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth || 280, H2 = 32;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0, 0, W2, H2);
+  const n = Math.min(128, hvA.length), bw = W2/n;
+  for (let i = 0; i < n; i++) {
+    const match = hvA[i] === hvB[i];
+    const rgb = match ? [109,232,138] : [255,107,138];
+    const alpha = match ? 0.55 : 0.85;
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+    ctx.fillRect(i*bw+0.5, 1, Math.max(1,bw-0.5), H2/2-2);
+    ctx.fillRect(i*bw+0.5, H2/2+1, Math.max(1,bw-0.5), H2/2-2);
+  }
+  document.getElementById('probeLabel').textContent = '⊕ compare';
+  const agree = hvA.filter((v,i)=>v===hvB[i]).length;
+  const hamming = hvA.length - agree;
+  const cos = hvCosine(hvA, hvB);
+  document.getElementById('probeStats').innerHTML =
+    `<span style="color:var(--green)">agree: ${agree}</span><span style="color:var(--rose)">differ: ${hamming}</span>`+
+    `<span>cosine: ${cos.toFixed(4)}</span><span>hamming: ${(hamming/hvA.length*100).toFixed(1)}%</span>`;
 }
 
 function escHtml(s) {
@@ -2392,6 +2691,13 @@ CV.addEventListener('mouseleave',()=>{ S.hoverIdx=-1; });
 CV.addEventListener('click',e=>{
   const idx=findStar(e.clientX,e.clientY);
   if (idx>=0) {
+    if (e.shiftKey && S.selectedIdx>=0 && S.selectedIdx!==idx) {
+      // Comparison mode: shift+click a second node
+      S.compareIdx=idx;
+      showComparison(S.selectedIdx, idx);
+      return;
+    }
+    S.compareIdx=-1; clearCompare();
     S.selectedIdx=idx;
     const sn=S.simNodes[idx];
     spawnNova(sn._sx,sn._sy,CLUSTER_RGB[sn.data.cluster%CLUSTER_RGB.length]);
@@ -2407,6 +2713,39 @@ CV.addEventListener('click',e=>{
     hideDetailCard();
   }
 });
+
+// Right-click context menu on nodes
+let _ctxTarget = -1;
+CV.addEventListener('contextmenu', e=>{
+  e.preventDefault();
+  const idx=findStar(e.clientX,e.clientY);
+  if (idx<0) { hideCtxMenu(); return; }
+  _ctxTarget=idx;
+  const sn=S.simNodes[idx];
+  const pinEl=document.getElementById('ctxPinItem');
+  if (pinEl) pinEl.textContent=(S.pinnedIds.has(sn.id)?'⊘ Unpin':'⊕ Pin');
+  const menu=document.getElementById('ctxMenu');
+  let cx=e.clientX+10, cy=e.clientY;
+  if (cx+160>W) cx=e.clientX-168;
+  if (cy+140>H) cy=e.clientY-140;
+  menu.style.left=cx+'px'; menu.style.top=cy+'px';
+  menu.classList.add('show');
+});
+document.addEventListener('click', e=>{
+  if (!e.target.closest('#ctxMenu')) hideCtxMenu();
+});
+function hideCtxMenu(){ document.getElementById('ctxMenu').classList.remove('show'); }
+function ctxAction(action){
+  hideCtxMenu();
+  const sn=S.simNodes[_ctxTarget]; if(!sn) return;
+  if(action==='focus'){ S.selectedIdx=_ctxTarget; showDetailCard(_ctxTarget); spawnNova(sn._sx||sn.x+W/2,sn._sy||sn.y+H/2,CLUSTER_RGB[sn.data.cluster%CLUSTER_RGB.length]); }
+  else if(action==='reinforce'){ reinforceMemory(sn.data.entry_id||sn.id); }
+  else if(action==='pin'){
+    if(S.pinnedIds.has(sn.id)){ S.pinnedIds.delete(sn.id); toast('Unpinned','ok'); }
+    else { S.pinnedIds.add(sn.id); toast('Pinned ⊕','ok'); }
+  }
+  else if(action==='delete'){ deleteMemory(sn.data.entry_id||sn.id, S.simNodes.indexOf(sn)); }
+}
 document.addEventListener('keydown', e => {
   const sh = document.getElementById('shortcutHint');
   if (sh) sh.style.display = 'inline-flex';
@@ -2442,6 +2781,13 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='r' && !inInput) {
     e.preventDefault();
     refreshGraph(); loadMemories(); toast('Refreshed','ok');
+    return;
+  }
+  if (e.key===' ' && !inInput) {
+    e.preventDefault();
+    S.warpMode=!S.warpMode;
+    document.getElementById('warpBadge').classList.toggle('show',S.warpMode);
+    toast(S.warpMode?'⚡ Warp engaged — SPACE to disengage':'Warp off','ok');
     return;
   }
 });
