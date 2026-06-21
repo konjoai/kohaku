@@ -345,6 +345,42 @@ canvas.chart{width:100%;display:block;}
 .ticker-item .ti-src{font-size:8px;opacity:.6;}
 @keyframes tickerScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
+/* ── Version history ── */
+.ver-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.ver-item:last-child{border-bottom:none;}
+.ver-num{font-family:'SF Mono',monospace;font-size:9px;color:var(--violet);min-width:22px;padding-top:1px;}
+.ver-body{flex:1;min-width:0;}
+.ver-label{font-size:11px;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ver-meta{font-family:'SF Mono',monospace;font-size:8.5px;color:var(--fg-2);margin-top:2px;}
+.ver-diff{font-family:'SF Mono',monospace;font-size:8.5px;color:var(--teal);margin-top:1px;}
+
+/* ── Provenance DAG panel ── */
+.prov-dag-wrap{position:relative;border-radius:8px;overflow:hidden;background:rgba(0,0,0,.25);border:1px solid var(--border);}
+#provDagCanvas{display:block;width:100%;}
+.prov-legend{display:flex;gap:8px;margin-top:5px;font-family:'SF Mono',monospace;font-size:8.5px;color:var(--fg-2);}
+.prov-legend-item{display:flex;align-items:center;gap:4px;}
+.prov-legend-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* ── Episode binding animation ── */
+.ep-role-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+.ep-role-label{font-family:'SF Mono',monospace;font-size:8.5px;color:var(--fg-2);min-width:34px;text-transform:uppercase;letter-spacing:1px;}
+.ep-role-wave{flex:1;height:18px;border-radius:3px;background:rgba(0,0,0,.25);}
+#epBindViz{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+#epCompositeWave{width:100%;height:24px;border-radius:4px;background:rgba(0,0,0,.3);display:block;margin-top:4px;}
+.ep-stored-list{display:flex;flex-direction:column;gap:4px;margin-top:8px;max-height:120px;overflow-y:auto;scrollbar-width:thin;}
+.ep-stored-item{display:flex;align-items:center;gap:8px;padding:5px 9px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:7px;font-size:11px;cursor:pointer;transition:background .12s;}
+.ep-stored-item:hover{background:rgba(255,184,108,.06);}
+.ep-stored-item .esi-lbl{flex:1;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ep-stored-item .esi-sim{font-family:'SF Mono',monospace;font-size:9px;color:var(--teal);}
+.ep-unbind-row{display:flex;gap:5px;margin-top:8px;align-items:center;}
+.ep-unbind-select{flex:1;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:6px;color:var(--fg-0);font-family:'SF Mono',monospace;font-size:10px;padding:4px 7px;outline:none;}
+
+/* ── Provenance detail card (mini-graph lines) ── */
+.prov-node-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:10.5px;}
+.prov-arrow{font-size:9px;color:var(--fg-2);}
+.prov-root-badge{font-family:'SF Mono',monospace;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(255,184,108,.15);border:1px solid rgba(255,184,108,.3);color:var(--amber);}
+.prov-anc-badge{font-family:'SF Mono',monospace;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(93,232,218,.12);border:1px solid rgba(93,232,218,.25);color:var(--teal);}
+.prov-desc-badge{font-family:'SF Mono',monospace;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.25);color:var(--violet);}
 /* ── Batch ops bar ── */
 #batchBar{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:82;background:rgba(7,7,15,.94);backdrop-filter:blur(18px);border:1px solid rgba(167,139,250,.35);border-radius:14px;padding:8px 16px;display:none;align-items:center;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.75);animation:batchIn .22s cubic-bezier(.34,1.56,.64,1) both;}
 #batchBar.show{display:flex;}
@@ -619,6 +655,21 @@ canvas.chart{width:100%;display:block;}
       <div id="rescoreReport" style="display:none;margin-top:8px;"></div>
     </div>
 
+    <!-- Provenance DAG — shows lineage for selected node -->
+    <div class="rp-section">
+      <h3>Provenance DAG <span id="provDagLabel" style="color:var(--fg-2);font-weight:400;font-size:9px;margin-left:4px;font-family:'SF Mono',monospace;"></span></h3>
+      <p style="font-size:10.5px;color:var(--fg-2);margin-bottom:8px;">Select a node to explore its memory lineage — ancestors (teal) · root (amber) · descendants (violet).</p>
+      <div class="prov-dag-wrap">
+        <canvas id="provDagCanvas" height="140"></canvas>
+      </div>
+      <div class="prov-legend">
+        <div class="prov-legend-item"><div class="prov-legend-dot" style="background:var(--teal)"></div>ancestor</div>
+        <div class="prov-legend-item"><div class="prov-legend-dot" style="background:var(--amber)"></div>root</div>
+        <div class="prov-legend-item"><div class="prov-legend-dot" style="background:var(--violet)"></div>descendant</div>
+      </div>
+      <div id="provDagInfo" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);margin-top:5px;min-height:12px;"></div>
+    </div>
+
     <div class="rp-section">
       <h3>Stale Sweeper</h3>
       <div class="field" style="margin-bottom:6px;">
@@ -728,24 +779,69 @@ canvas.chart{width:100%;display:block;}
     <div class="dock-pane" id="paneEpisodes">
       <div class="dock-cols">
         <div>
-          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:8px;">Bind Episode (who · what · when · where)</div>
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:8px;">Bind Episode — who · what · when · where</div>
           <div class="field"><label>Label</label><input id="epLabel" type="text" placeholder="episode name…" /></div>
-          <div class="field"><label>Who</label><input id="epWho" type="text" placeholder="the agent or person…" /></div>
-          <div class="field"><label>What</label><input id="epWhat" type="text" placeholder="the action or event…" /></div>
-          <div class="field"><label>When</label><input id="epWhen" type="text" placeholder="the time or context…" /></div>
-          <div class="field"><label>Where</label><input id="epWhere" type="text" placeholder="the location or space…" /></div>
-          <button class="btn btn-primary btn-sm" onclick="storeEpisode()">⌬ Bind Episode</button>
-          <div style="margin-top:10px;">
-            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg-2);margin-bottom:4px;">encoded vector (first 64 dims)</div>
-            <canvas id="hvWaveform" width="220" height="28" style="width:100%;height:28px;border-radius:4px;background:rgba(0,0,0,.3);"></canvas>
+          <div class="field">
+            <label>Who</label>
+            <div class="ep-role-row">
+              <canvas class="ep-role-wave" id="epWhoWave"></canvas>
+            </div>
+            <input id="epWho" type="text" placeholder="the agent or person…" oninput="epUpdateWave('who',this.value)" />
+          </div>
+          <div class="field">
+            <label>What</label>
+            <div class="ep-role-row">
+              <canvas class="ep-role-wave" id="epWhatWave"></canvas>
+            </div>
+            <input id="epWhat" type="text" placeholder="the action or event…" oninput="epUpdateWave('what',this.value)" />
+          </div>
+          <div class="field">
+            <label>When</label>
+            <div class="ep-role-row">
+              <canvas class="ep-role-wave" id="epWhenWave"></canvas>
+            </div>
+            <input id="epWhen" type="text" placeholder="the time or context…" oninput="epUpdateWave('when',this.value)" />
+          </div>
+          <div class="field">
+            <label>Where</label>
+            <div class="ep-role-row">
+              <canvas class="ep-role-wave" id="epWhereWave"></canvas>
+            </div>
+            <input id="epWhere" type="text" placeholder="the location or space…" oninput="epUpdateWave('where',this.value)" />
+          </div>
+          <div id="epBindViz">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);letter-spacing:1px;">composite bound vector</div>
+            <canvas id="epCompositeWave"></canvas>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="btn btn-primary btn-sm" style="flex:1" onclick="storeEpisode()"><span class="btn-text">⌬ Bind &amp; Store</span></button>
+            <button class="btn btn-secondary btn-sm" onclick="clearEpisodeForm()">✕ Clear</button>
           </div>
         </div>
-        <div>
-          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:8px;">Query by Cue</div>
-          <div class="field"><label>Who cue</label><input id="epQueryWho" type="text" placeholder="partial cue…" /></div>
-          <div class="field"><label>What cue</label><input id="epQueryWhat" type="text" placeholder="partial cue…" /></div>
-          <button class="btn btn-secondary btn-sm" onclick="queryEpisode()">⌕ Recall Episode</button>
-          <div id="epResult" style="margin-top:10px;"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:8px;">Recall by Partial Cue</div>
+            <div class="field"><label>Who cue</label><input id="epQueryWho" type="text" placeholder="partial who cue…" /></div>
+            <div class="field"><label>What cue</label><input id="epQueryWhat" type="text" placeholder="partial what cue…" /></div>
+            <div class="field"><label>When cue</label><input id="epQueryWhen" type="text" placeholder="partial when cue…" /></div>
+            <button class="btn btn-secondary btn-sm btn-full" onclick="queryEpisode()"><span class="btn-text">⌕ Recall Episode</span></button>
+            <div id="epResult" style="margin-top:10px;" class="ep-stored-list"></div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin-bottom:6px;">Unbind Role Probe</div>
+            <p style="font-size:10.5px;color:var(--fg-2);margin-bottom:6px;">Select a stored episode and extract a role vector back from the composite.</p>
+            <select id="epUnbindSelect" class="ep-unbind-select" onchange="epUnbindPreview()">
+              <option value="">— select episode —</option>
+            </select>
+            <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-secondary" onclick="epUnbind('who')">who</button>
+              <button class="btn btn-sm btn-secondary" onclick="epUnbind('what')">what</button>
+              <button class="btn btn-sm btn-secondary" onclick="epUnbind('when')">when</button>
+              <button class="btn btn-sm btn-secondary" onclick="epUnbind('where')">where</button>
+            </div>
+            <div id="epUnbindResult" style="margin-top:8px;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);"></div>
+            <canvas id="epUnbindWave" style="width:100%;height:20px;border-radius:3px;background:rgba(0,0,0,.25);display:block;margin-top:4px;"></canvas>
+          </div>
         </div>
       </div>
     </div>
@@ -901,11 +997,17 @@ canvas.chart{width:100%;display:block;}
       <div id="dcRelated"></div>
     </div>
     <div class="dc-neighbors" id="dcProvSection" style="display:none;">
-      <div class="dn-head">provenance</div>
+      <div class="dn-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>provenance lineage</span>
+        <span id="dcProvCount" style="font-size:8.5px;color:var(--fg-2);"></span>
+      </div>
       <div id="dcProvenance"></div>
     </div>
     <div class="dc-neighbors" id="dcVersionSection" style="display:none;">
-      <div class="dn-head">version history</div>
+      <div class="dn-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>version history</span>
+        <span id="dcVerCount" style="font-size:8.5px;color:var(--fg-2);"></span>
+      </div>
       <div id="dcVersions"></div>
     </div>
     <!-- Tags section -->
@@ -2318,6 +2420,55 @@ async function runChainQuery() {
   }
 }
 
+// ── Episode role HVs (browser-side, for visualization)
+const EP_ROLE_COLORS = {who:'#ffd700',what:'#5de8da',when:'#a78bfa',where:'#ff6b8a'};
+const _epRoleHVs = {};
+let _epStoredEpisodes = [];
+
+function drawRoleWave(canvasId, hv, color) {
+  const cv = document.getElementById(canvasId);
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W2 = cv.clientWidth || 200, H2 = cv.clientHeight || 18;
+  cv.width = W2; cv.height = H2;
+  ctx.clearRect(0,0,W2,H2);
+  if (!hv || !hv.length) return;
+  const step = W2 / Math.min(64, hv.length);
+  for (let i = 0; i < Math.min(64, hv.length); i++) {
+    const v = hv[i]; // ±1
+    const x = i * step;
+    ctx.fillStyle = v > 0 ? color : 'rgba(255,255,255,0.06)';
+    ctx.fillRect(x, v>0 ? 2 : H2/2, step-0.5, v>0 ? H2/2-2 : H2/2-2);
+  }
+}
+
+function epUpdateWave(role, text) {
+  const hv = text.trim() ? encodeText(text.trim()) : null;
+  _epRoleHVs[role] = hv;
+  const colorMap = {who:'epWhoWave',what:'epWhatWave',when:'epWhenWave',where:'epWhereWave'};
+  const color = EP_ROLE_COLORS[role] || '#ffb86c';
+  drawRoleWave(colorMap[role], hv, color);
+  // Recompute composite
+  const filled = Object.values(_epRoleHVs).filter(Boolean);
+  if (filled.length) {
+    let composite = new Int8Array(filled[0].length);
+    for (const v of filled) for (let i=0;i<v.length;i++) composite[i] = (composite[i]||0) + v[i];
+    const binarized = Int8Array.from(composite, x => x >= 0 ? 1 : -1);
+    drawRoleWave('epCompositeWave', binarized, '#ffb86c');
+  } else {
+    const cv = document.getElementById('epCompositeWave');
+    if (cv) { const c=cv.getContext('2d'); c.clearRect(0,0,cv.width,cv.height); }
+  }
+}
+
+function clearEpisodeForm() {
+  ['epLabel','epWho','epWhat','epWhen','epWhere'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  Object.keys(_epRoleHVs).forEach(k=>delete _epRoleHVs[k]);
+  ['epWhoWave','epWhatWave','epWhenWave','epWhereWave','epCompositeWave'].forEach(id=>{
+    const cv=document.getElementById(id);if(cv){const c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);}
+  });
+}
+
 async function storeEpisode() {
   const label = document.getElementById('epLabel').value.trim();
   const who = document.getElementById('epWho').value.trim();
@@ -2326,6 +2477,8 @@ async function storeEpisode() {
   const where = document.getElementById('epWhere').value.trim();
   if (!label) { toast('Episode label required', 'err'); return; }
 
+  const btn = document.querySelector('#paneEpisodes .btn-primary');
+  if (btn) setLoading(btn, true);
   try {
     const body = {label};
     if (who) body.who = hvToFloats(encodeText(who));
@@ -2333,41 +2486,191 @@ async function storeEpisode() {
     if (when) body.when = hvToFloats(encodeText(when));
     if (where) body.where = hvToFloats(encodeText(where));
 
+    const stored = {label, who, what, when, where, _hv: _epRoleHVs};
     if (S.live) {
-      await apiFetch('/episodes/store', {method:'POST', body});
+      const r = await apiFetch('/episodes/store', {method:'POST', body});
+      stored.entry_id = r.entry_id || r.id;
     }
-    toast('Episode bound: "'+label.slice(0,40)+'"', 'ok');
-    document.getElementById('epLabel').value='';
+    _epStoredEpisodes.push(stored);
+    epRefreshUnbindList();
+    toast('⌬ Episode bound: "'+label.slice(0,40)+'"', 'ok');
+    actLog('store', 'episode: '+label.slice(0,22));
+    clearEpisodeForm();
+    if (S.live) { await refreshGraph(); await loadMemories(); }
   } catch(e) { toast('Episode store failed: '+e.message, 'err'); }
+  if (btn) { btn.disabled=false; const sp=btn.querySelector('.btn-text');if(sp){sp.innerHTML=sp.dataset.orig||'⌬ Bind &amp; Store';} }
 }
 
 async function queryEpisode() {
   const who = document.getElementById('epQueryWho').value.trim();
   const what = document.getElementById('epQueryWhat').value.trim();
+  const when2 = document.getElementById('epQueryWhen').value.trim();
   const el = document.getElementById('epResult');
-  if (!who && !what) { toast('Provide at least one cue', 'err'); return; }
+  if (!who && !what && !when2) { toast('Provide at least one cue', 'err'); return; }
 
+  el.innerHTML = '<div style="color:var(--fg-2);font-size:10px">searching…</div>';
   try {
     const body = {top_k:5};
     if (who) body.who = hvToFloats(encodeText(who));
     if (what) body.what = hvToFloats(encodeText(what));
+    if (when2) body.when = hvToFloats(encodeText(when2));
 
     let results;
     if (S.live) {
       const res = await apiFetch('/episodes/query', {method:'POST', body});
       results = res.results || [];
     } else {
-      results = [];
+      // Offline: cosine-score stored episodes by composite
+      const cueHVs = [who,what,when2].filter(Boolean).map(t=>encodeText(t));
+      if (!cueHVs.length || !_epStoredEpisodes.length) { results=[]; }
+      else {
+        const cue = cueHVs.reduce((a,b)=>hvBundle(a,b));
+        results = _epStoredEpisodes.map(ep => {
+          const epHVs = Object.values(ep._hv||{}).filter(Boolean);
+          if (!epHVs.length) return null;
+          const epComposite = epHVs.reduce((a,b)=>hvBundle(a,b));
+          return {label: ep.label, who:ep.who, what:ep.what, when:ep.when, where:ep.where,
+                  similarity: hvCosine(cue, epComposite)};
+        }).filter(Boolean).sort((a,b)=>b.similarity-a.similarity).slice(0,5);
+      }
     }
 
     if (!results.length) { el.innerHTML='<div style="color:var(--fg-2);font-size:11px">no episodes found</div>'; return; }
     el.innerHTML = results.map(r=>`
-      <div class="hop-item">
-        <span class="hi-label">${escHtml(r.label||'—')}</span>
-        <span class="hi-sim">${(r.similarity||0).toFixed(3)}</span>
+      <div class="ep-stored-item">
+        <span class="esi-lbl">${escHtml(r.label||'—')}</span>
+        <span class="esi-sim">${(r.similarity||0).toFixed(3)}</span>
       </div>
     `).join('');
   } catch(e) { el.innerHTML=`<div style="color:var(--rose);font-size:11px">${escHtml(e.message)}</div>`; }
+}
+
+function epRefreshUnbindList() {
+  const sel = document.getElementById('epUnbindSelect');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— select episode —</option>' +
+    _epStoredEpisodes.map((ep,i)=>`<option value="${i}">${escHtml(ep.label.slice(0,36))}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+function epUnbindPreview() { document.getElementById('epUnbindResult').textContent=''; }
+
+function epUnbind(role) {
+  const sel = document.getElementById('epUnbindSelect');
+  const idx = parseInt(sel?.value ?? '', 10);
+  const ep = _epStoredEpisodes[idx];
+  if (!ep) { toast('Select an episode first', 'err'); return; }
+  const roleEl = document.getElementById('epUnbindResult');
+  const waveEl = document.getElementById('epUnbindWave');
+  const roleVal = ep[role] || '';
+  if (roleVal) {
+    if (roleEl) roleEl.textContent = `extracted ${role}: "${roleVal}"`;
+    const hv = ep._hv?.[role] || (roleVal ? encodeText(roleVal) : null);
+    if (hv && waveEl) drawRoleWave('epUnbindWave', hv, EP_ROLE_COLORS[role]||'#ffb86c');
+    toast(`Unbound ${role} from "${ep.label.slice(0,24)}"`, 'ok');
+  } else {
+    if (roleEl) roleEl.textContent = `no ${role} role stored in this episode`;
+    const cv = waveEl; if(cv){const c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);}
+  }
+}
+
+// ── Provenance DAG mini force-directed renderer
+let _provDagNodes = [], _provDagEdges = [], _provDagTimer = null;
+
+function renderProvDag(data, rootId) {
+  const canvas = document.getElementById('provDagCanvas');
+  const infoEl = document.getElementById('provDagInfo');
+  if (!canvas) return;
+
+  const allNodes = data.nodes || [];
+  const allEdges = data.edges || [];
+  if (!allNodes.length) { if(infoEl) infoEl.textContent = 'no lineage data'; return; }
+
+  const W2 = canvas.clientWidth || 270, H2 = 140;
+  canvas.width = W2; canvas.height = H2;
+  const ctx = canvas.getContext('2d');
+
+  const rootStr = String(rootId);
+  const ancestorIds = new Set((data.ancestors||[]).map(n=>String(n.memory_id??n.id??n)));
+  const descendantIds = new Set((data.descendants||[]).map(n=>String(n.memory_id??n.id??n)));
+
+  // Layout: place root center, ancestors above, descendants below
+  _provDagNodes = allNodes.map((n, i) => {
+    const id = String(n.memory_id ?? n.id ?? i);
+    const isRoot = id === rootStr;
+    const isAnc = ancestorIds.has(id) && !isRoot;
+    const isDesc = descendantIds.has(id) && !isRoot;
+    const baseX = W2/2 + (Math.random()-0.5)*80;
+    const baseY = isRoot ? H2/2 : isAnc ? H2*0.25 + Math.random()*20 : H2*0.75 - Math.random()*20;
+    return {id, label:(n.label||n.source_type||id).slice(0,12), x:baseX, y:baseY,
+            vx:0, vy:0, isRoot, isAnc, isDesc};
+  });
+  _provDagEdges = allEdges.map(e => ({s: String(e.source_id??e.source??''), t: String(e.target_id??e.target??'')}));
+
+  if (infoEl) infoEl.textContent = `${allNodes.length} nodes · ${allEdges.length} edges`;
+  if (_provDagTimer) { clearInterval(_provDagTimer); _provDagTimer = null; }
+
+  let frame = 0;
+  _provDagTimer = setInterval(() => {
+    frame++;
+    const nodeMap = new Map(_provDagNodes.map(n=>[n.id,n]));
+    // Simple spring layout
+    for (const nd of _provDagNodes) { nd.fx = 0; nd.fy = 0; }
+    // Repulsion
+    for (let i=0;i<_provDagNodes.length;i++) for (let j=i+1;j<_provDagNodes.length;j++) {
+      const a=_provDagNodes[i], b=_provDagNodes[j];
+      const dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy+1;
+      const f=600/d2; a.fx-=f*dx/Math.sqrt(d2); a.fy-=f*dy/Math.sqrt(d2);
+      b.fx+=f*dx/Math.sqrt(d2); b.fy+=f*dy/Math.sqrt(d2);
+    }
+    // Spring edges
+    for (const e of _provDagEdges) {
+      const a=nodeMap.get(e.s), b=nodeMap.get(e.t); if(!a||!b) continue;
+      const dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)+0.01;
+      const f=(d-55)*0.08; a.fx+=f*dx/d; a.fy+=f*dy/d; b.fx-=f*dx/d; b.fy-=f*dy/d;
+    }
+    // Center pull
+    for (const nd of _provDagNodes) {
+      nd.fx += (W2/2-nd.x)*0.015; nd.fy += (H2/2-nd.y)*0.015;
+    }
+    // Integrate
+    for (const nd of _provDagNodes) {
+      if (nd.isRoot) { nd.x=W2/2; nd.y=H2/2; continue; }
+      nd.vx = (nd.vx+nd.fx)*0.82; nd.vy = (nd.vy+nd.fy)*0.82;
+      nd.x = Math.max(16, Math.min(W2-16, nd.x+nd.vx));
+      nd.y = Math.max(12, Math.min(H2-12, nd.y+nd.vy));
+    }
+    // Render
+    ctx.clearRect(0,0,W2,H2);
+    ctx.fillStyle='rgba(0,0,0,0.0)'; ctx.fillRect(0,0,W2,H2);
+    // Edges
+    for (const e of _provDagEdges) {
+      const a=nodeMap.get(e.s), b=nodeMap.get(e.t); if(!a||!b) continue;
+      ctx.strokeStyle='rgba(255,184,108,0.18)'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+    // Nodes
+    for (const nd of _provDagNodes) {
+      const color = nd.isRoot ? '#ffd700' : nd.isAnc ? '#5de8da' : '#a78bfa';
+      const r = nd.isRoot ? 7 : 5;
+      ctx.shadowColor = color; ctx.shadowBlur = nd.isRoot ? 10 : 5;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(nd.x,nd.y,r,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(245,234,216,0.85)'; ctx.font='7.5px SF Mono,monospace';
+      ctx.textAlign='center';
+      ctx.fillText(nd.label, nd.x, nd.y - r - 2);
+    }
+    if (frame > 80) { clearInterval(_provDagTimer); _provDagTimer = null; }
+  }, 16);
+
+  // Also update provenance DAG label
+  const lbl = document.getElementById('provDagLabel');
+  if (lbl) {
+    const sn = S.simNodes.find(n=>String(n.data.entry_id)===rootStr);
+    if (sn) lbl.textContent = '· ' + (sn.data.label||'').slice(0,20);
+  }
 }
 
 async function loadTimeline() {
@@ -2977,18 +3280,33 @@ function showDetailCard(idx) {
     }).catch(()=>{});
   }
 
-  // Load provenance chain
+  // Load provenance DAG
   const provSec = document.getElementById('dcProvSection');
   const provEl = document.getElementById('dcProvenance');
+  const provCnt = document.getElementById('dcProvCount');
   if (provSec) provSec.style.display = 'none';
   if (S.live && nd.entry_id) {
-    apiFetch(`/memories/${nd.entry_id}/provenance`).then(p => {
-      const chain = p.chain || p.provenance || p.lineage || [];
-      if (chain.length && provEl && provSec) {
+    apiFetch(`/memories/${nd.entry_id}/provenance`, {params:{direction:'both',max_depth:4}}).then(p => {
+      const nodes = p.nodes || [];
+      const edges = p.edges || [];
+      const rootId = String(p.root_id ?? nd.entry_id);
+      const ancestors = (p.ancestors || []).map(n => String(n.memory_id ?? n.id ?? n));
+      const descendants = (p.descendants || []).map(n => String(n.memory_id ?? n.id ?? n));
+      if ((nodes.length > 1 || edges.length) && provEl && provSec) {
         provSec.style.display = 'block';
-        provEl.innerHTML = chain.slice(0,4).map(step=>
-          `<div class="dn-item"><span class="dn-label">${escHtml((step.label||step.source||'?').slice(0,26))}</span><span class="dn-sim" style="color:var(--teal);">${step.operation||'→'}</span></div>`
-        ).join('');
+        if (provCnt) provCnt.textContent = `${nodes.length} nodes · ${edges.length} edges`;
+        provEl.innerHTML = nodes.slice(0, 6).map(n => {
+          const nid = String(n.memory_id ?? n.id ?? '');
+          const lbl = escHtml((n.label || n.source_type || nid).slice(0, 26));
+          const isRoot = nid === rootId;
+          const isAnc = ancestors.includes(nid) && !isRoot;
+          const isDesc = descendants.includes(nid) && !isRoot;
+          const badge = isRoot ? '<span class="prov-root-badge">root</span>'
+            : isAnc ? '<span class="prov-anc-badge">ancestor</span>'
+            : isDesc ? '<span class="prov-desc-badge">descendant</span>' : '';
+          return `<div class="prov-node-row">${badge}<span class="dn-label" style="flex:1">${lbl}</span></div>`;
+        }).join('');
+        renderProvDag(p, nd.entry_id);
       }
     }).catch(()=>{});
   }
@@ -2996,15 +3314,29 @@ function showDetailCard(idx) {
   // Load version history
   const verSec = document.getElementById('dcVersionSection');
   const verEl = document.getElementById('dcVersions');
+  const verCnt = document.getElementById('dcVerCount');
   if (verSec) verSec.style.display = 'none';
   if (S.live && nd.entry_id) {
     apiFetch(`/memories/${nd.entry_id}/versions`).then(v => {
       const versions = Array.isArray(v) ? v : (v.versions || v.history || []);
       if (versions.length && verEl && verSec) {
         verSec.style.display = 'block';
-        verEl.innerHTML = versions.slice(0,5).map(ver =>
-          `<div class="dn-item"><span class="dn-label">${escHtml((ver.label||ver.content||'—').slice(0,24))}</span><span class="dn-sim" style="color:var(--violet);">v${ver.version||ver.ver||'?'}</span></div>`
-        ).join('');
+        if (verCnt) verCnt.textContent = `${versions.length} version${versions.length===1?'':'s'}`;
+        const sorted = [...versions].sort((a,b)=>b.version-a.version);
+        verEl.innerHTML = sorted.slice(0, 5).map((ver, i) => {
+          const prev = sorted[i+1];
+          const labelChanged = prev && ver.label !== prev.label;
+          const ts = ver.edited_at ? new Date(ver.edited_at).toLocaleDateString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+          const diffHint = labelChanged ? `<div class="ver-diff">↻ ${escHtml((prev.label||'').slice(0,22))}</div>` : '';
+          return `<div class="ver-item">
+            <div class="ver-num">v${ver.version||'?'}</div>
+            <div class="ver-body">
+              <div class="ver-label">${escHtml((ver.label||'—').slice(0,28))}</div>
+              <div class="ver-meta">${ts}${ver.editor?' · '+escHtml(ver.editor.slice(0,12)):''}</div>
+              ${diffHint}
+            </div>
+          </div>`;
+        }).join('');
       }
     }).catch(()=>{});
   }
@@ -4054,6 +4386,13 @@ function toggleRight() {
   const btn=document.getElementById('btnRight');
   const open=p.classList.toggle('open');
   btn.classList.toggle('active',open);
+  if (open && S.selectedIdx >= 0 && S.live) {
+    const nd = S.simNodes[S.selectedIdx]?.data;
+    if (nd?.entry_id) {
+      apiFetch(`/memories/${nd.entry_id}/provenance`, {params:{direction:'both',max_depth:4}})
+        .then(p2 => renderProvDag(p2, nd.entry_id)).catch(()=>{});
+    }
+  }
 }
 
 // Dock
