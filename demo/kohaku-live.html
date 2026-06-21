@@ -269,6 +269,23 @@ canvas.chart{width:100%;display:block;}
 .bridge-drop{border:1.5px dashed rgba(255,184,108,.22);border-radius:10px;padding:18px;text-align:center;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);cursor:pointer;transition:all .2s ease;background:rgba(255,184,108,.02);}
 .bridge-drop:hover,.bridge-drop.dragover,.bridge-drop.drag-over{border-color:rgba(255,184,108,.5);background:rgba(255,184,108,.06);color:var(--amber);}
 
+/* ── Agents & Tenants ── */
+.ns-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.ns-card{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;transition:border-color .15s ease,background .15s ease;cursor:default;}
+.ns-card:hover{border-color:var(--border-2);background:rgba(255,255,255,.04);}
+.ns-card .nc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.ns-card .nc-id{flex:1;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ns-card .nc-size{font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);}
+.ns-card .nc-drop{background:none;border:none;color:var(--fg-2);cursor:pointer;font-size:11px;padding:0 2px;transition:color .12s;line-height:1;}
+.ns-card .nc-drop:hover{color:var(--rose);}
+.ns-empty{font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);padding:6px 0;letter-spacing:.5px;}
+.at-result{display:flex;align-items:center;gap:6px;padding:5px 9px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:7px;font-size:11px;transition:border-color .12s;}
+.at-result:hover{border-color:var(--border-2);}
+.at-result .ar-agent{font-family:'SF Mono',monospace;font-size:9px;padding:1px 6px;border-radius:4px;}
+.at-result .ar-label{flex:1;color:var(--fg-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.at-result .ar-sim{font-family:'SF Mono',monospace;font-size:9px;color:var(--amber);}
+.at-section{font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);margin:6px 0 4px;}
+
 /* ── Analogy solver ── */
 .analogy-row{display:flex;align-items:center;gap:6px;font-family:'SF Mono',monospace;font-size:10px;color:var(--fg-2);}
 .analogy-sep{color:var(--fg-2);font-size:12px;padding:0 2px;}
@@ -701,6 +718,7 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab" onclick="switchTab('heatmap')" data-tab="heatmap">Heatmap</button>
     <button class="dock-tab" onclick="switchTab('relationships')" data-tab="relationships">Relations</button>
     <button class="dock-tab" onclick="switchTab('bridge')" data-tab="bridge">Bridge RAG</button>
+    <button class="dock-tab" onclick="switchTab('agents')" data-tab="agents">Agents &amp; Tenants</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -962,6 +980,71 @@ canvas.chart{width:100%;display:block;}
             <div style="color:var(--fg-2);font-size:10px">ingest documents · then retrieve…</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Agents & Tenants dock pane -->
+    <div class="dock-pane" id="paneAgents">
+      <div class="dock-cols">
+
+        <!-- ── Left: Multi-Agent Pool ── -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Multi-Agent Pool</div>
+            <button class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="agentsRefresh()">↻</button>
+          </div>
+          <div id="agentNsList" style="display:flex;flex-direction:column;gap:4px;max-height:70px;overflow-y:auto;scrollbar-width:thin;">
+            <div class="ns-empty">no agents yet</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div class="at-section">Store</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <input id="agentStoreId" type="text" placeholder="agent_id" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(255,184,108,.35)'" onblur="this.style.borderColor=''" />
+              <input id="agentStoreText" type="text" placeholder="memory text…" maxlength="1000" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(255,184,108,.35)'" onblur="this.style.borderColor=''" />
+              <input id="agentStoreLabel" type="text" placeholder="label (optional)" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(255,184,108,.35)'" onblur="this.style.borderColor=''" />
+              <button class="btn btn-primary btn-sm" onclick="agentStore()"><span class="btn-text">⊕ Store</span></button>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div class="at-section">Query (union across agents)</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <input id="agentQueryText" type="text" placeholder="query text…" maxlength="1000" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(93,232,218,.35)'" onblur="this.style.borderColor=''" />
+              <input id="agentQueryFilter" type="text" placeholder="scope: agent1,agent2 (blank = all)" maxlength="500" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(93,232,218,.35)'" onblur="this.style.borderColor=''" />
+              <button class="btn btn-teal btn-sm" onclick="agentQuery()"><span class="btn-text">⌕ Query</span></button>
+            </div>
+            <div id="agentResults" style="margin-top:7px;display:flex;flex-direction:column;gap:4px;max-height:90px;overflow-y:auto;scrollbar-width:thin;"></div>
+          </div>
+        </div>
+
+        <!-- ── Right: Tenant Isolation ── -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Tenant Isolation</div>
+            <button class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="tenantsRefresh()">↻</button>
+          </div>
+          <div id="tenantNsList" style="display:flex;flex-direction:column;gap:4px;max-height:70px;overflow-y:auto;scrollbar-width:thin;">
+            <div class="ns-empty">no tenants yet</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div class="at-section">Store</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <input id="tenantStoreId" type="text" placeholder="tenant_id" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <input id="tenantStoreText" type="text" placeholder="memory text…" maxlength="1000" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <input id="tenantStoreLabel" type="text" placeholder="label (optional)" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <button class="btn btn-primary btn-sm" onclick="tenantStore()"><span class="btn-text">⊕ Store</span></button>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div class="at-section">Query (isolated namespace)</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <input id="tenantQueryId" type="text" placeholder="tenant_id" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <input id="tenantQueryText" type="text" placeholder="query text…" maxlength="1000" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <button class="btn btn-teal btn-sm" onclick="tenantQuery()"><span class="btn-text">⌕ Query</span></button>
+            </div>
+            <div id="tenantResults" style="margin-top:7px;display:flex;flex-direction:column;gap:4px;max-height:90px;overflow-y:auto;scrollbar-width:thin;"></div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -4412,6 +4495,7 @@ function switchTab(name) {
   if (name==='heatmap') renderHeatmap();
   if (name==='relationships') loadRelationshipsPane();
   if (name==='bridge') { document.getElementById('bridgeResults').innerHTML='<div style="color:var(--fg-2);font-size:10px">ingest documents · then retrieve…</div>'; }
+  if (name==='agents') { agentsRefresh(); tenantsRefresh(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4679,6 +4763,203 @@ async function boot() {
 
   // Store original btn texts
   document.querySelectorAll('.btn .btn-text').forEach(s=>s.dataset.orig=s.innerHTML);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AGENTS & TENANTS PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Offline sim stores: agent_id → [{label, hv}], tenant_id → [{label, hv}]
+const _agentSim = {};
+const _tenantSim = {};
+
+function _nsCard(id, size, color, onDrop) {
+  return `<div class="ns-card">
+    <div class="nc-dot" style="background:${color};box-shadow:0 0 5px ${color}66;"></div>
+    <div class="nc-id" title="${id}">${id}</div>
+    <div class="nc-size">${size}</div>
+    <button class="nc-drop" onclick="${onDrop}" title="drop namespace">✕</button>
+  </div>`;
+}
+
+function _renderNsList(containerId, namespaces, color, dropFn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!namespaces.length) {
+    el.innerHTML = '<div class="ns-empty">no namespaces yet</div>';
+    return;
+  }
+  el.innerHTML = namespaces.map(ns =>
+    _nsCard(ns.id, ns.size, color, `${dropFn}('${ns.id.replace(/'/g,"\\'")}')`)
+  ).join('');
+}
+
+// ── Agent store refresh ──────────────────────────────────────────────────
+async function agentsRefresh() {
+  if (S.live) {
+    try {
+      const d = await apiFetch('/agents');
+      _renderNsList('agentNsList', d.namespaces || [], 'var(--amber)', 'agentDrop');
+    } catch (_e) { /* ignore */ }
+  } else {
+    const nss = Object.entries(_agentSim).map(([id, arr]) => ({ id, size: arr.length }));
+    _renderNsList('agentNsList', nss, 'var(--amber)', 'agentDrop');
+  }
+}
+
+async function agentStore() {
+  const id = document.getElementById('agentStoreId').value.trim();
+  const text = document.getElementById('agentStoreText').value.trim();
+  const label = document.getElementById('agentStoreLabel').value.trim();
+  if (!id || !text) { showToast('agent_id and text required', 'err'); return; }
+  if (S.live) {
+    try {
+      const d = await apiFetch('/agents/store', { method: 'POST', body: JSON.stringify({ agent_id: id, text, label }) });
+      showToast(`[${id}] ${d.stored ? '✓ stored' : '✗ ' + d.reason} — ${d.size} mem`, d.stored ? 'ok' : 'err');
+      agentsRefresh();
+      actLog('store', `[${id}] ${label || text.slice(0,24)}`);
+    } catch (e) { showToast(String(e), 'err'); }
+  } else {
+    if (!_agentSim[id]) _agentSim[id] = [];
+    _agentSim[id].push({ label: label || text, hv: encodeText(text) });
+    showToast(`[offline] stored in ${id}`, 'ok');
+    agentsRefresh();
+  }
+}
+
+async function agentQuery() {
+  const text = document.getElementById('agentQueryText').value.trim();
+  const filterRaw = document.getElementById('agentQueryFilter').value.trim();
+  if (!text) { showToast('query text required', 'err'); return; }
+  const agents = filterRaw ? filterRaw.split(',').map(s=>s.trim()).filter(Boolean) : null;
+  const el = document.getElementById('agentResults');
+  el.innerHTML = '<div class="ns-empty">searching…</div>';
+  if (S.live) {
+    try {
+      const body = { text, top_k: 8, threshold: 0.0 };
+      if (agents) body.agents = agents;
+      const d = await apiFetch('/agents/query', { method: 'POST', body: JSON.stringify(body) });
+      _renderAgentResults(el, d.results || []);
+    } catch (e) { el.innerHTML = `<div class="ns-empty" style="color:var(--rose)">${e}</div>`; }
+  } else {
+    const qhv = encodeText(text);
+    const hits = [];
+    const scope = agents || Object.keys(_agentSim);
+    scope.forEach(aid => {
+      if (!_agentSim[aid]) return;
+      _agentSim[aid].forEach((m, idx) => {
+        hits.push({ agent_id: aid, entry_id: idx, label: m.label, similarity: hvCosine(qhv, m.hv) });
+      });
+    });
+    hits.sort((a,b)=>b.similarity-a.similarity);
+    _renderAgentResults(el, hits.slice(0, 8));
+  }
+}
+
+function _renderAgentResults(el, results) {
+  if (!results.length) { el.innerHTML = '<div class="ns-empty">no results</div>'; return; }
+  el.innerHTML = results.map(r => {
+    const sim = (r.similarity * 100).toFixed(1);
+    return `<div class="at-result">
+      <span class="ar-agent" style="background:rgba(255,184,108,.12);color:var(--amber)">${r.agent_id}</span>
+      <span class="ar-label">${r.label || '—'}</span>
+      <span class="ar-sim">${sim}%</span>
+    </div>`;
+  }).join('');
+}
+
+async function agentDrop(id) {
+  if (S.live) {
+    try {
+      await apiFetch(`/agents?agent_id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      showToast(`dropped agent ${id}`, 'ok');
+      agentsRefresh();
+    } catch (e) { showToast(String(e), 'err'); }
+  } else {
+    delete _agentSim[id];
+    showToast(`[offline] dropped ${id}`, 'ok');
+    agentsRefresh();
+  }
+}
+
+// ── Tenant store refresh ─────────────────────────────────────────────────
+async function tenantsRefresh() {
+  if (S.live) {
+    try {
+      const d = await apiFetch('/tenants');
+      _renderNsList('tenantNsList', d.namespaces || [], 'var(--violet)', 'tenantDrop');
+    } catch (_e) { /* ignore */ }
+  } else {
+    const nss = Object.entries(_tenantSim).map(([id, arr]) => ({ id, size: arr.length }));
+    _renderNsList('tenantNsList', nss, 'var(--violet)', 'tenantDrop');
+  }
+}
+
+async function tenantStore() {
+  const id = document.getElementById('tenantStoreId').value.trim();
+  const text = document.getElementById('tenantStoreText').value.trim();
+  const label = document.getElementById('tenantStoreLabel').value.trim();
+  if (!id || !text) { showToast('tenant_id and text required', 'err'); return; }
+  if (S.live) {
+    try {
+      const d = await apiFetch('/tenants/store', { method: 'POST', body: JSON.stringify({ tenant_id: id, text, label }) });
+      showToast(`[${id}] stored — ${d.size} mem`, 'ok');
+      tenantsRefresh();
+      actLog('store', `[${id}] ${label || text.slice(0,24)}`);
+    } catch (e) { showToast(String(e), 'err'); }
+  } else {
+    if (!_tenantSim[id]) _tenantSim[id] = [];
+    _tenantSim[id].push({ label: label || text, hv: encodeText(text) });
+    showToast(`[offline] stored in ${id}`, 'ok');
+    tenantsRefresh();
+  }
+}
+
+async function tenantQuery() {
+  const id = document.getElementById('tenantQueryId').value.trim();
+  const text = document.getElementById('tenantQueryText').value.trim();
+  if (!id || !text) { showToast('tenant_id and query text required', 'err'); return; }
+  const el = document.getElementById('tenantResults');
+  el.innerHTML = '<div class="ns-empty">searching…</div>';
+  if (S.live) {
+    try {
+      const d = await apiFetch('/tenants/query', { method: 'POST', body: JSON.stringify({ tenant_id: id, text, top_k: 8, threshold: 0.0 }) });
+      _renderTenantResults(el, id, d.results || []);
+    } catch (e) { el.innerHTML = `<div class="ns-empty" style="color:var(--rose)">${e}</div>`; }
+  } else {
+    const qhv = encodeText(text);
+    const mem = _tenantSim[id] || [];
+    const hits = mem.map((m, idx) => ({
+      entry_id: idx, label: m.label, similarity: hvCosine(qhv, m.hv)
+    })).sort((a,b)=>b.similarity-a.similarity).slice(0, 8);
+    _renderTenantResults(el, id, hits);
+  }
+}
+
+function _renderTenantResults(el, tenantId, results) {
+  if (!results.length) { el.innerHTML = '<div class="ns-empty">no results</div>'; return; }
+  el.innerHTML = results.map(r => {
+    const sim = (r.similarity * 100).toFixed(1);
+    return `<div class="at-result">
+      <span class="ar-agent" style="background:rgba(167,139,250,.12);color:var(--violet)">${tenantId}</span>
+      <span class="ar-label">${r.label || '—'}</span>
+      <span class="ar-sim">${sim}%</span>
+    </div>`;
+  }).join('');
+}
+
+async function tenantDrop(id) {
+  if (S.live) {
+    try {
+      await apiFetch(`/tenants?tenant_id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      showToast(`dropped tenant ${id}`, 'ok');
+      tenantsRefresh();
+    } catch (e) { showToast(String(e), 'err'); }
+  } else {
+    delete _tenantSim[id];
+    showToast(`[offline] dropped ${id}`, 'ok');
+    tenantsRefresh();
+  }
 }
 
 boot();

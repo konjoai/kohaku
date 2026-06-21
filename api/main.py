@@ -84,6 +84,7 @@ from kohaku import (  # noqa: E402
     WriteValidator,
     chain_query,
 )
+from kohaku import SharedMemoryPool, TenantMemoryStore  # noqa: E402
 from kohaku import __version__ as KOHAKU_VERSION  # noqa: E402
 from kohaku._pure import DIMS  # noqa: E402
 
@@ -350,6 +351,9 @@ class RestState:
                 "agent_inference": RateLimit(max_stores=100, window_seconds=60.0)
             },
         )
+        # Multi-agent stores (Phase 17 / v0.32.0 — previously only in server.py).
+        self.pool = SharedMemoryPool(dimension=dims, default_capacity=capacity)
+        self.tenants = TenantMemoryStore(dimension=dims, capacity=capacity)
         self.lock = threading.Lock()
         self.started_at = time.time()
 
@@ -646,6 +650,83 @@ class ConsolidateResponse(BaseModel):
     prototypes_created: int
     memory_freed: int
     similarity_threshold: float
+
+
+# ── Multi-agent pool models ────────────────────────────────────────────────
+
+class AgentStoreRequest(BaseModel):
+    agent_id: str = Field(..., min_length=1, max_length=200)
+    text: str = Field(..., min_length=1, max_length=1000)
+    label: str = Field(default="")
+
+
+class AgentStoreResponse(BaseModel):
+    agent_id: str
+    stored: bool
+    reason: str
+    size: int
+
+
+class AgentQueryRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1000)
+    top_k: int = Field(default=5, ge=1, le=50)
+    threshold: float = Field(default=0.0, ge=0.0, le=1.0)
+    agents: Optional[List[str]] = None
+
+
+class AgentQueryResult(BaseModel):
+    agent_id: str
+    entry_id: int
+    label: str
+    similarity: float
+
+
+class AgentQueryResponse(BaseModel):
+    results: List[AgentQueryResult]
+
+
+class TenantStoreRequest(BaseModel):
+    tenant_id: str = Field(..., min_length=1, max_length=200)
+    text: str = Field(..., min_length=1, max_length=1000)
+    label: str = Field(default="")
+
+
+class TenantStoreResponse(BaseModel):
+    tenant_id: str
+    stored: bool
+    size: int
+
+
+class TenantQueryRequest(BaseModel):
+    tenant_id: str = Field(..., min_length=1, max_length=200)
+    text: str = Field(..., min_length=1, max_length=1000)
+    top_k: int = Field(default=5, ge=1, le=50)
+    threshold: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class TenantQueryResult(BaseModel):
+    entry_id: int
+    label: str
+    similarity: float
+
+
+class TenantQueryResponse(BaseModel):
+    tenant_id: str
+    results: List[TenantQueryResult]
+
+
+class NamespaceInfo(BaseModel):
+    id: str
+    size: int
+
+
+class NamespaceListResponse(BaseModel):
+    namespaces: List[NamespaceInfo]
+    count: int
+    total_size: int
+
+
+# ──────────────────────────────────────────────────────────────────────────
 
 
 def _vec_input_to_hv(values: List[float]) -> HyperVector:
@@ -1876,6 +1957,128 @@ def create_app(
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
         return ConsolidateResponse(**report.to_dict())
+
+    # ── Multi-agent pool ──────────────────────────────────────────────────
+    @app.post("/agents/store", response_model=AgentStoreResponse)
+    def agent_store(req: AgentStoreRequest) -> AgentStoreResponse:
+        """Store a memory into an agent's private write namespace.
+
+        Unknown agents are auto-provisioned on first write. Returns the
+        ValidationResult so callers can detect duplicate/rate-limit rejections.
+        """
+        rest: RestState = app.state.rest
+        with rest.lock:
+            hv = encode_text(req.text)
+            result = rest.pool.write(req.agent_id, hv, hv, req.label)
+            sz = rest.pool.size(req.agent_id)
+        return AgentStoreResponse(
+            agent_id=req.agent_id,
+            stored=result.accepted,
+            reason=result.reason,
+            size=sz,
+        )
+
+    @app.post("/agents/query", response_model=AgentQueryResponse)
+    def agent_query(req: AgentQueryRequest) -> AgentQueryResponse:
+        """Union retrieval across the pool, optionally scoped to named agents.
+
+        Each namespace contributes its own top-k; results are re-ranked globally
+        and filtered by ``threshold``. Pass ``agents`` to restrict the read view.
+        """
+        rest: RestState = app.state.rest
+        with rest.lock:
+            hv = encode_text(req.text)
+            raw = rest.pool.query(hv, top_k=req.top_k, agents=req.agents)
+        results = [
+            AgentQueryResult(
+                agent_id=r.agent_id,
+                entry_id=r.entry_id,
+                label=r.label,
+                similarity=r.similarity,
+            )
+            for r in raw
+            if r.similarity >= req.threshold
+        ]
+        return AgentQueryResponse(results=results)
+
+    @app.get("/agents", response_model=NamespaceListResponse)
+    def list_agents() -> NamespaceListResponse:
+        """List every agent namespace and its entry count."""
+        rest: RestState = app.state.rest
+        pool = rest.pool
+        return NamespaceListResponse(
+            namespaces=[
+                NamespaceInfo(id=a, size=pool.size(a)) for a in pool.agent_ids
+            ],
+            count=pool.agents_count(),
+            total_size=pool.total_size(),
+        )
+
+    @app.delete("/agents", status_code=204)
+    def drop_agent(agent_id: str = Query(..., min_length=1, max_length=200)) -> Response:
+        """Remove an agent namespace and all its memories (no-op if unknown)."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            rest.pool.drop_agent(agent_id)
+        return Response(status_code=204)
+
+    # ── Tenant store ──────────────────────────────────────────────────────
+    @app.post("/tenants/store", response_model=TenantStoreResponse)
+    def tenant_store(req: TenantStoreRequest) -> TenantStoreResponse:
+        """Store a memory into a tenant's fully isolated namespace.
+
+        Unknown tenants are auto-provisioned on first write.
+        """
+        rest: RestState = app.state.rest
+        with rest.lock:
+            hv = encode_text(req.text)
+            rest.tenants.store(req.tenant_id, hv, hv, req.label)
+            sz = rest.tenants.size(req.tenant_id)
+        return TenantStoreResponse(
+            tenant_id=req.tenant_id,
+            stored=True,
+            size=sz,
+        )
+
+    @app.post("/tenants/query", response_model=TenantQueryResponse)
+    def tenant_query(req: TenantQueryRequest) -> TenantQueryResponse:
+        """Retrieve from a single tenant's isolated namespace (no cross-read)."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            hv = encode_text(req.text)
+            raw = rest.tenants.retrieve(req.tenant_id, hv, top_k=req.top_k)
+        results = [
+            TenantQueryResult(
+                entry_id=r.entry_id,
+                label=r.label,
+                similarity=r.similarity,
+            )
+            for r in raw
+            if r.similarity >= req.threshold
+        ]
+        return TenantQueryResponse(tenant_id=req.tenant_id, results=results)
+
+    @app.get("/tenants", response_model=NamespaceListResponse)
+    def list_tenants() -> NamespaceListResponse:
+        """List every tenant namespace and its entry count."""
+        rest: RestState = app.state.rest
+        tenants = rest.tenants
+        ids = tenants.tenant_ids
+        return NamespaceListResponse(
+            namespaces=[NamespaceInfo(id=t, size=tenants.size(t)) for t in ids],
+            count=tenants.tenants_count(),
+            total_size=sum(tenants.size(t) for t in ids),
+        )
+
+    @app.delete("/tenants", status_code=204)
+    def drop_tenant(
+        tenant_id: str = Query(..., min_length=1, max_length=200),
+    ) -> Response:
+        """Remove a tenant namespace and all its memories (no-op if unknown)."""
+        rest: RestState = app.state.rest
+        with rest.lock:
+            rest.tenants.drop_tenant(tenant_id)
+        return Response(status_code=204)
 
     return app
 
