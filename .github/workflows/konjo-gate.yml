@@ -83,7 +83,7 @@ jobs:
       - run: |
           cargo install cargo-nextest --locked --quiet 2>/dev/null || true
           cargo install cargo-llvm-cov --locked --quiet 2>/dev/null || true
-          pip install -e "./python[api]" pytest pytest-cov pytest-asyncio --quiet
+          pip install -e "./python[api]" pytest pytest-cov pytest-asyncio httpx --quiet
       # ARMED (blocking): library kernels are ~97% line-covered. The CLI binary
       # (main.rs) and the PyO3 FFI glue (pybindings.rs) are excluded — they carry
       # no Rust unit tests by design (the CLI is an entrypoint; the bindings are
