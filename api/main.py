@@ -654,6 +654,7 @@ class ConsolidateResponse(BaseModel):
 
 # ── Multi-agent pool models ────────────────────────────────────────────────
 
+
 class AgentStoreRequest(BaseModel):
     agent_id: str = Field(..., min_length=1, max_length=200)
     text: str = Field(..., min_length=1, max_length=1000)
@@ -2007,15 +2008,15 @@ def create_app(
         rest: RestState = app.state.rest
         pool = rest.pool
         return NamespaceListResponse(
-            namespaces=[
-                NamespaceInfo(id=a, size=pool.size(a)) for a in pool.agent_ids
-            ],
+            namespaces=[NamespaceInfo(id=a, size=pool.size(a)) for a in pool.agent_ids],
             count=pool.agents_count(),
             total_size=pool.total_size(),
         )
 
     @app.delete("/agents", status_code=204)
-    def drop_agent(agent_id: str = Query(..., min_length=1, max_length=200)) -> Response:
+    def drop_agent(
+        agent_id: str = Query(..., min_length=1, max_length=200),
+    ) -> Response:
         """Remove an agent namespace and all its memories (no-op if unknown)."""
         rest: RestState = app.state.rest
         with rest.lock:

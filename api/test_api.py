@@ -762,10 +762,15 @@ def test_memories_store_forgetting_rate_negative_rejected(client: TestClient):
 
 # ── Multi-agent pool ─────────────────────────────────────────────────────────
 
+
 def test_agents_store_and_list(client: TestClient):
     r = client.post(
         "/agents/store",
-        json={"agent_id": "alpha", "text": "kohaku is an HDC memory engine", "label": "fact"},
+        json={
+            "agent_id": "alpha",
+            "text": "kohaku is an HDC memory engine",
+            "label": "fact",
+        },
     )
     assert r.status_code == 200
     body = r.json()
@@ -783,10 +788,18 @@ def test_agents_store_and_list(client: TestClient):
 
 
 def test_agents_query_returns_results(client: TestClient):
-    client.post("/agents/store", json={"agent_id": "beta", "text": "neural network memory", "label": "nn"})
-    client.post("/agents/store", json={"agent_id": "gamma", "text": "associative retrieval", "label": "ret"})
+    client.post(
+        "/agents/store",
+        json={"agent_id": "beta", "text": "neural network memory", "label": "nn"},
+    )
+    client.post(
+        "/agents/store",
+        json={"agent_id": "gamma", "text": "associative retrieval", "label": "ret"},
+    )
 
-    r = client.post("/agents/query", json={"text": "neural network", "top_k": 5, "threshold": 0.0})
+    r = client.post(
+        "/agents/query", json={"text": "neural network", "top_k": 5, "threshold": 0.0}
+    )
     assert r.status_code == 200
     body = r.json()
     assert isinstance(body["results"], list)
@@ -795,10 +808,19 @@ def test_agents_query_returns_results(client: TestClient):
 
 
 def test_agents_query_scoped_to_agents(client: TestClient):
-    client.post("/agents/store", json={"agent_id": "a1", "text": "short term memory", "label": "stm"})
-    client.post("/agents/store", json={"agent_id": "a2", "text": "long term memory", "label": "ltm"})
+    client.post(
+        "/agents/store",
+        json={"agent_id": "a1", "text": "short term memory", "label": "stm"},
+    )
+    client.post(
+        "/agents/store",
+        json={"agent_id": "a2", "text": "long term memory", "label": "ltm"},
+    )
 
-    r = client.post("/agents/query", json={"text": "memory", "top_k": 5, "threshold": 0.0, "agents": ["a1"]})
+    r = client.post(
+        "/agents/query",
+        json={"text": "memory", "top_k": 5, "threshold": 0.0, "agents": ["a1"]},
+    )
     assert r.status_code == 200
     body = r.json()
     agent_ids = {hit["agent_id"] for hit in body["results"]}
@@ -806,7 +828,10 @@ def test_agents_query_scoped_to_agents(client: TestClient):
 
 
 def test_agents_drop(client: TestClient):
-    client.post("/agents/store", json={"agent_id": "temp_agent", "text": "temporary fact", "label": "tmp"})
+    client.post(
+        "/agents/store",
+        json={"agent_id": "temp_agent", "text": "temporary fact", "label": "tmp"},
+    )
     r = client.get("/agents")
     assert any(ns["id"] == "temp_agent" for ns in r.json()["namespaces"])
 
@@ -834,6 +859,7 @@ def test_agents_store_empty_text_rejected(client: TestClient):
 
 # ── Tenant store ─────────────────────────────────────────────────────────────
 
+
 def test_tenants_store_and_list(client: TestClient):
     r = client.post(
         "/tenants/store",
@@ -854,10 +880,18 @@ def test_tenants_store_and_list(client: TestClient):
 
 
 def test_tenants_are_isolated(client: TestClient):
-    client.post("/tenants/store", json={"tenant_id": "t1", "text": "t1 private data", "label": "t1"})
-    client.post("/tenants/store", json={"tenant_id": "t2", "text": "t2 private data", "label": "t2"})
+    client.post(
+        "/tenants/store",
+        json={"tenant_id": "t1", "text": "t1 private data", "label": "t1"},
+    )
+    client.post(
+        "/tenants/store",
+        json={"tenant_id": "t2", "text": "t2 private data", "label": "t2"},
+    )
 
-    r = client.post("/tenants/query", json={"tenant_id": "t1", "text": "private data", "top_k": 5})
+    r = client.post(
+        "/tenants/query", json={"tenant_id": "t1", "text": "private data", "top_k": 5}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["tenant_id"] == "t1"
@@ -867,9 +901,15 @@ def test_tenants_are_isolated(client: TestClient):
 
 
 def test_tenants_query_returns_results(client: TestClient):
-    client.post("/tenants/store", json={"tenant_id": "corp", "text": "quarterly revenue report", "label": "qrr"})
+    client.post(
+        "/tenants/store",
+        json={"tenant_id": "corp", "text": "quarterly revenue report", "label": "qrr"},
+    )
 
-    r = client.post("/tenants/query", json={"tenant_id": "corp", "text": "quarterly revenue", "top_k": 3})
+    r = client.post(
+        "/tenants/query",
+        json={"tenant_id": "corp", "text": "quarterly revenue", "top_k": 3},
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["tenant_id"] == "corp"
@@ -878,9 +918,20 @@ def test_tenants_query_returns_results(client: TestClient):
 
 
 def test_tenants_query_threshold_filters(client: TestClient):
-    client.post("/tenants/store", json={"tenant_id": "t3", "text": "machine learning", "label": "ml"})
+    client.post(
+        "/tenants/store",
+        json={"tenant_id": "t3", "text": "machine learning", "label": "ml"},
+    )
 
-    r = client.post("/tenants/query", json={"tenant_id": "t3", "text": "machine learning", "top_k": 5, "threshold": 0.99})
+    r = client.post(
+        "/tenants/query",
+        json={
+            "tenant_id": "t3",
+            "text": "machine learning",
+            "top_k": 5,
+            "threshold": 0.99,
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     for hit in body["results"]:
@@ -888,7 +939,10 @@ def test_tenants_query_threshold_filters(client: TestClient):
 
 
 def test_tenants_drop(client: TestClient):
-    client.post("/tenants/store", json={"tenant_id": "old_tenant", "text": "data to delete", "label": "del"})
+    client.post(
+        "/tenants/store",
+        json={"tenant_id": "old_tenant", "text": "data to delete", "label": "del"},
+    )
     r = client.get("/tenants")
     assert any(ns["id"] == "old_tenant" for ns in r.json()["namespaces"])
 
