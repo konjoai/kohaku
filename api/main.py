@@ -62,6 +62,7 @@ from ._helpers import (  # noqa: E402
 )
 from .routers import (  # noqa: E402
     agents,
+    analogy,
     core,
     episodes,
     export,
@@ -118,6 +119,7 @@ def create_app(
     memories_extra.register(app, ctx)
     memories_batch.register(app, ctx)
     episodes.register(app, ctx)
+    analogy.register(app, ctx)
     agents.register(app, ctx)
 
     return app

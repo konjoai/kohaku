@@ -29,9 +29,11 @@ from kohaku import EpisodicMemory, HDCRetriever, ItemMemory  # noqa: E402
 def _reset_state():
     """Wipe in-process REST state before every test — full isolation."""
     from kohaku import EnrichedMemoryStore, SleepConsolidator
+    from kohaku.analogy import AnalogicalMemory
 
     rest = app.state.rest
     rest.episodic = EpisodicMemory(capacity=rest.episodic._capacity)
+    rest.analogy = AnalogicalMemory(dims=rest.dims)
     rest.semantic = ItemMemory(dims=rest.dims)
     rest.bridge = HDCRetriever(capacity=rest.episodic._capacity, dims=rest.dims)
     rest.enriched = EnrichedMemoryStore(

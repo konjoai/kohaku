@@ -380,3 +380,62 @@ class NamespaceListResponse(BaseModel):
     namespaces: List[NamespaceInfo]
     count: int
     total_size: int
+
+
+# ── Analogical memory models ───────────────────────────────────────────────
+
+
+class AnalogyExtractRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+class TripleOut(BaseModel):
+    subject: str
+    attribute: str
+    value: str
+    confidence: float
+
+
+class AnalogyExtractResponse(BaseModel):
+    triples: List[TripleOut]
+    count: int
+
+
+class AnalogyLearnRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+class AnalogyLearnResponse(BaseModel):
+    triples_learned: int
+    records_count: int
+    triples: List[TripleOut]
+
+
+class AnalogyGetRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    attribute: str = Field(..., min_length=1, max_length=200)
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class CandidateOut(BaseModel):
+    value: str
+    confidence: float
+
+
+class AnalogyResultOut(BaseModel):
+    value: str
+    confidence: float
+    margin: float
+    ranked: List[CandidateOut]
+
+
+class AnalogyTransferRequest(BaseModel):
+    source: str = Field(..., min_length=1, max_length=200)
+    target: str = Field(..., min_length=1, max_length=200)
+    value: str = Field(..., min_length=1, max_length=200)
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class AnalogyRecordsResponse(BaseModel):
+    records: List[str]
+    count: int

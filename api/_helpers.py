@@ -45,6 +45,7 @@ from kohaku import (
 )
 from kohaku import SharedMemoryPool, TenantMemoryStore
 from kohaku._pure import DIMS
+from kohaku.analogy import AnalogicalMemory
 
 from .models import InputType
 
@@ -313,6 +314,8 @@ class RestState:
         # Multi-agent stores (Phase 17 / v0.32.0 — previously only in server.py).
         self.pool = SharedMemoryPool(dimension=dims, default_capacity=capacity)
         self.tenants = TenantMemoryStore(dimension=dims, capacity=capacity)
+        # Analogical memory — relational reasoning via VSA binding algebra.
+        self.analogy = AnalogicalMemory(dims=dims)
         self.lock = threading.Lock()
         self.started_at = time.time()
 
