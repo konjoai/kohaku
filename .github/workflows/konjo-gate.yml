@@ -4,7 +4,7 @@ name: "Konjo Quality Gate — Wall 2"
 # `continue-on-error` removed and now fail the job (and the aggregate gate) on
 # violation — they are verified clean repo-wide. Steps marked "WARN-ONLY" still
 # carry `continue-on-error: true` because pre-existing debt would break CI; each
-# is armed once its debt is cleared (file size, complexity, mutation). Do not add new
+# is armed once its debt is cleared (complexity, mutation). Do not add new
 # `continue-on-error` steps; clear the debt and arm instead.
 #
 on:
@@ -131,8 +131,8 @@ jobs:
         run: |
           COUNT=$(radon cc . -n C --json 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(len(v) for v in d.values()))" 2>/dev/null || echo 0)
           [ "$COUNT" -gt 0 ] && radon cc . -n C -s && exit 1; echo "✓"
+      # ARMED (blocking): every .rs/.py file is ≤ 500 lines repo-wide.
       - name: File size
-        continue-on-error: true
         run: |
           OVERSIZED=""
           while IFS= read -r -d '' f; do LC=$(wc -l < "$f"); [ "$LC" -gt 500 ] && OVERSIZED="${OVERSIZED}${f}: ${LC}\n"; done < <(find . \( -name "*.rs" -o -name "*.py" \) | grep -v target | grep -v __pycache__ | tr '\n' '\0')

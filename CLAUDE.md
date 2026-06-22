@@ -59,7 +59,7 @@ cargo check, clippy, ruff lint, ruff format, DRY check, TODO scan. Blocks the co
 
 **Wall 2 — CI gate** (`.github/workflows/konjo-gate.yml`):
 Target spec — coverage ≥ 80% · mutation survival ≤ 10% · complexity ≤ 15 · file ≤ 500L · zero DRY violations.
-*Phased arming:* the gate fails the merge only on **armed** steps (currently `cargo fmt`, `clippy` incl. `pedantic`, `ruff lint`, `ruff format`, `mypy --strict`, `DRY`, `coverage ≥ 80%` (Rust + Python) — verified clean repo-wide). The rest run **warn-only** (`continue-on-error`) while pre-existing debt is cleared — file size, complexity, mutation — and are armed one at a time as each is cleaned. See the header comment in the workflow.
+*Phased arming:* the gate fails the merge only on **armed** steps (currently `cargo fmt`, `clippy` incl. `pedantic`, `ruff lint`, `ruff format`, `mypy --strict`, `DRY`, `coverage ≥ 80%` (Rust + Python), `file ≤ 500L` — verified clean repo-wide). The rest run **warn-only** (`continue-on-error`) while pre-existing debt is cleared — complexity, mutation — and are armed one at a time as each is cleaned. See the header comment in the workflow.
 
 **Wall 3 — Adversarial review** (local only — disabled in CI):
 `git diff HEAD~1 | python3 .konjo/scripts/konjo_review.py`
