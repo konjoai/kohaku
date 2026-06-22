@@ -412,6 +412,38 @@ canvas.chart{width:100%;display:block;}
 #batchTagInput:focus{border-color:rgba(167,139,250,.6);}
 #batchTagInput::placeholder{color:var(--fg-2);}
 
+/* ── Analogy ── */
+.triple-row{display:flex;align-items:center;gap:6px;padding:5px 9px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:7px;font-size:10.5px;animation:tripleIn .3s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes tripleIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+.triple-row .tr-sub{color:var(--amber-2);font-family:'SF Mono',monospace;font-size:9px;min-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.triple-row .tr-attr{color:var(--teal);font-family:'SF Mono',monospace;font-size:9px;min-width:60px;}
+.triple-row .tr-val{flex:1;color:var(--fg-0);font-family:'SF Mono',monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.triple-row .tr-conf{color:var(--fg-2);font-family:'SF Mono',monospace;font-size:8.5px;white-space:nowrap;}
+.analogy-answer{background:linear-gradient(135deg,rgba(255,184,108,.07),rgba(93,232,218,.05));border:1px solid rgba(255,184,108,.2);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;}
+.analogy-answer .aa-label{font-family:'SF Mono',monospace;font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--fg-2);}
+.analogy-answer .aa-value{font-size:16px;font-weight:600;color:var(--gold);letter-spacing:.5px;}
+.analogy-answer .aa-conf{font-family:'SF Mono',monospace;font-size:9.5px;color:var(--teal);}
+.analogy-answer .aa-ranked{margin-top:4px;display:flex;flex-direction:column;gap:2px;}
+.analogy-answer .aa-ranked-item{display:flex;justify-content:space-between;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);}
+.alg-eq{display:flex;align-items:center;gap:6px;font-family:'SF Mono',monospace;font-size:11px;padding:8px 0;}
+.alg-box{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:4px 9px;color:var(--fg-0);}
+.alg-op{color:var(--fg-2);}
+.alg-q{background:rgba(255,184,108,.1);border:1px solid rgba(255,184,108,.25);border-radius:6px;padding:4px 9px;color:var(--amber);font-weight:600;}
+
+/* ── Memory Health ── */
+.health-gauge-wrap{display:flex;align-items:center;gap:16px;}
+.health-gauge{position:relative;width:80px;height:80px;flex-shrink:0;}
+.health-gauge svg{width:80px;height:80px;}
+.health-gauge .hg-score{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+.health-gauge .hg-num{font-family:'SF Mono',monospace;font-size:15px;font-weight:700;line-height:1;}
+.health-gauge .hg-label{font-family:'SF Mono',monospace;font-size:7px;letter-spacing:1.5px;color:var(--fg-2);text-transform:uppercase;}
+.health-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;}
+.health-stat{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:2px;}
+.health-stat .hs-val{font-family:'SF Mono',monospace;font-size:14px;font-weight:600;}
+.health-stat .hs-key{font-family:'SF Mono',monospace;font-size:8.5px;color:var(--fg-2);letter-spacing:.5px;}
+.health-rec{display:flex;align-items:flex-start;gap:7px;padding:5px 8px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:7px;font-size:10.5px;color:var(--fg-1);}
+.health-rec .hr-icon{font-size:11px;flex-shrink:0;margin-top:1px;}
+
 </style>
 </head>
 <body>
@@ -719,6 +751,8 @@ canvas.chart{width:100%;display:block;}
     <button class="dock-tab" onclick="switchTab('relationships')" data-tab="relationships">Relations</button>
     <button class="dock-tab" onclick="switchTab('bridge')" data-tab="bridge">Bridge RAG</button>
     <button class="dock-tab" onclick="switchTab('agents')" data-tab="agents">Agents &amp; Tenants</button>
+    <button class="dock-tab" onclick="switchTab('analogy')" data-tab="analogy">Analogy</button>
+    <button class="dock-tab" onclick="switchTab('health')" data-tab="health">Health</button>
     <div class="dock-spacer"></div>
     <button class="dock-toggle" id="dockToggleBtn" onclick="toggleDock()">↑ expand</button>
   </div>
@@ -1042,6 +1076,123 @@ canvas.chart{width:100%;display:block;}
               <button class="btn btn-teal btn-sm" onclick="tenantQuery()"><span class="btn-text">⌕ Query</span></button>
             </div>
             <div id="tenantResults" style="margin-top:7px;display:flex;flex-direction:column;gap:4px;max-height:90px;overflow-y:auto;scrollbar-width:thin;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Analogy dock pane -->
+    <div class="dock-pane" id="paneAnalogy">
+      <div class="dock-cols">
+
+        <!-- ── Left: Extract & Learn ── -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Prose → Triples (HDC Algebra)</div>
+          <textarea id="analogyLearnText" rows="4" placeholder="Paste prose here — e.g. 'The capital of France is Paris. The currency of France is euro.'" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:7px 10px;resize:vertical;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(255,184,108,.35)'" onblur="this.style.borderColor=''"></textarea>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1" onclick="analogyExtract()"><span class="btn-text">⌕ Extract</span></button>
+            <button class="btn btn-primary btn-sm" style="flex:1" onclick="analogyLearn()"><span class="btn-text">⊕ Learn</span></button>
+          </div>
+          <div id="analogyTriples" style="display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto;scrollbar-width:thin;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);">extract or learn prose to see triples…</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:6px;font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);">
+            Known records: <span id="analogyRecordCount" style="color:var(--amber);">0</span>
+            <span id="analogyRecordList" style="margin-left:6px;color:var(--fg-1);"></span>
+          </div>
+        </div>
+
+        <!-- ── Right: Attribute Query + Analogical Transfer ── -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-bottom:6px;">Attribute Query</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <input id="analogyGetName" type="text" placeholder="record name" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(93,232,218,.35)'" onblur="this.style.borderColor=''" />
+              <input id="analogyGetAttr" type="text" placeholder="attribute (e.g. currency)" maxlength="200" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(93,232,218,.35)'" onblur="this.style.borderColor=''" />
+              <button class="btn btn-teal btn-sm" onclick="analogyGet()"><span class="btn-text">⌕ Lookup</span></button>
+            </div>
+            <div id="analogyGetResult" style="margin-top:6px;"></div>
+          </div>
+
+          <div style="border-top:1px solid var(--border);padding-top:8px;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--violet);margin-bottom:6px;">A : B :: C : ?</div>
+            <div class="alg-eq" id="analogyTransferEq" style="flex-wrap:wrap;">
+              <div class="alg-box" id="alg-a">source</div>
+              <span class="alg-op">:</span>
+              <div class="alg-box" id="alg-b">target</div>
+              <span class="alg-op">::</span>
+              <div class="alg-box" id="alg-c">value</div>
+              <span class="alg-op">:</span>
+              <div class="alg-q" id="alg-d">?</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">
+              <input id="analogyTrfSource" type="text" placeholder="source (A)" maxlength="200" oninput="document.getElementById('alg-a').textContent=this.value||'source'" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <input id="analogyTrfTarget" type="text" placeholder="target (B)" maxlength="200" oninput="document.getElementById('alg-b').textContent=this.value||'target'" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <input id="analogyTrfValue" type="text" placeholder="value (C)" maxlength="200" oninput="document.getElementById('alg-c').textContent=this.value||'value'" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:7px;color:var(--fg-0);font-family:'SF Pro Display',system-ui,sans-serif;font-size:11px;padding:5px 9px;outline:none;transition:border-color .18s;" onfocus="this.style.borderColor='rgba(167,139,250,.35)'" onblur="this.style.borderColor=''" />
+              <button class="btn btn-sm" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.28);color:var(--violet);" onclick="analogyTransfer()"><span class="btn-text">⟐ Transfer</span></button>
+            </div>
+            <div id="analogyTransferResult" style="margin-top:6px;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Health dock pane -->
+    <div class="dock-pane" id="paneHealth">
+      <div class="dock-cols">
+
+        <!-- ── Left: Gauge + Stats ── -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Memory Health</div>
+            <button class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="loadHealth()">↻ Refresh</button>
+          </div>
+          <div class="health-gauge-wrap">
+            <div class="health-gauge">
+              <svg viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="7"/>
+                <circle id="healthArc" cx="40" cy="40" r="32" fill="none" stroke="var(--green)" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201"
+                  transform="rotate(-90 40 40)" style="transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1),stroke .6s ease;"/>
+              </svg>
+              <div class="hg-score">
+                <div class="hg-num" id="healthScoreNum" style="color:var(--green);">—</div>
+                <div class="hg-label">score</div>
+              </div>
+            </div>
+            <div class="health-stats">
+              <div class="health-stat">
+                <div class="hs-val" id="hStatTotal" style="color:var(--amber);">—</div>
+                <div class="hs-key">total</div>
+              </div>
+              <div class="health-stat">
+                <div class="hs-val" id="hStatStale" style="color:var(--rose);">—</div>
+                <div class="hs-key">stale</div>
+              </div>
+              <div class="health-stat">
+                <div class="hs-val" id="hStatExpired" style="color:var(--fg-2);">—</div>
+                <div class="hs-key">expired</div>
+              </div>
+              <div class="health-stat">
+                <div class="hs-val" id="hStatDupes" style="color:var(--violet);">—</div>
+                <div class="hs-key">dupes</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1" onclick="healthDeleteStale(true)"><span class="btn-text">⌕ Preview stale</span></button>
+            <button class="btn btn-sm" style="flex:1;background:rgba(255,107,138,.07);border:1px solid rgba(255,107,138,.25);color:var(--rose);" onclick="healthDeleteStale(false)"><span class="btn-text">✕ Delete stale</span></button>
+          </div>
+          <div id="healthDeleteReport" style="font-family:'SF Mono',monospace;font-size:9px;color:var(--fg-2);"></div>
+        </div>
+
+        <!-- ── Right: Recommendations ── -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-family:'SF Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--fg-2);">Recommendations</div>
+          <div id="healthRecs" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;scrollbar-width:thin;">
+            <div style="color:var(--fg-2);font-size:9px;font-family:'SF Mono',monospace;">refresh to load…</div>
           </div>
         </div>
 
@@ -4496,6 +4647,8 @@ function switchTab(name) {
   if (name==='relationships') loadRelationshipsPane();
   if (name==='bridge') { document.getElementById('bridgeResults').innerHTML='<div style="color:var(--fg-2);font-size:10px">ingest documents · then retrieve…</div>'; }
   if (name==='agents') { agentsRefresh(); tenantsRefresh(); }
+  if (name==='analogy') { analogyRefreshRecords(); }
+  if (name==='health') { healthLoad(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4763,6 +4916,196 @@ async function boot() {
 
   // Store original btn texts
   document.querySelectorAll('.btn .btn-text').forEach(s=>s.dataset.orig=s.innerHTML);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ANALOGY PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+function _renderTriples(triples, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!triples.length) {
+    el.innerHTML = '<div style="font-family:\'SF Mono\',monospace;font-size:9px;color:var(--fg-2);">no triples extracted</div>';
+    return;
+  }
+  el.innerHTML = triples.map((t, i) => `<div class="triple-row" style="animation-delay:${i*60}ms">
+    <span class="tr-sub">${escHtml(t.subject)}</span>
+    <span class="tr-attr">.${escHtml(t.attribute)}</span>
+    <span class="tr-val">= ${escHtml(t.value)}</span>
+    <span class="tr-conf">${(t.confidence*100).toFixed(0)}%</span>
+  </div>`).join('');
+}
+
+function _renderAnalogyResult(result, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!result || !result.value) {
+    el.innerHTML = '<div style="font-family:\'SF Mono\',monospace;font-size:9px;color:var(--fg-2);">no result</div>';
+    return;
+  }
+  const pct = (result.confidence * 100).toFixed(1);
+  const margin = (result.margin * 100).toFixed(1);
+  const ranked = (result.ranked || []).slice(1, 4).map(r =>
+    `<div class="aa-ranked-item"><span>${escHtml(r.value)}</span><span>${(r.confidence*100).toFixed(1)}%</span></div>`
+  ).join('');
+  el.innerHTML = `<div class="analogy-answer">
+    <div class="aa-label">answer</div>
+    <div class="aa-value">${escHtml(result.value)}</div>
+    <div class="aa-conf">confidence ${pct}% · margin ${margin}%</div>
+    ${ranked ? `<div class="aa-ranked">${ranked}</div>` : ''}
+  </div>`;
+}
+
+async function analogyRefreshRecords() {
+  const countEl = document.getElementById('analogyRecordCount');
+  const listEl = document.getElementById('analogyRecordList');
+  if (S.live) {
+    try {
+      const d = await apiFetch('/analogy/records');
+      if (countEl) countEl.textContent = d.count;
+      if (listEl) listEl.textContent = d.records.slice(0, 8).join(', ') + (d.count > 8 ? '…' : '');
+    } catch (_e) { /* ignore */ }
+  }
+}
+
+async function analogyExtract() {
+  const text = document.getElementById('analogyLearnText').value.trim();
+  if (!text) { showToast('enter some prose first', 'err'); return; }
+  if (S.live) {
+    try {
+      const d = await apiFetch('/analogy/extract', { method: 'POST', body: JSON.stringify({ text }) });
+      _renderTriples(d.triples || [], 'analogyTriples');
+    } catch (e) { showToast(String(e), 'err'); }
+  } else {
+    showToast('[offline] extraction requires backend', 'err');
+  }
+}
+
+async function analogyLearn() {
+  const text = document.getElementById('analogyLearnText').value.trim();
+  if (!text) { showToast('enter some prose first', 'err'); return; }
+  if (S.live) {
+    try {
+      const d = await apiFetch('/analogy/learn', { method: 'POST', body: JSON.stringify({ text }) });
+      _renderTriples(d.triples || [], 'analogyTriples');
+      showToast(`learned ${d.triples_learned} triple(s) · ${d.records_count} record(s)`, 'ok');
+      analogyRefreshRecords();
+      actLog('store', `analogy · ${d.triples_learned} triples`);
+    } catch (e) { showToast(String(e), 'err'); }
+  } else {
+    showToast('[offline] analogy learning requires backend', 'err');
+  }
+}
+
+async function analogyGet() {
+  const name = document.getElementById('analogyGetName').value.trim();
+  const attr = document.getElementById('analogyGetAttr').value.trim();
+  if (!name || !attr) { showToast('record name and attribute required', 'err'); return; }
+  if (S.live) {
+    try {
+      const d = await apiFetch('/analogy/get', { method: 'POST', body: JSON.stringify({ name, attribute: attr }) });
+      _renderAnalogyResult(d, 'analogyGetResult');
+    } catch (e) {
+      document.getElementById('analogyGetResult').innerHTML =
+        `<div style="font-family:'SF Mono',monospace;font-size:9px;color:var(--rose);">${String(e)}</div>`;
+    }
+  } else {
+    showToast('[offline] attribute lookup requires backend', 'err');
+  }
+}
+
+async function analogyTransfer() {
+  const source = document.getElementById('analogyTrfSource').value.trim();
+  const target = document.getElementById('analogyTrfTarget').value.trim();
+  const value  = document.getElementById('analogyTrfValue').value.trim();
+  if (!source || !target || !value) { showToast('source, target and value required', 'err'); return; }
+  // Update the ? box while computing
+  document.getElementById('alg-d').textContent = '…';
+  if (S.live) {
+    try {
+      const d = await apiFetch('/analogy/transfer', { method: 'POST', body: JSON.stringify({ source, target, value }) });
+      document.getElementById('alg-d').textContent = d.value || '?';
+      _renderAnalogyResult(d, 'analogyTransferResult');
+    } catch (e) {
+      document.getElementById('alg-d').textContent = '?';
+      document.getElementById('analogyTransferResult').innerHTML =
+        `<div style="font-family:'SF Mono',monospace;font-size:9px;color:var(--rose);">${String(e)}</div>`;
+    }
+  } else {
+    document.getElementById('alg-d').textContent = '?';
+    showToast('[offline] analogy transfer requires backend', 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HEALTH PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+function _healthGaugeColor(score) {
+  if (score >= 0.8) return 'var(--green)';
+  if (score >= 0.5) return 'var(--amber)';
+  return 'var(--rose)';
+}
+
+function _animateHealthGauge(score) {
+  const arc = document.getElementById('healthArc');
+  const num = document.getElementById('healthScoreNum');
+  if (!arc || !num) return;
+  const circ = 201; // 2π × 32 ≈ 201
+  const offset = circ * (1 - Math.max(0, Math.min(1, score)));
+  arc.style.strokeDashoffset = offset;
+  const color = _healthGaugeColor(score);
+  arc.style.stroke = color;
+  num.style.color = color;
+  num.textContent = Math.round(score * 100);
+}
+
+async function healthLoad() {
+  if (!S.live) {
+    document.getElementById('healthRecs').innerHTML =
+      '<div style="color:var(--fg-2);font-size:9px;font-family:\'SF Mono\',monospace;">health requires backend connection</div>';
+    return;
+  }
+  try {
+    const d = await apiFetch('/memories/health?stale_days=30&duplicate_threshold=0.95');
+    _animateHealthGauge(d.health_score ?? 0);
+    const set = (id, val, fmt) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = fmt ? fmt(val) : val;
+    };
+    set('hStatTotal', d.total_memories);
+    set('hStatStale', d.stale_memories);
+    set('hStatExpired', d.expired_memories);
+    set('hStatDupes', (d.duplicate_candidates || []).length);
+
+    const recs = d.recommendations || [];
+    const recsEl = document.getElementById('healthRecs');
+    if (recsEl) {
+      recsEl.innerHTML = recs.length
+        ? recs.map(r => `<div class="health-rec"><span class="hr-icon">◆</span><span>${escHtml(r)}</span></div>`).join('')
+        : '<div style="color:var(--green);font-family:\'SF Mono\',monospace;font-size:9px;">✓ memory is healthy</div>';
+    }
+  } catch (e) {
+    document.getElementById('healthRecs').innerHTML =
+      `<div style="color:var(--rose);font-size:9px;font-family:'SF Mono',monospace;">${String(e)}</div>`;
+  }
+}
+
+async function healthDeleteStale(dryRun) {
+  if (!S.live) { showToast('requires backend', 'err'); return; }
+  const el = document.getElementById('healthDeleteReport');
+  if (el) el.textContent = dryRun ? 'scanning…' : 'deleting…';
+  try {
+    const r = await apiFetch(`/memories/stale?days=30&dry_run=${dryRun}`, { method: 'DELETE' });
+    const msg = `${dryRun ? '[dry-run] ' : ''}${r.deleted ?? r.count ?? 0} stale memories ${dryRun ? 'found' : 'deleted'}`;
+    if (el) el.textContent = msg;
+    showToast(msg, dryRun ? '' : 'ok');
+    if (!dryRun) healthLoad();
+  } catch (e) {
+    if (el) el.textContent = String(e);
+    showToast(String(e), 'err');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
