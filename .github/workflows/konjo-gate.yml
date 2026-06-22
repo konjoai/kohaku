@@ -4,8 +4,7 @@ name: "Konjo Quality Gate — Wall 2"
 # `continue-on-error` removed and now fail the job (and the aggregate gate) on
 # violation — they are verified clean repo-wide. Steps marked "WARN-ONLY" still
 # carry `continue-on-error: true` because pre-existing debt would break CI; each
-# is armed once its debt is cleared (file size, complexity, Python coverage,
-# mutation). Do not add new
+# is armed once its debt is cleared (file size, complexity, mutation). Do not add new
 # `continue-on-error` steps; clear the debt and arm instead.
 #
 on:
@@ -84,17 +83,18 @@ jobs:
       - run: |
           cargo install cargo-nextest --locked --quiet 2>/dev/null || true
           cargo install cargo-llvm-cov --locked --quiet 2>/dev/null || true
-          pip install pytest pytest-cov --quiet && pip install -e . --quiet 2>/dev/null || true
+          pip install -e "./python[api]" pytest pytest-cov pytest-asyncio httpx --quiet
       # ARMED (blocking): library kernels are ~97% line-covered. The CLI binary
       # (main.rs) and the PyO3 FFI glue (pybindings.rs) are excluded — they carry
       # no Rust unit tests by design (the CLI is an entrypoint; the bindings are
       # covered by the Python suite, see the rust-accel job).
       - name: Rust coverage
         run: cargo llvm-cov nextest --workspace --all-features --lcov --output-path lcov.info --ignore-filename-regex 'main\.rs|pybindings\.rs' --fail-under-lines 80
-      # WARN-ONLY: Python line-coverage threshold not yet measured/enforced.
+      # ARMED (blocking): the package is ~93% line-covered by the python/tests
+      # suite. Runs the real suite (api deps + pytest-asyncio installed above) and
+      # enforces ≥80% on first-party `kohaku`.
       - name: Python coverage
-        continue-on-error: true
-        run: python -m pytest tests/ --cov=. --cov-report=json -x -q 2>/dev/null || true
+        run: cd python && python -m pytest tests/ --cov=kohaku --cov-fail-under=80 -q
       - uses: codecov/codecov-action@v4
         if: always()
         with: {files: lcov.info, fail_ci_if_error: false}
